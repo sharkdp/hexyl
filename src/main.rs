@@ -174,7 +174,8 @@ fn run() -> io::Result<()> {
         .setting(AppSettings::DeriveDisplayOrder)
         .setting(AppSettings::UnifiedHelpMessage)
         .version(crate_version!())
-        .arg(Arg::with_name("file").help("to do"));
+        .about(crate_description!())
+        .arg(Arg::with_name("file").help("File to display"));
 
     let matches = app.get_matches();
 
