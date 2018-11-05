@@ -88,9 +88,27 @@ impl<'a> Printer<'a> {
         }
     }
 
+    fn header(&mut self) {
+        writeln!(
+            self.stdout,
+            "┌{}┬{}┐",
+            "─".repeat(3 * 16 + 2),
+            "─".repeat(16 + 3)
+        );
+    }
+
+    fn footer(&mut self) {
+        writeln!(
+            self.stdout,
+            "└{}┴{}┘",
+            "─".repeat(3 * 16 + 2),
+            "─".repeat(16 + 3)
+        );
+    }
+
     fn print_byte(&mut self, b: u8) -> io::Result<()> {
         if self.idx % 16 == 1 {
-            write!(self.stdout, "  ");
+            write!(self.stdout, "│ ");
         }
 
         let byte_str = format!("{:02x} ", b);
@@ -111,20 +129,33 @@ impl<'a> Printer<'a> {
     }
 
     fn print_textline(&mut self) -> io::Result<()> {
-        let fill_spaces = match self.line.len() {
+        let len = self.line.len();
+
+        let fill_spaces_front = match len {
             n if n < 8 => 1 + 3 * (16 - n),
             n => 3 * (16 - n),
         };
 
-        write!(self.stdout, "{}  │", " ".repeat(fill_spaces))?;
+        let fill_spaces_back = match len {
+            n if n < 8 => 1 + (16 - n),
+            n => 16 - n,
+        };
 
+        write!(self.stdout, "{}│ ", " ".repeat(fill_spaces_front))?;
+
+        let mut idx = 0;
         for b in self.line.iter().map(|b| Byte(*b)) {
             let chr = format!("{}", b.as_char());
-
             write!(self.stdout, "{}", b.color().paint(chr)).ok();
+
+            if idx == 8 {
+                write!(self.stdout, " ");
+            }
+
+            idx += 1;
         }
 
-        writeln!(self.stdout, "│");
+        writeln!(self.stdout, "{} │", " ".repeat(fill_spaces_back));
 
         self.line.clear();
 
@@ -150,6 +181,8 @@ fn run() -> io::Result<()> {
 
     let stdout = io::stdout();
     let mut printer = Printer::new(stdout.lock());
+    printer.header();
+
     loop {
         let size = file.read(&mut buffer)?;
         if size == 0 {
@@ -168,6 +201,7 @@ fn run() -> io::Result<()> {
 
     // Finish last line
     printer.print_textline().ok();
+    printer.footer();
 
     Ok(())
 }
