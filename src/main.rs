@@ -2,27 +2,49 @@
 extern crate clap;
 
 use std::fs::File;
-use std::io::{self, prelude::*};
+use std::io::{self, prelude::*, StdoutLock};
 
 use clap::{App, AppSettings, Arg};
 
 const BUFFER_SIZE: usize = 64;
 
-struct Printer {
+struct Printer<'a> {
     idx: usize,
+    line: Vec<u8>,
+    stdout: StdoutLock<'a>,
 }
 
-impl Printer {
-    fn print_byte(&mut self, b: u8) {
-        print!("{:02x} ", b);
+impl<'a> Printer<'a> {
+    fn new(stdout: StdoutLock) -> Printer {
+        Printer {
+            idx: 1,
+            line: vec![],
+            stdout,
+        }
+    }
+
+    fn print_byte(&mut self, b: u8) -> io::Result<()> {
+        write!(self.stdout, "{:02x} ", b)?;
+        self.line.push(b);
 
         match self.idx % 16 {
-            8 => print!(" "),
-            0 => println!(),
+            8 => write!(self.stdout, " ")?,
+            0 => {
+                self.print_textline()?;
+            }
             _ => {}
         }
 
         self.idx += 1;
+
+        Ok(())
+    }
+
+    fn print_textline(&mut self) -> io::Result<()> {
+        write!(self.stdout, "")?;
+        writeln!(self.stdout);
+
+        Ok(())
     }
 }
 
@@ -42,7 +64,8 @@ fn run() -> io::Result<()> {
     let mut buffer = [0; BUFFER_SIZE];
     let mut file = File::open(filename)?;
 
-    let mut printer = Printer { idx: 1 };
+    let stdout = io::stdout();
+    let mut printer = Printer::new(stdout.lock());
     loop {
         let size = file.read(&mut buffer)?;
         if size == 0 {
@@ -50,10 +73,17 @@ fn run() -> io::Result<()> {
         }
 
         for b in &buffer[..size] {
-            printer.print_byte(*b);
+            let res = printer.print_byte(*b);
+
+            if res.is_err() {
+                // Broken pipe
+                break;
+            }
         }
     }
-    println!();
+
+    // Finish last line
+    printer.print_textline().ok();
 
     Ok(())
 }
