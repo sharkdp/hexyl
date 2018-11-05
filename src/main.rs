@@ -174,21 +174,25 @@ fn run() -> io::Result<()> {
         .setting(AppSettings::DeriveDisplayOrder)
         .setting(AppSettings::UnifiedHelpMessage)
         .version(crate_version!())
-        .arg(Arg::with_name("file").help("to do").required(true));
+        .arg(Arg::with_name("file").help("to do"));
 
     let matches = app.get_matches();
 
-    let filename = matches.value_of("file").unwrap();
+    let stdin = io::stdin();
 
-    let mut buffer = [0; BUFFER_SIZE];
-    let mut file = File::open(filename)?;
+    let mut reader: Box<dyn Read> = match matches.value_of("file") {
+        Some(filename) => Box::new(File::open(filename)?),
+        None => Box::new(stdin.lock()),
+    };
+
 
     let stdout = io::stdout();
     let mut printer = Printer::new(stdout.lock());
     printer.header();
 
+    let mut buffer = [0; BUFFER_SIZE];
     loop {
-        let size = file.read(&mut buffer)?;
+        let size = reader.read(&mut buffer)?;
         if size == 0 {
             break;
         }
