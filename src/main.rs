@@ -1,21 +1,81 @@
 #[macro_use]
 extern crate clap;
+extern crate ansi_term;
 
 use std::fs::File;
 use std::io::{self, prelude::*, StdoutLock};
 
 use clap::{App, AppSettings, Arg};
 
+use ansi_term::Colour;
+use ansi_term::Colour::RGB;
+
 const BUFFER_SIZE: usize = 64;
+
+const COLOR_NULL: Colour = RGB(117, 113, 94); // grey
+const COLOR_ASCII_PRINTABLE: Colour = RGB(102, 217, 239); // cyan
+const COLOR_ASCII_WHITESPACE: Colour = RGB(166, 226, 46); // green
+const COLOR_ASCII_OTHER: Colour = RGB(249, 38, 114); // magenta
+const COLOR_NONASCII: Colour = RGB(253, 151, 31); // orange
+
+enum ByteCategory {
+    Null,
+    AsciiPrintable,
+    AsciiWhitespace,
+    AsciiOther,
+    NonAscii,
+}
+
+#[derive(Copy, Clone)]
+struct Byte(u8);
+
+impl Byte {
+    fn category(self) -> ByteCategory {
+        if self.0 == 0x00 {
+            ByteCategory::Null
+        } else if self.0.is_ascii_alphanumeric()
+            || self.0.is_ascii_punctuation()
+            || self.0.is_ascii_graphic()
+        {
+            ByteCategory::AsciiPrintable
+        } else if self.0.is_ascii_whitespace() {
+            ByteCategory::AsciiWhitespace
+        } else if self.0.is_ascii() {
+            ByteCategory::AsciiOther
+        } else {
+            ByteCategory::NonAscii
+        }
+    }
+
+    fn color(&self) -> &'static Colour {
+        use ByteCategory::*;
+
+        match self.category() {
+            Null => &COLOR_NULL,
+            AsciiPrintable => &COLOR_ASCII_PRINTABLE,
+            AsciiWhitespace => &COLOR_ASCII_WHITESPACE,
+            AsciiOther => &COLOR_ASCII_OTHER,
+            NonAscii => &COLOR_NONASCII,
+        }
+    }
+
+    fn as_char(self) -> char {
+        use ByteCategory::*;
+
+        match self.category() {
+            Null => '0',
+            AsciiPrintable => self.0 as char,
+            AsciiWhitespace => '.',
+            AsciiOther => '.',
+            NonAscii => '.',
+        }
+    }
+}
 
 struct Printer<'a> {
     idx: usize,
     line: Vec<u8>,
     stdout: StdoutLock<'a>,
-}
-
-fn byte_is_printable(b: u8) -> bool {
-    b.is_ascii_alphanumeric() || b.is_ascii_punctuation() || b.is_ascii_graphic()
 }
 
 impl<'a> Printer<'a> {
@@ -32,7 +92,8 @@ impl<'a> Printer<'a> {
             write!(self.stdout, "  ");
         }
 
-        write!(self.stdout, "{:02x} ", b)?;
+        let byte_str = format!("{:02x} ", b);
+        write!(self.stdout, "{}", Byte(b).color().paint(byte_str))?;
         self.line.push(b);
 
         match self.idx % 16 {
@@ -56,9 +117,10 @@ impl<'a> Printer<'a> {
 
         write!(self.stdout, "{}  │", " ".repeat(fill_spaces))?;
 
-        for b in self.line.iter().cloned() {
-            let chr = if byte_is_printable(b) { b as char } else { '.' };
-            write!(self.stdout, "{}", chr).ok();
+        for b in self.line.iter().map(|b| Byte(*b)) {
+            let chr = format!("{}", b.as_char());
+
+            write!(self.stdout, "{}", b.color().paint(chr)).ok();
         }
 
         writeln!(self.stdout, "│");
