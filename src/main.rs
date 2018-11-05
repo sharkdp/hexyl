@@ -131,6 +131,10 @@ impl<'a> Printer<'a> {
     fn print_textline(&mut self) -> io::Result<()> {
         let len = self.line.len();
 
+        if len == 0 {
+            return Ok(());
+        }
+
         let fill_spaces_front = match len {
             n if n < 8 => 1 + 3 * (16 - n),
             n => 3 * (16 - n),
