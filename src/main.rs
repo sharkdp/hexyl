@@ -65,9 +65,10 @@ impl Byte {
         match self.category() {
             Null => '0',
             AsciiPrintable => self.0 as char,
-            AsciiWhitespace => '.',
-            AsciiOther => '.',
-            NonAscii => '.',
+            AsciiWhitespace if self.0 == 0x20 => ' ',
+            AsciiWhitespace => '_',
+            AsciiOther => '•',
+            NonAscii => '×',
         }
     }
 }
