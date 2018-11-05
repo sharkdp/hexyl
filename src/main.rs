@@ -14,6 +14,10 @@ struct Printer<'a> {
     stdout: StdoutLock<'a>,
 }
 
+fn byte_is_printable(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b.is_ascii_punctuation() || b.is_ascii_graphic()
+}
+
 impl<'a> Printer<'a> {
     fn new(stdout: StdoutLock) -> Printer {
         Printer {
@@ -24,6 +28,10 @@ impl<'a> Printer<'a> {
     }
 
     fn print_byte(&mut self, b: u8) -> io::Result<()> {
+        if self.idx % 16 == 1 {
+            write!(self.stdout, "  ");
+        }
+
         write!(self.stdout, "{:02x} ", b)?;
         self.line.push(b);
 
@@ -41,8 +49,21 @@ impl<'a> Printer<'a> {
     }
 
     fn print_textline(&mut self) -> io::Result<()> {
-        write!(self.stdout, "")?;
-        writeln!(self.stdout);
+        let fill_spaces = match self.line.len() {
+            n if n < 8 => 1 + 3 * (16 - n),
+            n => 3 * (16 - n),
+        };
+
+        write!(self.stdout, "{}  │", " ".repeat(fill_spaces))?;
+
+        for b in self.line.iter().cloned() {
+            let chr = if byte_is_printable(b) { b as char } else { '.' };
+            write!(self.stdout, "{}", chr).ok();
+        }
+
+        writeln!(self.stdout, "│");
+
+        self.line.clear();
 
         Ok(())
     }
