@@ -91,18 +91,22 @@ impl<'a> Printer<'a> {
     fn header(&mut self) {
         writeln!(
             self.stdout,
-            "┌{}┬{}┐",
-            "─".repeat(3 * 16 + 2),
-            "─".repeat(16 + 3)
+            "┌{}┬{}┬{}┬{}┐",
+            "─".repeat(3 * 8 + 1),
+            "─".repeat(3 * 8 + 1),
+            "─".repeat(8),
+            "─".repeat(8)
         );
     }
 
     fn footer(&mut self) {
         writeln!(
             self.stdout,
-            "└{}┴{}┘",
-            "─".repeat(3 * 16 + 2),
-            "─".repeat(16 + 3)
+            "└{}┴{}┴{}┴{}┘",
+            "─".repeat(3 * 8 + 1),
+            "─".repeat(3 * 8 + 1),
+            "─".repeat(8),
+            "─".repeat(8)
         );
     }
 
@@ -116,7 +120,7 @@ impl<'a> Printer<'a> {
         self.line.push(b);
 
         match self.idx % 16 {
-            8 => write!(self.stdout, " ")?,
+            8 => write!(self.stdout, "┊ ")?,
             0 => {
                 self.print_textline()?;
             }
@@ -135,31 +139,32 @@ impl<'a> Printer<'a> {
             return Ok(());
         }
 
-        let fill_spaces_front = match len {
-            n if n < 8 => 1 + 3 * (16 - n),
-            n => 3 * (16 - n),
-        };
+        if len < 8 {
+            write!(self.stdout, "{}┊{}│", " ".repeat(3 * (8 - len)),
+            " ".repeat(1 + 3 * 8)
+            )?;
+        } else {
+            write!(self.stdout, "{}│", " ".repeat(3 * (16 - len)))?;
+        }
 
-        let fill_spaces_back = match len {
-            n if n < 8 => 1 + (16 - n),
-            n => 16 - n,
-        };
 
-        write!(self.stdout, "{}│ ", " ".repeat(fill_spaces_front))?;
-
-        let mut idx = 0;
+        let mut idx = 1;
         for b in self.line.iter().map(|b| Byte(*b)) {
             let chr = format!("{}", b.as_char());
             write!(self.stdout, "{}", b.color().paint(chr)).ok();
 
             if idx == 8 {
-                write!(self.stdout, " ");
+                write!(self.stdout, "┊");
             }
 
             idx += 1;
         }
 
-        writeln!(self.stdout, "{} │", " ".repeat(fill_spaces_back));
+        if len < 8 {
+            writeln!(self.stdout, "{}┊{}│ ", " ".repeat(8 - len), " ".repeat(8))?;
+        } else {
+            writeln!(self.stdout, "{}│", " ".repeat(16 - len))?;
+        }
 
         self.line.clear();
 
