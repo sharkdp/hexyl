@@ -1,8 +1,8 @@
 ![](doc/logo.svg)
 
 [![Build Status](https://travis-ci.org/sharkdp/hexyl.svg?branch=master)](https://travis-ci.org/sharkdp/hexyl)
-[![](https://img.shields.io/crates/l/hexyl.svg)](https://crates.io/crates/hexyl)
-![](https://img.shields.io/crates/v/hexyl.svg?colorB=319e8c)
+[![](https://img.shields.io/crates/l/hexyl.svg?colorB=22ba4c)](https://crates.io/crates/hexyl)
+![](https://img.shields.io/crates/v/hexyl.svg?colorB=00aa88)
 
 `hexyl` is a simple hex viewer for the terminal. It uses a colored output to distinguish different categories
 of bytes (NULL bytes, printable ASCII characters, ASCII whitespace characters, other ASCII characters and non-ASCII).
