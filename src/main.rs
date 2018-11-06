@@ -47,7 +47,7 @@ impl Byte {
         }
     }
 
-    fn color(&self) -> &'static Colour {
+    fn color(self) -> &'static Colour {
         use ByteCategory::*;
 
         match self.category() {
