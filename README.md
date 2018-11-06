@@ -1,6 +1,4 @@
-# hexyl
-
-***WORK IN PROGRESS***
+![](doc/logo.svg)
 
 *A command-line hex viewer.*
 
