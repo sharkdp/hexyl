@@ -140,13 +140,15 @@ impl<'a> Printer<'a> {
         }
 
         if len < 8 {
-            write!(self.stdout, "{}┊{}│", " ".repeat(3 * (8 - len)),
-            " ".repeat(1 + 3 * 8)
+            write!(
+                self.stdout,
+                "{}┊{}│",
+                " ".repeat(3 * (8 - len)),
+                " ".repeat(1 + 3 * 8)
             )?;
         } else {
             write!(self.stdout, "{}│", " ".repeat(3 * (16 - len)))?;
         }
-
 
         let mut idx = 1;
         for b in self.line.iter().map(|b| Byte(*b)) {
@@ -161,7 +163,12 @@ impl<'a> Printer<'a> {
         }
 
         if len < 8 {
-            writeln!(self.stdout, "{}┊{}│ ", " ".repeat(8 - len), " ".repeat(8))?;
+            writeln!(
+                self.stdout,
+                "{}┊{}│ ",
+                " ".repeat(8 - len),
+                " ".repeat(8)
+            )?;
         } else {
             writeln!(self.stdout, "{}│", " ".repeat(16 - len))?;
         }
@@ -180,7 +187,15 @@ fn run() -> io::Result<()> {
         .setting(AppSettings::UnifiedHelpMessage)
         .version(crate_version!())
         .about(crate_description!())
-        .arg(Arg::with_name("file").help("File to display"));
+        .arg(Arg::with_name("file").help("File to display"))
+        .arg(
+            Arg::with_name("length")
+                .short("n")
+                .long("length")
+                .takes_value(true)
+                .value_name("N")
+                .help("read only N bytes from the input"),
+        );
 
     let matches = app.get_matches();
 
@@ -191,6 +206,12 @@ fn run() -> io::Result<()> {
         None => Box::new(stdin.lock()),
     };
 
+    if let Some(length) = matches
+        .value_of("length")
+        .and_then(|n| n.parse::<u64>().ok())
+    {
+        reader = Box::new(reader.take(length));
+    }
 
     let stdout = io::stdout();
     let mut printer = Printer::new(stdout.lock());
