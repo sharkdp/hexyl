@@ -26,7 +26,9 @@ wget "https://github.com/sharkdp/hexyl/releases/download/v0.2.0/hexyl_0.2.0_amd6
 sudo dpkg -i hexyl_0.2.0_amd64.deb
 ```
 
-### On Arch Linux, you can be installed [from the AUR](https://aur.archlinux.org/packages/hexyl/):
+### On Arch Linux
+
+You can install `hexyl` from [this AUR package](https://aur.archlinux.org/packages/hexyl/):
 
 ```
 yaourt -S hexyl
