@@ -242,6 +242,10 @@ fn run() -> io::Result<()> {
 }
 
 fn main() {
+    // Enable ANSI support for Windows
+    #[cfg(windows)]
+    let _ = ansi_term::enable_ansi_support();
+
     let result = run();
     match result {
         Err(err) => {
