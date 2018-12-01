@@ -91,7 +91,8 @@ impl<'a> Printer<'a> {
     fn header(&mut self) {
         writeln!(
             self.stdout,
-            "┌{}┬{}┬{}┬{}┐",
+            "┌{}┬{}┬{}┬{}┬{}┐",
+            "─".repeat(8),
             "─".repeat(3 * 8 + 1),
             "─".repeat(3 * 8 + 1),
             "─".repeat(8),
@@ -102,7 +103,8 @@ impl<'a> Printer<'a> {
     fn footer(&mut self) {
         writeln!(
             self.stdout,
-            "└{}┴{}┴{}┴{}┘",
+            "└{}┴{}┴{}┴{}┴{}┘",
+            "─".repeat(8),
             "─".repeat(3 * 8 + 1),
             "─".repeat(3 * 8 + 1),
             "─".repeat(8),
@@ -112,7 +114,8 @@ impl<'a> Printer<'a> {
 
     fn print_byte(&mut self, b: u8) -> io::Result<()> {
         if self.idx % 16 == 1 {
-            write!(self.stdout, "│ ");
+            let byte_str = format!("{:08x}", self.idx - 1);
+            write!(self.stdout, "│{}│ ", Byte(0x00).color().paint(byte_str))?;
         }
 
         let byte_str = format!("{:02x} ", b);
