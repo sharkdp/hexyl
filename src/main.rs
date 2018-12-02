@@ -13,6 +13,7 @@ use ansi_term::Colour::RGB;
 const BUFFER_SIZE: usize = 64;
 
 const COLOR_NULL: Colour = RGB(117, 113, 94); // grey
+const COLOR_OFFSET: Colour = RGB(117, 113, 94); // grey
 const COLOR_ASCII_PRINTABLE: Colour = RGB(102, 217, 239); // cyan
 const COLOR_ASCII_WHITESPACE: Colour = RGB(166, 226, 46); // green
 const COLOR_ASCII_OTHER: Colour = RGB(249, 38, 114); // magenta
@@ -115,7 +116,7 @@ impl<'a> Printer<'a> {
     fn print_byte(&mut self, b: u8) -> io::Result<()> {
         if self.idx % 16 == 1 {
             let byte_str = format!("{:08x}", self.idx - 1);
-            write!(self.stdout, "│{}│ ", Byte(0x00).color().paint(byte_str))?;
+            write!(self.stdout, "│{}│ ", COLOR_OFFSET.paint(byte_str))?;
         }
 
         let byte_str = format!("{:02x} ", b);
