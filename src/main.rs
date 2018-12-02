@@ -115,8 +115,8 @@ impl<'a> Printer<'a> {
 
     fn print_byte(&mut self, b: u8) -> io::Result<()> {
         if self.idx % 16 == 1 {
-            let byte_str = format!("{:08x}", self.idx - 1);
-            write!(self.stdout, "│{}│ ", COLOR_OFFSET.paint(byte_str))?;
+            let offset_str = format!("{:08x}", self.idx - 1);
+            write!(self.stdout, "│{}│ ", COLOR_OFFSET.paint(offset_str))?;
         }
 
         let byte_str = format!("{:02x} ", b);
