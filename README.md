@@ -22,8 +22,8 @@ of bytes (NULL bytes, printable ASCII characters, ASCII whitespace characters, o
 ### On Debian-based systems
 
 ``` bash
-wget "https://github.com/sharkdp/hexyl/releases/download/v0.2.0/hexyl_0.2.0_amd64.deb"
-sudo dpkg -i hexyl_0.2.0_amd64.deb
+wget "https://github.com/sharkdp/hexyl/releases/download/v0.3.0/hexyl_0.3.0_amd64.deb"
+sudo dpkg -i hexyl_0.3.0_amd64.deb
 ```
 
 ### On Arch Linux
