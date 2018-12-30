@@ -12,9 +12,10 @@ matrix:
     - os: osx
       rust: stable
       env: TARGET=x86_64-apple-darwin
-    - os: windows
-      rust: stable
-      env: TARGET=x86_64-pc-windows-msvc
+    # Disable Windows build for now (does not work on deploy)
+    # - os: windows
+    #   rust: stable
+    #   env: TARGET=x86_64-pc-windows-msvc
 
     # Minimum Rust supported channel.
     - os: linux
