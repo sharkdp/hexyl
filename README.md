@@ -34,6 +34,11 @@ You can install `hexyl` from [this AUR package](https://aur.archlinux.org/packag
 yaourt -S hexyl
 ```
 
+### On macOS
+
+```
+brew install hexyl
+```
 
 ### On other distributions
 
