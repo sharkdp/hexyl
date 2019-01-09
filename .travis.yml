@@ -12,10 +12,9 @@ matrix:
     - os: osx
       rust: stable
       env: TARGET=x86_64-apple-darwin
-    # Disable Windows build for now (does not work on deploy)
-    # - os: windows
-    #   rust: stable
-    #   env: TARGET=x86_64-pc-windows-msvc
+    - os: windows
+      rust: stable
+      env: TARGET=x86_64-pc-windows-msvc
 
     # Minimum Rust supported channel.
     - os: linux
@@ -73,7 +72,7 @@ deploy:
     # deploy only if we push a tag
     tags: true
     # deploy only on stable channel that has TARGET env variable sets
-    condition: $TRAVIS_RUST_VERSION = stable && $TARGET != ""
+    condition: $TRAVIS_RUST_VERSION = stable && $TARGET != "x86_64-pc-windows-msvc"
 
 notifications:
   email:
