@@ -98,7 +98,7 @@ impl<'a> Printer<'a> {
             "─".repeat(3 * 8 + 1),
             "─".repeat(8),
             "─".repeat(8)
-        );
+        ).ok();
     }
 
     fn footer(&mut self) {
@@ -110,7 +110,7 @@ impl<'a> Printer<'a> {
             "─".repeat(3 * 8 + 1),
             "─".repeat(8),
             "─".repeat(8)
-        );
+        ).ok();
     }
 
     fn print_byte(&mut self, b: u8) -> io::Result<()> {
@@ -160,7 +160,7 @@ impl<'a> Printer<'a> {
             write!(self.stdout, "{}", b.color().paint(chr)).ok();
 
             if idx == 8 {
-                write!(self.stdout, "┊");
+                write!(self.stdout, "┊").ok();
             }
 
             idx += 1;
