@@ -31,7 +31,7 @@ sudo dpkg -i hexyl_0.3.0_amd64.deb
 You can install `hexyl` from [this AUR package](https://aur.archlinux.org/packages/hexyl/):
 
 ```
-yaourt -S hexyl
+yay -S hexyl
 ```
 
 ### On macOS
