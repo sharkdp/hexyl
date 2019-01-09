@@ -40,6 +40,12 @@ yay -S hexyl
 brew install hexyl
 ```
 
+### On FreeBSD
+
+```
+pkg install hexyl
+```
+
 ### On other distributions
 
 Check out the [release page](https://github.com/sharkdp/hexyl/releases) for binary builds.
