@@ -8,16 +8,16 @@ use std::io::{self, prelude::*, StdoutLock};
 use clap::{App, AppSettings, Arg};
 
 use ansi_term::Colour;
-use ansi_term::Colour::RGB;
+use ansi_term::Colour::Fixed;
 
 const BUFFER_SIZE: usize = 64;
 
-const COLOR_NULL: Colour = RGB(117, 113, 94); // grey
-const COLOR_OFFSET: Colour = RGB(117, 113, 94); // grey
-const COLOR_ASCII_PRINTABLE: Colour = RGB(102, 217, 239); // cyan
-const COLOR_ASCII_WHITESPACE: Colour = RGB(166, 226, 46); // green
-const COLOR_ASCII_OTHER: Colour = RGB(249, 38, 114); // magenta
-const COLOR_NONASCII: Colour = RGB(253, 151, 31); // orange
+const COLOR_NULL: Colour = Fixed(242); // grey
+const COLOR_OFFSET: Colour = Fixed(242); // grey
+const COLOR_ASCII_PRINTABLE: Colour = Fixed(81); // cyan
+const COLOR_ASCII_WHITESPACE: Colour = Fixed(148); // green
+const COLOR_ASCII_OTHER: Colour = Fixed(197); // magenta
+const COLOR_NONASCII: Colour = Fixed(208); // orange
 
 enum ByteCategory {
     Null,
