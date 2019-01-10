@@ -92,25 +92,19 @@ impl<'a> Printer<'a> {
     fn header(&mut self) {
         writeln!(
             self.stdout,
-            "┌{}┬{}┬{}┬{}┬{}┐",
-            "─".repeat(8),
-            "─".repeat(3 * 8 + 1),
-            "─".repeat(3 * 8 + 1),
-            "─".repeat(8),
-            "─".repeat(8)
-        ).ok();
+            "┌{0:─<8}┬{0:─<25}┬{0:─<25}┬{0:─<8}┬{0:─<8}┐",
+            ""
+        )
+        .ok();
     }
 
     fn footer(&mut self) {
         writeln!(
             self.stdout,
-            "└{}┴{}┴{}┴{}┴{}┘",
-            "─".repeat(8),
-            "─".repeat(3 * 8 + 1),
-            "─".repeat(3 * 8 + 1),
-            "─".repeat(8),
-            "─".repeat(8)
-        ).ok();
+            "└{0:─<8}┴{0:─<25}┴{0:─<25}┴{0:─<8}┴{0:─<8}┘",
+            ""
+        )
+        .ok();
     }
 
     fn print_byte(&mut self, b: u8) -> io::Result<()> {
@@ -146,12 +140,13 @@ impl<'a> Printer<'a> {
         if len < 8 {
             write!(
                 self.stdout,
-                "{}┊{}│",
-                " ".repeat(3 * (8 - len)),
-                " ".repeat(1 + 3 * 8)
+                "{0:1$}┊{0:2$}│",
+                "",
+                3 * (8 - len),
+                1 + 3 * 8
             )?;
         } else {
-            write!(self.stdout, "{}│", " ".repeat(3 * (16 - len)))?;
+            write!(self.stdout, "{0:1$}│", "", 3 * (16 - len))?;
         }
 
         let mut idx = 1;
@@ -167,14 +162,9 @@ impl<'a> Printer<'a> {
         }
 
         if len < 8 {
-            writeln!(
-                self.stdout,
-                "{}┊{}│ ",
-                " ".repeat(8 - len),
-                " ".repeat(8)
-            )?;
+            writeln!(self.stdout, "{0:1$}┊{0:2$}│ ", "", 8 - len, 8)?;
         } else {
-            writeln!(self.stdout, "{}│", " ".repeat(16 - len))?;
+            writeln!(self.stdout, "{0:1$}│", "", 16 - len)?;
         }
 
         self.line.clear();
