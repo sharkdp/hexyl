@@ -62,6 +62,24 @@ If you have Rust 1.29 or higher, you can install `hexyl` from source via `cargo`
 cargo install hexyl
 ```
 
+## Contributing
+
+### Online
+
+You can build and run `hexyl` in a browser-based development environment:
+
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/sharkdp/hexyl)
+
+### Locally
+
+If you have Rust 1.29 or higher, you can build and run `hexyl` like so:
+```
+git clone https://github.com/sharkdp/hexyl
+cd hexyl
+cargo build
+cargo run -- -n256 /dev/urandom
+```
+
 ## License
 
 Licensed under either of

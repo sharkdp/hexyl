@@ -1,0 +1,3 @@
+tasks:
+  - init: cargo build
+  - command: cargo run -- -n256 /dev/urandom
