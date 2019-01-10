@@ -78,6 +78,8 @@ struct Printer<'a> {
     idx: usize,
     line: Vec<u8>,
     stdout: StdoutLock<'a>,
+    byte_hex_table: Vec<String>,
+    byte_char_table: Vec<String>,
 }
 
 impl<'a> Printer<'a> {
@@ -86,6 +88,17 @@ impl<'a> Printer<'a> {
             idx: 1,
             line: vec![],
             stdout,
+            byte_hex_table: (0u8..=u8::max_value())
+                .map(|i| format!("{}", Byte(i).color().paint(format!("{:02x} ", i))))
+                .collect(),
+            byte_char_table: (0u8..=u8::max_value())
+                .map(|i| {
+                    format!(
+                        "{}",
+                        Byte(i).color().paint(format!("{}", Byte(i).as_char()))
+                    )
+                })
+                .collect(),
         }
     }
 
@@ -109,12 +122,17 @@ impl<'a> Printer<'a> {
 
     fn print_byte(&mut self, b: u8) -> io::Result<()> {
         if self.idx % 16 == 1 {
-            let offset_str = format!("{:08x}", self.idx - 1);
-            write!(self.stdout, "│{}│ ", COLOR_OFFSET.paint(offset_str))?;
+            let style = COLOR_OFFSET.normal();
+            write!(
+                self.stdout,
+                "│{}{:08x}{}│ ",
+                style.prefix(),
+                self.idx - 1,
+                style.suffix()
+            )?;
         }
 
-        let byte_str = format!("{:02x} ", b);
-        write!(self.stdout, "{}", Byte(b).color().paint(byte_str))?;
+        write!(self.stdout, "{}", self.byte_hex_table[b as usize])?;
         self.line.push(b);
 
         match self.idx % 16 {
@@ -150,9 +168,8 @@ impl<'a> Printer<'a> {
         }
 
         let mut idx = 1;
-        for b in self.line.iter().map(|b| Byte(*b)) {
-            let chr = format!("{}", b.as_char());
-            write!(self.stdout, "{}", b.color().paint(chr)).ok();
+        for &b in self.line.iter() {
+            write!(self.stdout, "{}", self.byte_char_table[b as usize])?;
 
             if idx == 8 {
                 write!(self.stdout, "┊").ok();
