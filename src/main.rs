@@ -89,7 +89,7 @@ impl<'a> Printer<'a> {
             line: vec![],
             stdout,
             byte_hex_table: (0u8..=u8::max_value())
-                .map(|i| format!("{}", Byte(i).color().paint(format!("{:02x} ", i))))
+                .map(|i| format!("{} ", Byte(i).color().paint(format!("{:02x}", i))))
                 .collect(),
             byte_char_table: (0u8..=u8::max_value())
                 .map(|i| {
