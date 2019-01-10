@@ -50,6 +50,11 @@ pkg install hexyl
 
 Check out the [release page](https://github.com/sharkdp/hexyl/releases) for binary builds.
 
+### On Windows
+
+For now, you will have to install from source via `cargo` (see below). Make sure that
+you use a terminal that supports ANSI escape sequences (like PowerShell on Windows 10).
+
 ### Via cargo
 
 If you have Rust 1.29 or higher, you can install `hexyl` from source via `cargo`:
