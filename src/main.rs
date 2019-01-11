@@ -81,26 +81,37 @@ struct Printer<'a> {
     /// The buffered line built with each byte, ready to print to stdout.
     buffer_line: Vec<u8>,
     stdout: StdoutLock<'a>,
+    show_color: bool,
     byte_hex_table: Vec<String>,
     byte_char_table: Vec<String>,
 }
 
 impl<'a> Printer<'a> {
-    fn new(stdout: StdoutLock) -> Printer {
+    fn new(stdout: StdoutLock, show_color: bool) -> Printer {
         Printer {
             idx: 1,
             raw_line: vec![],
             buffer_line: vec![],
             stdout,
+            show_color,
             byte_hex_table: (0u8..=u8::max_value())
-                .map(|i| format!("{} ", Byte(i).color().paint(format!("{:02x}", i))))
+                .map(|i| {
+                    let byte_hex = format!("{:02x} ", i);
+                    if show_color {
+                        Byte(i).color().paint(byte_hex).to_string()
+                    } else {
+                        byte_hex
+                    }
+                })
                 .collect(),
             byte_char_table: (0u8..=u8::max_value())
                 .map(|i| {
-                    format!(
-                        "{}",
-                        Byte(i).color().paint(format!("{}", Byte(i).as_char()))
-                    )
+                    let byte_char = format!("{}", Byte(i).as_char());
+                    if show_color {
+                        Byte(i).color().paint(byte_char).to_string()
+                    } else {
+                        byte_char
+                    }
                 })
                 .collect(),
         }
@@ -127,13 +138,13 @@ impl<'a> Printer<'a> {
     fn print_byte(&mut self, b: u8) -> io::Result<()> {
         if self.idx % 16 == 1 {
             let style = COLOR_OFFSET.normal();
-            let _ = write!(
-                &mut self.buffer_line,
-                "│{}{:08x}{}│ ",
-                style.prefix(),
-                self.idx - 1,
-                style.suffix()
-            );
+            let byte_index = format!("{:08x}", self.idx -1);
+            let formatted_string = if self.show_color {
+                format!("{}", style.paint(byte_index))
+            } else {
+                byte_index
+            };
+            let _ = write!(&mut self.buffer_line, "│{}│ ", formatted_string);
         }
 
         write!(&mut self.buffer_line, "{}", self.byte_hex_table[b as usize])?;
@@ -216,6 +227,12 @@ fn run() -> Result<(), Box<::std::error::Error>> {
                 .takes_value(true)
                 .value_name("N")
                 .help("read only N bytes from the input"),
+        )
+        .arg(
+            Arg::with_name("no-color")
+                .long("no-color")
+                .takes_value(false)
+                .help("Don't output ANSI color characters")
         );
 
     let matches = app.get_matches_safe()?;
@@ -234,8 +251,10 @@ fn run() -> Result<(), Box<::std::error::Error>> {
         reader = Box::new(reader.take(length));
     }
 
+    let show_color = !matches.is_present("no-color");
+
     let stdout = io::stdout();
-    let mut printer = Printer::new(stdout.lock());
+    let mut printer = Printer::new(stdout.lock(), show_color);
     printer.header();
 
     let mut buffer = [0; BUFFER_SIZE];
