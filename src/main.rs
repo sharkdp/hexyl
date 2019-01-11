@@ -272,10 +272,9 @@ fn main() {
     if let Err(err) = result {
         if let Some(clap_err) = err.downcast_ref::<clap::Error>() {
             eprint!("{}", clap_err); // Clap errors already have newlines
-            std::process::exit(1);
         } else {
             eprintln!("Error: {}", err);
-            std::process::exit(1);
         }
+        std::process::exit(1);
     }
 }
