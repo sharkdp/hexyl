@@ -260,9 +260,12 @@ fn main() {
     let result = run();
 
     if let Err(err) = result {
-        // The whitespace is being removed from the right because
-        // clap errors add a newline to the end of the output already
-        eprintln!("Error: {}", format!("{}", err).trim_right());
-        std::process::exit(1);
+        if let Some(clap_err) = err.downcast_ref::<clap::Error>() {
+            eprint!("{}", clap_err); // Clap errors already have newlines
+            std::process::exit(1);
+        } else {
+            eprintln!("Error: {}", err);
+            std::process::exit(1);
+        }
     }
 }
