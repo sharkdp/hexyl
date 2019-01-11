@@ -190,7 +190,7 @@ impl<'a> Printer<'a> {
     }
 }
 
-fn run() -> io::Result<()> {
+fn run() -> Result<(), Box<::std::error::Error>> {
     let app = App::new(crate_name!())
         .setting(AppSettings::ColorAuto)
         .setting(AppSettings::ColoredHelp)
@@ -208,7 +208,7 @@ fn run() -> io::Result<()> {
                 .help("read only N bytes from the input"),
         );
 
-    let matches = app.get_matches();
+    let matches = app.get_matches_safe()?;
 
     let stdin = io::stdin();
 
@@ -260,7 +260,9 @@ fn main() {
     let result = run();
     match result {
         Err(err) => {
-            eprintln!("Error: {}", err);
+            // The whitespace is being removed from the right because
+            // clap errors add a newline to the end of the output already
+            eprintln!("Error: {}", format!("{}", err).trim_right());
             std::process::exit(1);
         }
         Ok(()) => {}
