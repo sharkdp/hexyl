@@ -10,7 +10,7 @@ use clap::{App, AppSettings, Arg};
 use ansi_term::Colour;
 use ansi_term::Colour::Fixed;
 
-const BUFFER_SIZE: usize = 64;
+const BUFFER_SIZE: usize = 256;
 
 const COLOR_NULL: Colour = Fixed(242); // grey
 const COLOR_OFFSET: Colour = Fixed(242); // grey
