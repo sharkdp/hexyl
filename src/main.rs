@@ -76,7 +76,10 @@ impl Byte {
 
 struct Printer<'a> {
     idx: usize,
-    line: Vec<u8>,
+    /// The raw bytes used as input for the current line.
+    raw_line: Vec<u8>,
+    /// The buffered line built with each byte, ready to print to stdout.
+    buffer_line: Vec<u8>,
     stdout: StdoutLock<'a>,
     byte_hex_table: Vec<String>,
     byte_char_table: Vec<String>,
@@ -86,7 +89,8 @@ impl<'a> Printer<'a> {
     fn new(stdout: StdoutLock) -> Printer {
         Printer {
             idx: 1,
-            line: vec![],
+            raw_line: vec![],
+            buffer_line: vec![],
             stdout,
             byte_hex_table: (0u8..=u8::max_value())
                 .map(|i| format!("{} ", Byte(i).color().paint(format!("{:02x}", i))))
@@ -123,23 +127,23 @@ impl<'a> Printer<'a> {
     fn print_byte(&mut self, b: u8) -> io::Result<()> {
         if self.idx % 16 == 1 {
             let style = COLOR_OFFSET.normal();
-            write!(
-                self.stdout,
+            let _ = write!(
+                &mut self.buffer_line,
                 "│{}{:08x}{}│ ",
                 style.prefix(),
                 self.idx - 1,
                 style.suffix()
-            )?;
+            );
         }
 
-        write!(self.stdout, "{}", self.byte_hex_table[b as usize])?;
-        self.line.push(b);
+        write!(&mut self.buffer_line, "{}", self.byte_hex_table[b as usize])?;
+        self.raw_line.push(b);
 
         match self.idx % 16 {
-            8 => write!(self.stdout, "┊ ")?,
-            0 => {
-                self.print_textline()?;
+            8 => {
+                let _ = write!(&mut self.buffer_line, "┊ ");
             }
+            0 => self.print_textline()?,
             _ => {}
         }
 
@@ -149,42 +153,48 @@ impl<'a> Printer<'a> {
     }
 
     fn print_textline(&mut self) -> io::Result<()> {
-        let len = self.line.len();
+        let len = self.raw_line.len();
 
         if len == 0 {
             return Ok(());
         }
 
         if len < 8 {
-            write!(
-                self.stdout,
+            let _ = write!(
+                &mut self.buffer_line,
                 "{0:1$}┊{0:2$}│",
                 "",
                 3 * (8 - len),
                 1 + 3 * 8
-            )?;
+            );
         } else {
-            write!(self.stdout, "{0:1$}│", "", 3 * (16 - len))?;
+            let _ = write!(&mut self.buffer_line, "{0:1$}│", "", 3 * (16 - len));
         }
 
         let mut idx = 1;
-        for &b in self.line.iter() {
-            write!(self.stdout, "{}", self.byte_char_table[b as usize])?;
+        for &b in self.raw_line.iter() {
+            let _ = write!(
+                &mut self.buffer_line,
+                "{}",
+                self.byte_char_table[b as usize]
+            );
 
             if idx == 8 {
-                write!(self.stdout, "┊").ok();
+                let _ = write!(&mut self.buffer_line, "┊");
             }
 
             idx += 1;
         }
 
         if len < 8 {
-            writeln!(self.stdout, "{0:1$}┊{0:2$}│ ", "", 8 - len, 8)?;
+            let _ = writeln!(&mut self.buffer_line, "{0:1$}┊{0:2$}│ ", "", 8 - len, 8);
         } else {
-            writeln!(self.stdout, "{0:1$}│", "", 16 - len)?;
+            let _ = writeln!(&mut self.buffer_line, "{0:1$}│", "", 16 - len);
         }
+        self.stdout.write_all(&self.buffer_line)?;
 
-        self.line.clear();
+        self.raw_line.clear();
+        self.buffer_line.clear();
 
         Ok(())
     }
