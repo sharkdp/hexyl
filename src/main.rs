@@ -272,6 +272,14 @@ fn main() {
     if let Err(err) = result {
         if let Some(clap_err) = err.downcast_ref::<clap::Error>() {
             eprint!("{}", clap_err); // Clap errors already have newlines
+
+            match clap_err.kind {
+                // The exit code should not indicate an error for --help / --version
+                clap::ErrorKind::HelpDisplayed | clap::ErrorKind::VersionDisplayed => {
+                    std::process::exit(0)
+                }
+                _ => (),
+            }
         } else {
             eprintln!("Error: {}", err);
         }
