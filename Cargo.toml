@@ -12,6 +12,7 @@ version = "0.3.1"
 [dependencies]
 ansi_term = "0.11"
 atty = "0.2"
+ctrlc = "3.1"
 
 [dependencies.clap]
 version = "2"
