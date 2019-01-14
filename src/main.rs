@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate clap;
 extern crate ansi_term;
+extern crate atty;
 
 use std::fs::File;
 use std::io::{self, prelude::*, StdoutLock};
@@ -9,6 +10,8 @@ use clap::{App, AppSettings, Arg};
 
 use ansi_term::Colour;
 use ansi_term::Colour::Fixed;
+
+use atty::Stream;
 
 const BUFFER_SIZE: usize = 256;
 
@@ -138,7 +141,7 @@ impl<'a> Printer<'a> {
     fn print_byte(&mut self, b: u8) -> io::Result<()> {
         if self.idx % 16 == 1 {
             let style = COLOR_OFFSET.normal();
-            let byte_index = format!("{:08x}", self.idx -1);
+            let byte_index = format!("{:08x}", self.idx - 1);
             let formatted_string = if self.show_color {
                 format!("{}", style.paint(byte_index))
             } else {
@@ -226,13 +229,17 @@ fn run() -> Result<(), Box<::std::error::Error>> {
                 .long("length")
                 .takes_value(true)
                 .value_name("N")
-                .help("read only N bytes from the input"),
+                .help("Read only N bytes from the input"),
         )
         .arg(
-            Arg::with_name("no-color")
-                .long("no-color")
-                .takes_value(false)
-                .help("Don't output ANSI color characters")
+            Arg::with_name("color")
+                .long("color")
+                .takes_value(true)
+                .value_name("when")
+                .possible_values(&["always", "auto", "never"])
+                .default_value("always")
+                .help("When to use colors. The auto-mode only displays colors if the output \
+                       goes to an interactive terminal"),
         );
 
     let matches = app.get_matches_safe()?;
@@ -251,7 +258,11 @@ fn run() -> Result<(), Box<::std::error::Error>> {
         reader = Box::new(reader.take(length));
     }
 
-    let show_color = !matches.is_present("no-color");
+    let show_color = match matches.value_of("color") {
+        Some("never") => false,
+        Some("auto") => atty::is(Stream::Stdout),
+        _ => true,
+    };
 
     let stdout = io::stdout();
     let mut printer = Printer::new(stdout.lock(), show_color);
