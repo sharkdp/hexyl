@@ -46,6 +46,12 @@ brew install hexyl
 pkg install hexyl
 ```
 
+### Via Nix
+
+```
+nix-env -i hexyl
+```
+
 ### On other distributions
 
 Check out the [release page](https://github.com/sharkdp/hexyl/releases) for binary builds.
