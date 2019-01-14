@@ -2,9 +2,12 @@
 extern crate clap;
 extern crate ansi_term;
 extern crate atty;
+extern crate ctrlc;
 
 use std::fs::File;
 use std::io::{self, prelude::*, StdoutLock};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use clap::{App, AppSettings, Arg};
 
@@ -266,6 +269,15 @@ fn run() -> Result<(), Box<::std::error::Error>> {
         _ => true,
     };
 
+    // Set up Ctrl-C handler
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let c = cancelled.clone();
+
+    ctrlc::set_handler(move || {
+        c.store(true, Ordering::SeqCst);
+    })
+    .expect("Error setting Ctrl-C handler");
+
     let stdout = io::stdout();
     let mut printer = Printer::new(stdout.lock(), show_color);
     printer.header();
@@ -275,6 +287,11 @@ fn run() -> Result<(), Box<::std::error::Error>> {
         let size = reader.read(&mut buffer)?;
         if size == 0 {
             break;
+        }
+
+        if cancelled.load(Ordering::SeqCst) {
+            eprintln!("hexyl has been cancelled.");
+            std::process::exit(130); // Set exit code to 128 + SIGINT
         }
 
         for b in &buffer[..size] {
