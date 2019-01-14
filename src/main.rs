@@ -271,7 +271,7 @@ fn run() -> Result<(), Box<::std::error::Error>> {
     printer.header();
 
     let mut buffer = [0; BUFFER_SIZE];
-    loop {
+    'mainloop: loop {
         let size = reader.read(&mut buffer)?;
         if size == 0 {
             break;
@@ -282,7 +282,7 @@ fn run() -> Result<(), Box<::std::error::Error>> {
 
             if res.is_err() {
                 // Broken pipe
-                break;
+                break 'mainloop;
             }
         }
     }
