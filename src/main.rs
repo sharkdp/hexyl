@@ -8,19 +8,19 @@ use std::io::{self, prelude::*, StdoutLock};
 
 use clap::{App, AppSettings, Arg};
 
-use ansi_term::Colour;
-use ansi_term::Colour::Fixed;
+use ansi_term::Color;
+use ansi_term::Color::Fixed;
 
 use atty::Stream;
 
 const BUFFER_SIZE: usize = 256;
 
-const COLOR_NULL: Colour = Fixed(242); // grey
-const COLOR_OFFSET: Colour = Fixed(242); // grey
-const COLOR_ASCII_PRINTABLE: Colour = Fixed(81); // cyan
-const COLOR_ASCII_WHITESPACE: Colour = Fixed(148); // green
-const COLOR_ASCII_OTHER: Colour = Fixed(197); // magenta
-const COLOR_NONASCII: Colour = Fixed(208); // orange
+const COLOR_NULL: Color = Fixed(242); // grey
+const COLOR_OFFSET: Color = Fixed(242); // grey
+const COLOR_ASCII_PRINTABLE: Color = Color::Cyan;
+const COLOR_ASCII_WHITESPACE: Color = Color::Green;
+const COLOR_ASCII_OTHER: Color = Color::Purple;
+const COLOR_NONASCII: Color = Color::Yellow;
 
 enum ByteCategory {
     Null,
@@ -51,7 +51,7 @@ impl Byte {
         }
     }
 
-    fn color(self) -> &'static Colour {
+    fn color(self) -> &'static Color {
         use ByteCategory::*;
 
         match self.category() {
@@ -238,8 +238,10 @@ fn run() -> Result<(), Box<::std::error::Error>> {
                 .value_name("when")
                 .possible_values(&["always", "auto", "never"])
                 .default_value("always")
-                .help("When to use colors. The auto-mode only displays colors if the output \
-                       goes to an interactive terminal"),
+                .help(
+                    "When to use colors. The auto-mode only displays colors if the output \
+                     goes to an interactive terminal",
+                ),
         );
 
     let matches = app.get_matches_safe()?;
