@@ -5,7 +5,7 @@ extern crate atty;
 extern crate ctrlc;
 
 use std::fs::File;
-use std::io::{self, prelude::*, StdoutLock};
+use std::io::{self, prelude::*, SeekFrom, StdoutLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -83,7 +83,7 @@ impl Byte {
 struct Printer<'a> {
     idx: usize,
     /// The raw bytes used as input for the current line.
-    raw_line: Vec<u8>,
+    raw_line: Vec<Option<u8>>,
     /// The buffered line built with each byte, ready to print to stdout.
     buffer_line: Vec<u8>,
     stdout: StdoutLock<'a>,
@@ -141,7 +141,7 @@ impl<'a> Printer<'a> {
         .ok();
     }
 
-    fn print_byte(&mut self, b: u8) -> io::Result<()> {
+    fn print_byte(&mut self, bo: Option<u8>) -> io::Result<()> {
         if self.idx % 16 == 1 {
             let style = COLOR_OFFSET.normal();
             let byte_index = format!("{:08x}", self.idx - 1);
@@ -153,8 +153,12 @@ impl<'a> Printer<'a> {
             let _ = write!(&mut self.buffer_line, "│{}│ ", formatted_string);
         }
 
-        write!(&mut self.buffer_line, "{}", self.byte_hex_table[b as usize])?;
-        self.raw_line.push(b);
+        if let Some(b) = bo {
+            write!(&mut self.buffer_line, "{}", self.byte_hex_table[b as usize])?;
+        } else {
+            write!(&mut self.buffer_line, "   ")?;
+        }
+        self.raw_line.push(bo);
 
         match self.idx % 16 {
             8 => {
@@ -189,12 +193,19 @@ impl<'a> Printer<'a> {
         }
 
         let mut idx = 1;
-        for &b in self.raw_line.iter() {
-            let _ = write!(
-                &mut self.buffer_line,
-                "{}",
-                self.byte_char_table[b as usize]
-            );
+        for &bo in self.raw_line.iter() {
+            if let Some(b) = bo {
+                let _ = write!(
+                    &mut self.buffer_line,
+                    "{}",
+                    self.byte_char_table[b as usize]
+                );
+            } else {
+                let _ = write!(
+                    &mut self.buffer_line,
+                    " "
+                );
+            }
 
             if idx == 8 {
                 let _ = write!(&mut self.buffer_line, "┊");
@@ -235,6 +246,14 @@ fn run() -> Result<(), Box<::std::error::Error>> {
                 .help("Read only N bytes from the input"),
         )
         .arg(
+            Arg::with_name("start")
+                .short("s")
+                .long("start")
+                .takes_value(true)
+                .value_name("S")
+                .help("Start reading from the specified position (Applies only to files)"),
+        )
+        .arg(
             Arg::with_name("color")
                 .long("color")
                 .takes_value(true)
@@ -251,8 +270,29 @@ fn run() -> Result<(), Box<::std::error::Error>> {
 
     let stdin = io::stdin();
 
+    let start_offset = if let Some(start) = matches
+        .value_of("start")
+        .and_then(|s| s.parse::<u64>().ok())
+    {
+        start
+    } else {
+        0
+    };
+    let mut print_offset = false;
+    let print_idx = start_offset - (start_offset % 16);
+
     let mut reader: Box<dyn Read> = match matches.value_of("file") {
-        Some(filename) => Box::new(File::open(filename)?),
+        Some(filename) => {
+            let mut f = File::open(filename)?;
+
+            // apply start offset
+            if start_offset > 0 {
+                f.seek(SeekFrom::Start(start_offset))
+                    .expect("Failed to seek to the specified offset.");
+                print_offset = true;
+            }
+            Box::new(f)
+        },
         None => Box::new(stdin.lock()),
     };
 
@@ -282,6 +322,15 @@ fn run() -> Result<(), Box<::std::error::Error>> {
     let mut printer = Printer::new(stdout.lock(), show_color);
     printer.header();
 
+    // Print leading whitespace
+    if print_offset {
+        printer.idx = (print_idx+1) as usize;
+
+        for _ in print_idx .. start_offset {
+            let _ = printer.print_byte(None);
+        }
+    }
+
     let mut buffer = [0; BUFFER_SIZE];
     'mainloop: loop {
         let size = reader.read(&mut buffer)?;
@@ -295,7 +344,7 @@ fn run() -> Result<(), Box<::std::error::Error>> {
         }
 
         for b in &buffer[..size] {
-            let res = printer.print_byte(*b);
+            let res = printer.print_byte(Some(*b));
 
             if res.is_err() {
                 // Broken pipe
