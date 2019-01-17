@@ -218,7 +218,7 @@ impl<'a> Printer<'a> {
 }
 
 fn run() -> Result<(), Box<::std::error::Error>> {
-    let app = App::new(crate_name!())
+    let mut app = App::new(crate_name!())
         .setting(AppSettings::ColorAuto)
         .setting(AppSettings::ColoredHelp)
         .setting(AppSettings::DeriveDisplayOrder)
@@ -247,13 +247,18 @@ fn run() -> Result<(), Box<::std::error::Error>> {
                 ),
         );
 
-    let matches = app.get_matches_safe()?;
+    let matches = app.clone().get_matches_safe()?;
 
     let stdin = io::stdin();
 
     let mut reader: Box<dyn Read> = match matches.value_of("file") {
         Some(filename) => Box::new(File::open(filename)?),
-        None => Box::new(stdin.lock()),
+        None => if !atty::is(Stream::Stdin) {
+                Box::new(stdin.lock())
+            } else {
+                app.print_long_help()?;
+                std::process::exit(1)
+            },
     };
 
     if let Some(length) = matches
