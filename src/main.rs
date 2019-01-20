@@ -274,7 +274,15 @@ fn run() -> Result<(), Box<::std::error::Error>> {
 
     let length_arg = matches.value_of("length").or(matches.value_of("bytes"));
 
-    if let Some(length) = length_arg.and_then(|n| n.parse::<u64>().ok()) {
+    if let Some(length) = length_arg.and_then(|n| {
+        if n.starts_with("0x") {
+            u64::from_str_radix(n.trim_start_matches("0x"), 16).ok()
+        }
+        else {
+            n.parse::<u64>().ok()
+        }
+    })
+    {
         reader = Box::new(reader.take(length));
     }
 
