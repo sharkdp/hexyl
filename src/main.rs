@@ -228,6 +228,7 @@ fn run() -> Result<(), Box<::std::error::Error>> {
         .arg(Arg::with_name("file").help("File to display"))
         .arg(
             Arg::with_name("length")
+                .alias("c")
                 .short("n")
                 .long("length")
                 .takes_value(true)
