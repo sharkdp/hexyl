@@ -228,12 +228,18 @@ fn run() -> Result<(), Box<::std::error::Error>> {
         .arg(Arg::with_name("file").help("File to display"))
         .arg(
             Arg::with_name("length")
-                .alias("c")
                 .short("n")
                 .long("length")
                 .takes_value(true)
                 .value_name("N")
                 .help("Read only N bytes from the input"),
+        )
+        .arg(
+            Arg::with_name("c")
+                .short("c")
+                .long("c")
+                .takes_value(true)
+                .hidden(true),
         )
         .arg(
             Arg::with_name("color")
@@ -261,6 +267,10 @@ fn run() -> Result<(), Box<::std::error::Error>> {
         .value_of("length")
         .and_then(|n| n.parse::<u64>().ok())
     {
+        reader = Box::new(reader.take(length));
+    }
+
+    if let Some(length) = matches.value_of("c").and_then(|n| n.parse::<u64>().ok()) {
         reader = Box::new(reader.take(length));
     }
 
