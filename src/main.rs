@@ -5,7 +5,7 @@ extern crate atty;
 extern crate ctrlc;
 
 use std::fs::File;
-use std::io::{self, prelude::*, StdoutLock};
+use std::io::{self, prelude::*, BufWriter, StdoutLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -86,7 +86,7 @@ struct Printer<'a> {
     raw_line: Vec<u8>,
     /// The buffered line built with each byte, ready to print to stdout.
     buffer_line: Vec<u8>,
-    stdout: StdoutLock<'a>,
+    buffer_stdout: BufWriter<StdoutLock<'a>>,
     show_color: bool,
     byte_hex_table: Vec<String>,
     byte_char_table: Vec<String>,
@@ -98,7 +98,7 @@ impl<'a> Printer<'a> {
             idx: 1,
             raw_line: vec![],
             buffer_line: vec![],
-            stdout,
+            buffer_stdout: BufWriter::new(stdout),
             show_color,
             byte_hex_table: (0u8..=u8::max_value())
                 .map(|i| {
@@ -125,7 +125,7 @@ impl<'a> Printer<'a> {
 
     fn header(&mut self) {
         writeln!(
-            self.stdout,
+            self.buffer_stdout,
             "┌{0:─<8}┬{0:─<25}┬{0:─<25}┬{0:─<8}┬{0:─<8}┐",
             ""
         )
@@ -134,7 +134,7 @@ impl<'a> Printer<'a> {
 
     fn footer(&mut self) {
         writeln!(
-            self.stdout,
+            self.buffer_stdout,
             "└{0:─<8}┴{0:─<25}┴{0:─<25}┴{0:─<8}┴{0:─<8}┘",
             ""
         )
@@ -208,7 +208,7 @@ impl<'a> Printer<'a> {
         } else {
             let _ = writeln!(&mut self.buffer_line, "{0:1$}│", "", 16 - len);
         }
-        self.stdout.write_all(&self.buffer_line)?;
+        self.buffer_stdout.write_all(&self.buffer_line)?;
 
         self.raw_line.clear();
         self.buffer_line.clear();
