@@ -88,6 +88,7 @@ struct Printer<'a> {
     buffer_line: Vec<u8>,
     stdout: StdoutLock<'a>,
     show_color: bool,
+    header_was_printed: bool,
     byte_hex_table: Vec<String>,
     byte_char_table: Vec<String>,
 }
@@ -100,6 +101,7 @@ impl<'a> Printer<'a> {
             buffer_line: vec![],
             stdout,
             show_color,
+            header_was_printed: false,
             byte_hex_table: (0u8..=u8::max_value())
                 .map(|i| {
                     let byte_hex = format!("{:02x} ", i);
@@ -160,7 +162,12 @@ impl<'a> Printer<'a> {
             8 => {
                 let _ = write!(&mut self.buffer_line, "┊ ");
             }
-            0 => self.print_textline()?,
+            0 => {
+                if !self.header_was_printed {
+                    self.header();
+                }
+                self.print_textline()?;
+            }
             _ => {}
         }
 
@@ -286,7 +293,6 @@ fn run() -> Result<(), Box<::std::error::Error>> {
 
     let stdout = io::stdout();
     let mut printer = Printer::new(stdout.lock(), show_color);
-    printer.header();
 
     let mut buffer = [0; BUFFER_SIZE];
     'mainloop: loop {
