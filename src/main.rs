@@ -235,9 +235,9 @@ fn run() -> Result<(), Box<::std::error::Error>> {
                 .help("Read only N bytes from the input"),
         )
         .arg(
-            Arg::with_name("c")
+            Arg::with_name("bytes")
                 .short("c")
-                .long("c")
+                .long("bytes")
                 .takes_value(true)
                 .hidden(true),
         )
@@ -263,14 +263,9 @@ fn run() -> Result<(), Box<::std::error::Error>> {
         None => Box::new(stdin.lock()),
     };
 
-    if let Some(length) = matches
-        .value_of("length")
-        .and_then(|n| n.parse::<u64>().ok())
-    {
-        reader = Box::new(reader.take(length));
-    }
+    let length_arg = matches.value_of("length").or(matches.value_of("bytes"));
 
-    if let Some(length) = matches.value_of("c").and_then(|n| n.parse::<u64>().ok()) {
+    if let Some(length) = length_arg.and_then(|n| n.parse::<u64>().ok()) {
         reader = Box::new(reader.take(length));
     }
 
