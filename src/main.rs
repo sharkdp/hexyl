@@ -247,7 +247,8 @@ fn run() -> Result<(), Box<::std::error::Error>> {
                 .short("c")
                 .long("bytes")
                 .takes_value(true)
-                .hidden(true),
+                .value_name("N")
+                .help("An alias for -n/--length"),
         )
         .arg(
             Arg::with_name("color")
