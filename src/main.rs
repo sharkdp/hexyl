@@ -165,6 +165,7 @@ impl<'a> Printer<'a> {
             0 => {
                 if !self.header_was_printed {
                     self.header();
+                    self.header_was_printed = true;
                 }
                 self.print_textline()?;
             }
