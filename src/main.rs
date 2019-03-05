@@ -80,6 +80,51 @@ impl Byte {
     }
 }
 
+enum BorderStyle {
+    Unicode,
+    Ascii,
+    None,
+}
+
+impl BorderStyle {
+    /// returns, in order, the left corner, horizontal line, column
+    /// seperator and right corner for the header
+    fn header_elems(&self) -> Option<(char, char, char, char)> {
+        match self {
+            BorderStyle::Unicode => Some(('┌', '─', '┬', '┐')),
+            BorderStyle::Ascii   => Some(('+', '-', '+', '+')),
+            BorderStyle::None    => None,
+        }
+    }
+
+    /// returns, in order, the left corner, horizontal line, column
+    /// seperator and right corner for the footer
+    fn footer_elems(&self) -> Option<(char, char, char, char)> {
+        match self {
+            BorderStyle::Unicode => Some(('└', '─', '┴', '┘')),
+            BorderStyle::Ascii   => Some(('+', '-', '+', '+')),
+            BorderStyle::None    => None,
+        }
+    }
+
+    fn outer_sep(&self) -> char {
+        match self {
+            BorderStyle::Unicode => '│',
+            BorderStyle::Ascii   => '|',
+            BorderStyle::None    => ' ',
+        }
+    }
+
+    fn inner_sep(&self) -> char {
+        match self {
+            BorderStyle::Unicode => '┊',
+            BorderStyle::Ascii   => '|',
+            BorderStyle::None    => ' ',
+        }
+    }
+}
+
+
 struct Printer<'a> {
     idx: usize,
     /// The raw bytes used as input for the current line.
@@ -88,19 +133,21 @@ struct Printer<'a> {
     buffer_line: Vec<u8>,
     stdout: StdoutLock<'a>,
     show_color: bool,
+    border_style: BorderStyle,
     header_was_printed: bool,
     byte_hex_table: Vec<String>,
     byte_char_table: Vec<String>,
 }
 
 impl<'a> Printer<'a> {
-    fn new(stdout: StdoutLock, show_color: bool) -> Printer {
+    fn new(stdout: StdoutLock, show_color: bool, border_style: BorderStyle) -> Printer {
         Printer {
             idx: 1,
             raw_line: vec![],
             buffer_line: vec![],
             stdout,
             show_color,
+            border_style,
             header_was_printed: false,
             byte_hex_table: (0u8..=u8::max_value())
                 .map(|i| {
@@ -126,21 +173,29 @@ impl<'a> Printer<'a> {
     }
 
     fn header(&mut self) {
-        writeln!(
-            self.stdout,
-            "┌{0:─<8}┬{0:─<25}┬{0:─<25}┬{0:─<8}┬{0:─<8}┐",
-            ""
-        )
-        .ok();
+        if let Some((l,h,c,r)) = self.border_style.header_elems() {
+            let h8 = h.to_string().repeat(8);
+            let h25 = h.to_string().repeat(25);
+
+            writeln!(
+                self.stdout,
+                "{l}{h8}{c}{h25}{c}{h25}{c}{h8}{c}{h8}{r}",
+                l=l, c=c, r=r, h8=h8, h25=h25
+            ).ok();
+        }
     }
 
     fn footer(&mut self) {
-        writeln!(
-            self.stdout,
-            "└{0:─<8}┴{0:─<25}┴{0:─<25}┴{0:─<8}┴{0:─<8}┘",
-            ""
-        )
-        .ok();
+        if let Some((l,h,c,r)) = self.border_style.footer_elems() {
+            let h8 = h.to_string().repeat(8);
+            let h25 = h.to_string().repeat(25);
+
+            writeln!(
+                self.stdout,
+                "{l}{h8}{c}{h25}{c}{h25}{c}{h8}{c}{h8}{r}",
+                l=l, c=c, r=r, h8=h8, h25=h25
+            ).ok();
+        }
     }
 
     fn print_byte(&mut self, b: u8) -> io::Result<()> {
@@ -152,7 +207,13 @@ impl<'a> Printer<'a> {
             } else {
                 byte_index
             };
-            let _ = write!(&mut self.buffer_line, "│{}│ ", formatted_string);
+            let _ = write!(
+                &mut self.buffer_line,
+                "{}{}{} ",
+                self.border_style.inner_sep(),
+                formatted_string,
+                self.border_style.inner_sep()
+            );
         }
 
         write!(&mut self.buffer_line, "{}", self.byte_hex_table[b as usize])?;
@@ -160,7 +221,11 @@ impl<'a> Printer<'a> {
 
         match self.idx % 16 {
             8 => {
-                let _ = write!(&mut self.buffer_line, "┊ ");
+                let _ = write!(
+                    &mut self.buffer_line,
+                    "{} ",
+                    self.border_style.inner_sep()
+                );
             }
             0 => {
                 if !self.header_was_printed {
@@ -187,13 +252,21 @@ impl<'a> Printer<'a> {
         if len < 8 {
             let _ = write!(
                 &mut self.buffer_line,
-                "{0:1$}┊{0:2$}│",
+                "{0:1$}{3}{0:2$}{4}",
                 "",
                 3 * (8 - len),
-                1 + 3 * 8
+                1 + 3 * 8,
+                self.border_style.inner_sep(),
+                self.border_style.outer_sep(),
             );
         } else {
-            let _ = write!(&mut self.buffer_line, "{0:1$}│", "", 3 * (16 - len));
+            let _ = write!(
+                &mut self.buffer_line,
+                "{0:1$}{2}",
+                "",
+                3 * (16 - len),
+                self.border_style.outer_sep()
+            );
         }
 
         let mut idx = 1;
@@ -205,16 +278,34 @@ impl<'a> Printer<'a> {
             );
 
             if idx == 8 {
-                let _ = write!(&mut self.buffer_line, "┊");
+                let _ = write!(
+                    &mut self.buffer_line,
+                    "{}",
+                    self.border_style.inner_sep()
+                );
             }
 
             idx += 1;
         }
 
         if len < 8 {
-            let _ = writeln!(&mut self.buffer_line, "{0:1$}┊{0:2$}│ ", "", 8 - len, 8);
+            let _ = writeln!(
+                &mut self.buffer_line,
+                "{0:1$}{3}{0:2$}{4} ",
+                "",
+                8 - len,
+                8,
+                self.border_style.inner_sep(),
+                self.border_style.outer_sep(),
+            );
         } else {
-            let _ = writeln!(&mut self.buffer_line, "{0:1$}│", "", 16 - len);
+            let _ = writeln!(
+                &mut self.buffer_line,
+                "{0:1$}{2}",
+                "",
+                16 - len,
+                self.border_style.outer_sep()
+            );
         }
         self.stdout.write_all(&self.buffer_line)?;
 
@@ -261,6 +352,14 @@ fn run() -> Result<(), Box<::std::error::Error>> {
                     "When to use colors. The auto-mode only displays colors if the output \
                      goes to an interactive terminal",
                 ),
+        )
+        .arg(
+            Arg::with_name("border")
+                .long("border")
+                .takes_value(true)
+                .possible_values(&["unicode", "ascii", "none"])
+                .default_value("unicode")
+                .help("Whether to draw a border with unicode or ASCII characters, or none at all"),
         );
 
     let matches = app.get_matches_safe()?;
@@ -284,6 +383,12 @@ fn run() -> Result<(), Box<::std::error::Error>> {
         _ => true,
     };
 
+    let border_style = match matches.value_of("border") {
+        Some("unicode") => BorderStyle::Unicode,
+        Some("ascii") => BorderStyle::Ascii,
+        _ => BorderStyle::None,
+    };
+
     // Set up Ctrl-C handler
     let cancelled = Arc::new(AtomicBool::new(false));
     let c = cancelled.clone();
@@ -294,7 +399,7 @@ fn run() -> Result<(), Box<::std::error::Error>> {
     .expect("Error setting Ctrl-C handler");
 
     let stdout = io::stdout();
-    let mut printer = Printer::new(stdout.lock(), show_color);
+    let mut printer = Printer::new(stdout.lock(), show_color, border_style);
 
     let mut buffer = [0; BUFFER_SIZE];
     'mainloop: loop {
