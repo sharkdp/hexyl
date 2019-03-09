@@ -256,7 +256,7 @@ fn run() -> Result<(), Box<::std::error::Error>> {
                 .takes_value(true)
                 .value_name("when")
                 .possible_values(&["always", "auto", "never"])
-                .default_value("always")
+                .default_value("auto")
                 .help(
                     "When to use colors. The auto-mode only displays colors if the output \
                      goes to an interactive terminal",
