@@ -28,10 +28,10 @@ sudo dpkg -i hexyl_0.4.0_amd64.deb
 
 ### On Arch Linux
 
-You can install `hexyl` from [this AUR package](https://aur.archlinux.org/packages/hexyl/):
+You can install `hexyl` from [the official package repository](https://www.archlinux.org/packages/community/x86_64/hexyl/):
 
 ```
-yay -S hexyl
+pacman -S hexyl
 ```
 
 ### On macOS
