@@ -4,6 +4,8 @@ extern crate ansi_term;
 extern crate atty;
 extern crate ctrlc;
 
+mod squeezer;
+
 use std::fs::File;
 use std::io::{self, prelude::*, StdoutLock};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -15,6 +17,7 @@ use ansi_term::Color;
 use ansi_term::Color::Fixed;
 
 use atty::Stream;
+use squeezer::{SqueezeAction, Squeezer};
 
 const BUFFER_SIZE: usize = 256;
 
@@ -159,10 +162,16 @@ struct Printer<'a> {
     header_was_printed: bool,
     byte_hex_table: Vec<String>,
     byte_char_table: Vec<String>,
+    squeezer: Squeezer,
 }
 
 impl<'a> Printer<'a> {
-    fn new(stdout: StdoutLock, show_color: bool, border_style: BorderStyle) -> Printer {
+    fn new(
+        stdout: StdoutLock,
+        show_color: bool,
+        border_style: BorderStyle,
+        use_squeeze: bool,
+    ) -> Printer {
         Printer {
             idx: 1,
             raw_line: vec![],
@@ -191,6 +200,7 @@ impl<'a> Printer<'a> {
                     }
                 })
                 .collect(),
+            squeezer: Squeezer::new(use_squeeze),
         }
     }
 
@@ -232,31 +242,37 @@ impl<'a> Printer<'a> {
         }
     }
 
+    fn print_position_indicator(&mut self) {
+        if !self.header_was_printed {
+            self.header();
+            self.header_was_printed = true;
+        }
+
+        let style = COLOR_OFFSET.normal();
+        let byte_index = format!("{:08x}", self.idx - 1);
+        let formatted_string = if self.show_color {
+            format!("{}", style.paint(byte_index))
+        } else {
+            byte_index
+        };
+        let _ = write!(
+            &mut self.buffer_line,
+            "{}{}{} ",
+            self.border_style.outer_sep(),
+            formatted_string,
+            self.border_style.outer_sep()
+        );
+    }
+
     fn print_byte(&mut self, b: u8) -> io::Result<()> {
         if self.idx % 16 == 1 {
-            if !self.header_was_printed {
-                self.header();
-                self.header_was_printed = true;
-            }
-
-            let style = COLOR_OFFSET.normal();
-            let byte_index = format!("{:08x}", self.idx - 1);
-            let formatted_string = if self.show_color {
-                format!("{}", style.paint(byte_index))
-            } else {
-                byte_index
-            };
-            let _ = write!(
-                &mut self.buffer_line,
-                "{}{}{} ",
-                self.border_style.outer_sep(),
-                formatted_string,
-                self.border_style.outer_sep()
-            );
+            self.print_position_indicator();
         }
 
         write!(&mut self.buffer_line, "{}", self.byte_hex_table[b as usize])?;
         self.raw_line.push(b);
+
+        self.squeezer.process(&b, &self.idx);
 
         match self.idx % 16 {
             8 => {
@@ -277,6 +293,20 @@ impl<'a> Printer<'a> {
         let len = self.raw_line.len();
 
         if len == 0 {
+            if self.squeezer.active() {
+                self.print_position_indicator();
+                let _ = writeln!(
+                    &mut self.buffer_line,
+                    "{0:1$}{4}{0:2$}{5}{0:3$}{4}{0:3$}{5}",
+                    "",
+                    24,
+                    25,
+                    8,
+                    self.border_style.inner_sep(),
+                    self.border_style.outer_sep(),
+                );
+                self.stdout.write_all(&self.buffer_line)?;
+            }
             return Ok(());
         }
 
@@ -334,6 +364,27 @@ impl<'a> Printer<'a> {
                 self.border_style.outer_sep()
             );
         }
+
+        match self.squeezer.action() {
+            SqueezeAction::Print => {
+                self.buffer_line.clear();
+                let style = COLOR_OFFSET.normal();
+                let _ = writeln!(
+                    &mut self.buffer_line,
+                    "{5}{0}{1:2$}{5}{1:3$}{6}{1:3$}{5}{1:4$}{6}{1:4$}{5}",
+                    style.paint("*"),
+                    "",
+                    7,
+                    25,
+                    8,
+                    self.border_style.outer_sep(),
+                    self.border_style.inner_sep(),
+                );
+            }
+            SqueezeAction::Delete => self.buffer_line.clear(),
+            SqueezeAction::Ignore => (),
+        }
+
         self.stdout.write_all(&self.buffer_line)?;
 
         self.raw_line.clear();
@@ -367,6 +418,16 @@ fn run() -> Result<(), Box<::std::error::Error>> {
                 .takes_value(true)
                 .value_name("N")
                 .help("An alias for -n/--length"),
+        )
+        .arg(
+            Arg::with_name("nosqueezing")
+                .short("v")
+                .long("no-squeezing")
+                .help(
+                    "Displays all input data. Otherwise any number of groups of output \
+                     lines which would be identical to the preceding group of lines, are \
+                     replaced with a line comprised of a single asterisk.",
+                ),
         )
         .arg(
             Arg::with_name("color")
@@ -422,6 +483,8 @@ fn run() -> Result<(), Box<::std::error::Error>> {
         _ => BorderStyle::None,
     };
 
+    let squeeze = !matches.is_present("nosqueezing");
+
     // Set up Ctrl-C handler
     let cancelled = Arc::new(AtomicBool::new(false));
     let c = cancelled.clone();
@@ -432,7 +495,7 @@ fn run() -> Result<(), Box<::std::error::Error>> {
     .expect("Error setting Ctrl-C handler");
 
     let stdout = io::stdout();
-    let mut printer = Printer::new(stdout.lock(), show_color, border_style);
+    let mut printer = Printer::new(stdout.lock(), show_color, border_style, squeeze);
 
     let mut buffer = [0; BUFFER_SIZE];
     'mainloop: loop {
