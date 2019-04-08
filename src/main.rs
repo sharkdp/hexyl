@@ -88,7 +88,7 @@ enum BorderStyle {
 
 impl BorderStyle {
     /// returns, in order, the left corner, horizontal line, column
-    /// seperator and right corner for the header
+    /// separator and right corner for the header
     fn header_elems(&self) -> Option<(char, char, char, char)> {
         match self {
             BorderStyle::Unicode => Some(('┌', '─', '┬', '┐')),
@@ -98,7 +98,7 @@ impl BorderStyle {
     }
 
     /// returns, in order, the left corner, horizontal line, column
-    /// seperator and right corner for the footer
+    /// separator and right corner for the footer
     fn footer_elems(&self) -> Option<(char, char, char, char)> {
         match self {
             BorderStyle::Unicode => Some(('└', '─', '┴', '┘')),
