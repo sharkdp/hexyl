@@ -249,9 +249,9 @@ impl<'a> Printer<'a> {
             let _ = write!(
                 &mut self.buffer_line,
                 "{}{}{} ",
-                self.border_style.inner_sep(),
+                self.border_style.outer_sep(),
                 formatted_string,
-                self.border_style.inner_sep()
+                self.border_style.outer_sep()
             );
         }
 
