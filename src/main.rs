@@ -80,6 +80,13 @@ impl Byte {
     }
 }
 
+struct BorderElements {
+    left_corner: char,
+    horizontal_line: char,
+    column_separator: char,
+    right_corner: char,
+}
+
 enum BorderStyle {
     Unicode,
     Ascii,
@@ -87,23 +94,39 @@ enum BorderStyle {
 }
 
 impl BorderStyle {
-    /// returns, in order, the left corner, horizontal line, column
-    /// separator and right corner for the header
-    fn header_elems(&self) -> Option<(char, char, char, char)> {
+    fn header_elems(&self) -> Option<BorderElements> {
         match self {
-            BorderStyle::Unicode => Some(('┌', '─', '┬', '┐')),
-            BorderStyle::Ascii   => Some(('+', '-', '+', '+')),
-            BorderStyle::None    => None,
+            BorderStyle::Unicode => Some(BorderElements {
+                left_corner: '┌',
+                horizontal_line: '─',
+                column_separator: '┬',
+                right_corner: '┐',
+            }),
+            BorderStyle::Ascii => Some(BorderElements {
+                left_corner: '+',
+                horizontal_line: '-',
+                column_separator: '+',
+                right_corner: '+',
+            }),
+            BorderStyle::None => None,
         }
     }
 
-    /// returns, in order, the left corner, horizontal line, column
-    /// separator and right corner for the footer
-    fn footer_elems(&self) -> Option<(char, char, char, char)> {
+    fn footer_elems(&self) -> Option<BorderElements> {
         match self {
-            BorderStyle::Unicode => Some(('└', '─', '┴', '┘')),
-            BorderStyle::Ascii   => Some(('+', '-', '+', '+')),
-            BorderStyle::None    => None,
+            BorderStyle::Unicode => Some(BorderElements {
+                left_corner: '└',
+                horizontal_line: '─',
+                column_separator: '┴',
+                right_corner: '┘',
+            }),
+            BorderStyle::Ascii => Some(BorderElements {
+                left_corner: '+',
+                horizontal_line: '-',
+                column_separator: '+',
+                right_corner: '+',
+            }),
+            BorderStyle::None => None,
         }
     }
 
@@ -172,16 +195,17 @@ impl<'a> Printer<'a> {
     }
 
     fn header(&mut self) {
-        if let Some((l,h,c,r)) = self.border_style.header_elems() {
+        if let Some(border_elements) = self.border_style.header_elems() {
+            let h = border_elements.horizontal_line;
             let h8 = h.to_string().repeat(8);
             let h25 = h.to_string().repeat(25);
 
             writeln!(
                 self.stdout,
                 "{l}{h8}{c}{h25}{c}{h25}{c}{h8}{c}{h8}{r}",
-                l = l,
-                c = c,
-                r = r,
+                l = border_elements.left_corner,
+                c = border_elements.column_separator,
+                r = border_elements.right_corner,
                 h8 = h8,
                 h25 = h25
             )
@@ -190,16 +214,17 @@ impl<'a> Printer<'a> {
     }
 
     fn footer(&mut self) {
-        if let Some((l,h,c,r)) = self.border_style.footer_elems() {
+        if let Some(border_elements) = self.border_style.footer_elems() {
+            let h = border_elements.horizontal_line;
             let h8 = h.to_string().repeat(8);
             let h25 = h.to_string().repeat(25);
 
             writeln!(
                 self.stdout,
                 "{l}{h8}{c}{h25}{c}{h25}{c}{h8}{c}{h8}{r}",
-                l = l,
-                c = c,
-                r = r,
+                l = border_elements.left_corner,
+                c = border_elements.column_separator,
+                r = border_elements.right_corner,
                 h8 = h8,
                 h25 = h25
             )
