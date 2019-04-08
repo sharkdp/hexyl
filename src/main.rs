@@ -234,6 +234,11 @@ impl<'a> Printer<'a> {
 
     fn print_byte(&mut self, b: u8) -> io::Result<()> {
         if self.idx % 16 == 1 {
+            if !self.header_was_printed {
+                self.header();
+                self.header_was_printed = true;
+            }
+
             let style = COLOR_OFFSET.normal();
             let byte_index = format!("{:08x}", self.idx - 1);
             let formatted_string = if self.show_color {
@@ -258,10 +263,6 @@ impl<'a> Printer<'a> {
                 let _ = write!(&mut self.buffer_line, "{} ", self.border_style.inner_sep());
             }
             0 => {
-                if !self.header_was_printed {
-                    self.header();
-                    self.header_was_printed = true;
-                }
                 self.print_textline()?;
             }
             _ => {}
@@ -457,6 +458,9 @@ fn run() -> Result<(), Box<::std::error::Error>> {
 
     // Finish last line
     printer.print_textline().ok();
+    if !printer.header_was_printed {
+        printer.header();
+    }
     printer.footer();
 
     Ok(())
