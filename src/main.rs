@@ -110,20 +110,19 @@ impl BorderStyle {
     fn outer_sep(&self) -> char {
         match self {
             BorderStyle::Unicode => '│',
-            BorderStyle::Ascii   => '|',
-            BorderStyle::None    => ' ',
+            BorderStyle::Ascii => '|',
+            BorderStyle::None => ' ',
         }
     }
 
     fn inner_sep(&self) -> char {
         match self {
             BorderStyle::Unicode => '┊',
-            BorderStyle::Ascii   => '|',
-            BorderStyle::None    => ' ',
+            BorderStyle::Ascii => '|',
+            BorderStyle::None => ' ',
         }
     }
 }
-
 
 struct Printer<'a> {
     idx: usize,
@@ -180,8 +179,13 @@ impl<'a> Printer<'a> {
             writeln!(
                 self.stdout,
                 "{l}{h8}{c}{h25}{c}{h25}{c}{h8}{c}{h8}{r}",
-                l=l, c=c, r=r, h8=h8, h25=h25
-            ).ok();
+                l = l,
+                c = c,
+                r = r,
+                h8 = h8,
+                h25 = h25
+            )
+            .ok();
         }
     }
 
@@ -193,8 +197,13 @@ impl<'a> Printer<'a> {
             writeln!(
                 self.stdout,
                 "{l}{h8}{c}{h25}{c}{h25}{c}{h8}{c}{h8}{r}",
-                l=l, c=c, r=r, h8=h8, h25=h25
-            ).ok();
+                l = l,
+                c = c,
+                r = r,
+                h8 = h8,
+                h25 = h25
+            )
+            .ok();
         }
     }
 
@@ -221,11 +230,7 @@ impl<'a> Printer<'a> {
 
         match self.idx % 16 {
             8 => {
-                let _ = write!(
-                    &mut self.buffer_line,
-                    "{} ",
-                    self.border_style.inner_sep()
-                );
+                let _ = write!(&mut self.buffer_line, "{} ", self.border_style.inner_sep());
             }
             0 => {
                 if !self.header_was_printed {
@@ -278,11 +283,7 @@ impl<'a> Printer<'a> {
             );
 
             if idx == 8 {
-                let _ = write!(
-                    &mut self.buffer_line,
-                    "{}",
-                    self.border_style.inner_sep()
-                );
+                let _ = write!(&mut self.buffer_line, "{}", self.border_style.inner_sep());
             }
 
             idx += 1;
@@ -376,12 +377,10 @@ fn run() -> Result<(), Box<::std::error::Error>> {
     if let Some(length) = length_arg.and_then(|n| {
         if n.starts_with("0x") {
             u64::from_str_radix(n.trim_start_matches("0x"), 16).ok()
-        }
-        else {
+        } else {
             n.parse::<u64>().ok()
         }
-    })
-    {
+    }) {
         reader = Box::new(reader.take(length));
     }
 
