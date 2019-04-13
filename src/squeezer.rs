@@ -46,12 +46,12 @@ impl Squeezer {
         }
     }
 
-    pub fn process(&mut self, b: &u8, i: &usize) {
+    pub fn process(&mut self, b: u8, i: usize) {
         use self::SqueezeState::*;
         if self.state == Disabled {
             return;
         }
-        let eq = *b == self.byte;
+        let eq = b == self.byte;
 
         if i % LSIZE == 0 {
             self.state = match self.state {
@@ -69,7 +69,7 @@ impl Squeezer {
             }
         }
 
-        self.byte = b.clone();
+        self.byte = b;
     }
 
     pub fn active(&self) -> bool {
@@ -115,7 +115,7 @@ mod tests {
 
         for z in 0..LINES {
             for i in z * LSIZE..(z + 1) * LSIZE {
-                s.process(&v[i], &(i + 1));
+                s.process(v[i], i + 1);
             }
             assert_eq!(s.action(), exp[z]);
         }
@@ -139,13 +139,13 @@ mod tests {
 
         for z in 0..LINES {
             for i in z * LSIZE..(z + 1) * LSIZE {
-                s.process(&v[i], &(i + 1));
+                s.process(v[i], i + 1);
             }
             assert_eq!(s.action(), exp[z]);
         }
 
         for i in LSIZE * LINES..LINES * LSIZE + 12 {
-            s.process(&v[i], &(i + 1));
+            s.process(v[i], i + 1);
         }
         assert_eq!(s.action(), exp[3]);
     }
@@ -171,7 +171,7 @@ mod tests {
 
         for z in 0..LINES {
             for i in z * LSIZE..(z + 1) * LSIZE {
-                s.process(&v[i], &(i + 1));
+                s.process(v[i], i + 1);
             }
             assert_eq!(s.action(), exp[z]);
         }
@@ -197,7 +197,7 @@ mod tests {
 
         for z in 0..LINES {
             for i in z * LSIZE..(z + 1) * LSIZE {
-                s.process(&v[i], &(i + 1));
+                s.process(v[i], i + 1);
             }
             assert_eq!(s.action(), exp[z]);
         }
@@ -222,7 +222,7 @@ mod tests {
 
         for z in 0..LINES {
             for i in z * LSIZE..(z + 1) * LSIZE {
-                s.process(&v[i], &(i + 1));
+                s.process(v[i], i + 1);
             }
             assert_eq!(s.action(), exp[z]);
         }
@@ -252,7 +252,7 @@ mod tests {
 
         for z in 0..LINES {
             for i in z * LSIZE..(z + 1) * LSIZE {
-                s.process(&v[i], &(i + 1));
+                s.process(v[i], i + 1);
             }
             assert_eq!(s.action(), exp[z]);
         }

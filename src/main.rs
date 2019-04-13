@@ -272,7 +272,7 @@ impl<'a> Printer<'a> {
         write!(&mut self.buffer_line, "{}", self.byte_hex_table[b as usize])?;
         self.raw_line.push(b);
 
-        self.squeezer.process(&b, &self.idx);
+        self.squeezer.process(b, self.idx);
 
         match self.idx % 16 {
             8 => {
