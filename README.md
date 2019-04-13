@@ -63,7 +63,7 @@ you use a terminal that supports ANSI escape sequences (like PowerShell on Windo
 
 ### Via cargo
 
-If you have Rust 1.30 or higher, you can install `hexyl` from source via `cargo`:
+If you have Rust 1.31 or higher, you can install `hexyl` from source via `cargo`:
 ```
 cargo install hexyl
 ```

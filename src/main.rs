@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate clap;
-extern crate ansi_term;
-extern crate atty;
-extern crate ctrlc;
+
+use atty;
+use ctrlc;
 
 mod squeezer;
 
@@ -17,7 +17,7 @@ use ansi_term::Color;
 use ansi_term::Color::Fixed;
 
 use atty::Stream;
-use squeezer::{SqueezeAction, Squeezer};
+use crate::squeezer::{SqueezeAction, Squeezer};
 
 const BUFFER_SIZE: usize = 256;
 
@@ -58,7 +58,7 @@ impl Byte {
     }
 
     fn color(self) -> &'static Color {
-        use ByteCategory::*;
+        use crate::ByteCategory::*;
 
         match self.category() {
             Null => &COLOR_NULL,
@@ -70,7 +70,7 @@ impl Byte {
     }
 
     fn as_char(self) -> char {
-        use ByteCategory::*;
+        use crate::ByteCategory::*;
 
         match self.category() {
             Null => '0',
@@ -167,11 +167,11 @@ struct Printer<'a> {
 
 impl<'a> Printer<'a> {
     fn new(
-        stdout: StdoutLock,
+        stdout: StdoutLock<'_>,
         show_color: bool,
         border_style: BorderStyle,
         use_squeeze: bool,
-    ) -> Printer {
+    ) -> Printer<'_> {
         Printer {
             idx: 1,
             raw_line: vec![],
@@ -394,7 +394,7 @@ impl<'a> Printer<'a> {
     }
 }
 
-fn run() -> Result<(), Box<::std::error::Error>> {
+fn run() -> Result<(), Box<dyn std::error::Error>> {
     let app = App::new(crate_name!())
         .setting(AppSettings::ColorAuto)
         .setting(AppSettings::ColoredHelp)
