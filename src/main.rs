@@ -16,8 +16,8 @@ use clap::{App, AppSettings, Arg};
 use ansi_term::Color;
 use ansi_term::Color::Fixed;
 
-use atty::Stream;
 use crate::squeezer::{SqueezeAction, Squeezer};
+use atty::Stream;
 
 const BUFFER_SIZE: usize = 256;
 
@@ -369,10 +369,15 @@ impl<'a> Printer<'a> {
             SqueezeAction::Print => {
                 self.buffer_line.clear();
                 let style = COLOR_OFFSET.normal();
+                let asterisk = if self.show_color {
+                    format!("{}", style.paint("*"))
+                } else {
+                    String::from("*")
+                };
                 let _ = writeln!(
                     &mut self.buffer_line,
                     "{5}{0}{1:2$}{5}{1:3$}{6}{1:3$}{5}{1:4$}{6}{1:4$}{5}",
-                    style.paint("*"),
+                    asterisk,
                     "",
                     7,
                     25,
