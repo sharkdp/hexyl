@@ -54,17 +54,23 @@ impl Squeezer {
         let eq = b == self.byte;
 
         if i % LSIZE == 0 {
-            self.state = match self.state {
-                NoSqueeze => Probe,
-                Probe => SqueezeActiveFirstLine,
-                SqueezeActiveFirstLine => SqueezeFirstLine,
-                SqueezeFirstLine => SqueezeActive,
-                SqueezeActive => Squeeze,
-                Squeeze => SqueezeActive,
-                Disabled => Disabled,
-            };
+            if !eq {
+                self.state = Probe;
+            } else {
+                self.state = match self.state {
+                    NoSqueeze => Probe,
+                    Probe => SqueezeActiveFirstLine,
+                    SqueezeActiveFirstLine => SqueezeFirstLine,
+                    SqueezeFirstLine => SqueezeActive,
+                    SqueezeActive => Squeeze,
+                    Squeeze => SqueezeActive,
+                    Disabled => Disabled,
+                };
+            }
         } else if !eq {
-            if (i % LSIZE == 1 && self.state != Probe) || i % LSIZE != 1 {
+            if i % LSIZE == 1 {
+                self.state = Probe;
+            } else if i % LSIZE != 1 {
                 self.state = NoSqueeze;
             }
         }
@@ -113,19 +119,23 @@ mod tests {
             SqueezeAction::Delete, // delete reoccurring line
         ];
 
-        for z in 0..LINES {
-            for i in z * LSIZE..(z + 1) * LSIZE {
-                s.process(v[i], i + 1);
+        let mut line = 0;
+        let mut idx = 1;
+        for z in v.chunks(LSIZE) {
+            for i in z {
+                s.process(*i, idx);
+                idx += 1;
             }
-            assert_eq!(s.action(), exp[z]);
+            let action = s.action();
+            assert_eq!(action, exp[line]);
+            line += 1;
         }
     }
 
     #[test]
     fn incomplete_while_squeeze() {
-        const LINES: usize = 3;
-        // third line only has 12 bytes and should be printed
-        let v = vec![0u8; LINES * LSIZE + 12];
+        // fourth line only has 12 bytes and should be printed
+        let v = vec![0u8; 3 * LSIZE + 12];
         let mut s = Squeezer::new(true);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
@@ -137,23 +147,21 @@ mod tests {
             SqueezeAction::Ignore, // last line only 12 bytes, print it
         ];
 
-        for z in 0..LINES {
-            for i in z * LSIZE..(z + 1) * LSIZE {
-                s.process(v[i], i + 1);
+        let mut line = 0;
+        let mut idx = 1;
+        for z in v.chunks(LSIZE) {
+            for i in z {
+                s.process(*i, idx);
+                idx += 1;
             }
-            assert_eq!(s.action(), exp[z]);
+            assert_eq!(s.action(), exp[line]);
+            line += 1;
         }
-
-        for i in LSIZE * LINES..LINES * LSIZE + 12 {
-            s.process(v[i], i + 1);
-        }
-        assert_eq!(s.action(), exp[3]);
     }
 
     #[test]
     /// all three lines are different, print all
     fn three_different_lines() {
-        const LINES: usize = 3;
         let mut v: Vec<u8> = vec![];
         v.extend(vec![0u8; 16]);
         v.extend(vec![1u8; 16]);
@@ -169,11 +177,16 @@ mod tests {
             SqueezeAction::Ignore, // different
         ];
 
-        for z in 0..LINES {
-            for i in z * LSIZE..(z + 1) * LSIZE {
-                s.process(v[i], i + 1);
+        let mut line = 0;
+        let mut idx = 1;
+        for z in v.chunks(LSIZE) {
+            for i in z {
+                s.process(*i, idx);
+                idx += 1;
             }
-            assert_eq!(s.action(), exp[z]);
+            let action = s.action();
+            assert_eq!(action, exp[line]);
+            line += 1;
         }
     }
 
@@ -195,11 +208,16 @@ mod tests {
             SqueezeAction::Ignore, // different lines, print again
         ];
 
-        for z in 0..LINES {
-            for i in z * LSIZE..(z + 1) * LSIZE {
-                s.process(v[i], i + 1);
+        let mut line = 0;
+        let mut idx = 1;
+        for z in v.chunks(LSIZE) {
+            for i in z {
+                s.process(*i, idx);
+                idx += 1;
             }
-            assert_eq!(s.action(), exp[z]);
+            let action = s.action();
+            assert_eq!(action, exp[line]);
+            line += 1;
         }
     }
 
@@ -220,18 +238,22 @@ mod tests {
             SqueezeAction::Ignore, // print squeeze symbol
         ];
 
-        for z in 0..LINES {
-            for i in z * LSIZE..(z + 1) * LSIZE {
-                s.process(v[i], i + 1);
+        let mut line = 0;
+        let mut idx = 1;
+        for z in v.chunks(LSIZE) {
+            for i in z {
+                s.process(*i, idx);
+                idx += 1;
             }
-            assert_eq!(s.action(), exp[z]);
+            let action = s.action();
+            assert_eq!(action, exp[line]);
+            line += 1;
         }
     }
 
     #[test]
     /// all three lines never become squeeze candidate (diff within line)
     fn never_squeeze_candidate() {
-        const LINES: usize = 3;
         let mut v = vec![];
         v.extend(vec![0u8; 8]);
         v.extend(vec![1u8; 8]);
@@ -250,11 +272,128 @@ mod tests {
             SqueezeAction::Ignore, // print squeeze symbol
         ];
 
-        for z in 0..LINES {
-            for i in z * LSIZE..(z + 1) * LSIZE {
-                s.process(v[i], i + 1);
+        let mut line = 0;
+        let mut idx = 1;
+        for z in v.chunks(LSIZE) {
+            for i in z {
+                s.process(*i, idx);
+                idx += 1;
             }
-            assert_eq!(s.action(), exp[z]);
+            let action = s.action();
+            assert_eq!(action, exp[line]);
+            line += 1;
+        }
+    }
+
+    #[test]
+    fn mix_everything() {
+        let mut v = vec![];
+        v.extend(vec![10u8; 16]); // print
+        v.extend(vec![20u8; 16]); // print
+        v.extend(vec![0u8; 16]); // print
+        v.extend(vec![0u8; 16]); // *
+        v.extend(vec![10u8; 16]); // print
+        v.extend(vec![20u8; 16]); // print
+        v.extend(vec![0u8; 16]); // print
+        v.extend(vec![0u8; 16]); // *
+        v.extend(vec![0u8; 16]); // delete
+        v.extend(vec![0u8; 16]); // delete*
+        v.extend(vec![20u8; 16]); // print
+        v.extend(vec![0u8; 12]); // print, only 12 bytes
+
+        let mut s = Squeezer::new(true);
+        // just initialized
+        assert_eq!(s.action(), SqueezeAction::Ignore);
+
+        let exp = vec![
+            SqueezeAction::Ignore,
+            SqueezeAction::Ignore,
+            SqueezeAction::Ignore,
+            SqueezeAction::Print,
+            SqueezeAction::Ignore,
+            SqueezeAction::Ignore,
+            SqueezeAction::Ignore,
+            SqueezeAction::Print,
+            SqueezeAction::Delete,
+            SqueezeAction::Delete,
+            SqueezeAction::Ignore,
+            SqueezeAction::Ignore,
+        ];
+
+        let mut line = 0;
+        let mut idx = 1;
+        for z in v.chunks(LSIZE) {
+            for i in z {
+                s.process(*i, idx);
+                idx += 1;
+            }
+            let action = s.action();
+            assert_eq!(action, exp[line]);
+            line += 1;
+        }
+    }
+
+    #[test]
+    fn last_char_diff() {
+        // see issue #62
+        let mut v = vec![];
+        v.extend(vec![20u8; 16]);
+        v.extend(vec![20u8; 15]);
+        v.push(61);
+        v.extend(vec![20u8; 16]);
+        v.extend(vec![20u8; 16]);
+
+        let mut s = Squeezer::new(true);
+        // just initialized
+        assert_eq!(s.action(), SqueezeAction::Ignore);
+
+        let exp = vec![
+            SqueezeAction::Ignore, // print as is
+            SqueezeAction::Ignore, // print as is
+            SqueezeAction::Ignore, // print as is
+            SqueezeAction::Print,  // print '*' char
+        ];
+
+        let mut line = 0;
+        let mut idx = 1;
+        for z in v.chunks(LSIZE) {
+            for i in z {
+                s.process(*i, idx);
+                idx += 1;
+            }
+            assert_eq!(s.action(), exp[line]);
+            line += 1;
+        }
+    }
+
+    #[test]
+    fn first_char_diff() {
+        // see issue #62
+        let mut v = vec![];
+        v.extend(vec![20u8; 16]);
+        v.push(61);
+        v.extend(vec![20u8; 15]);
+        v.extend(vec![20u8; 16]);
+
+        let mut s = Squeezer::new(true);
+        // just initialized
+        assert_eq!(s.action(), SqueezeAction::Ignore);
+
+        let exp = vec![
+            SqueezeAction::Ignore, // print as is
+            SqueezeAction::Ignore, // print as is
+            SqueezeAction::Ignore, // print as is
+        ];
+
+        let mut line = 0;
+        let mut idx = 1;
+        for z in v.chunks(LSIZE) {
+            for i in z {
+                s.process(*i, idx);
+                idx += 1;
+            }
+            assert_eq!(s.action(), exp[line]);
+            line += 1;
         }
     }
 }
