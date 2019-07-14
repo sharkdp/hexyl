@@ -4,8 +4,6 @@ extern crate clap;
 use atty;
 use ctrlc;
 
-mod squeezer;
-
 use std::fs::File;
 use std::io::{self, prelude::*, StdoutLock};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -16,8 +14,8 @@ use clap::{App, AppSettings, Arg};
 use ansi_term::Color;
 use ansi_term::Color::Fixed;
 
-use crate::squeezer::{SqueezeAction, Squeezer};
 use atty::Stream;
+use hexyl::squeezer::{SqueezeAction, Squeezer};
 
 const BUFFER_SIZE: usize = 256;
 
