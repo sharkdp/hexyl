@@ -15,8 +15,6 @@ use atty::Stream;
 
 use hexyl::{BorderStyle, Printer};
 
-const BUFFER_SIZE: usize = 256;
-
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let app = App::new(crate_name!())
         .setting(AppSettings::ColorAuto)
@@ -121,35 +119,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout_lock = stdout.lock();
 
     let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
-
-    let mut buffer = [0; BUFFER_SIZE];
-    'mainloop: loop {
-        let size = reader.read(&mut buffer)?;
-        if size == 0 {
-            break;
-        }
-
-        if cancelled.load(Ordering::SeqCst) {
-            eprintln!("hexyl has been cancelled.");
-            std::process::exit(130); // Set exit code to 128 + SIGINT
-        }
-
-        for b in &buffer[..size] {
-            let res = printer.print_byte(*b);
-
-            if res.is_err() {
-                // Broken pipe
-                break 'mainloop;
-            }
-        }
-    }
-
-    // Finish last line
-    printer.print_textline().ok();
-    if !printer.header_was_printed() {
-        printer.header();
-    }
-    printer.footer();
+    printer.print_all(&mut reader, Some(cancelled))?;
 
     Ok(())
 }
