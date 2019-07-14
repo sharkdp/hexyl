@@ -118,7 +118,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     .expect("Error setting Ctrl-C handler");
 
     let stdout = io::stdout();
-    let mut printer = Printer::new(stdout.lock(), show_color, border_style, squeeze);
+    let mut stdout_lock = stdout.lock();
+
+    let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
 
     let mut buffer = [0; BUFFER_SIZE];
     'mainloop: loop {
