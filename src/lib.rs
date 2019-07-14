@@ -1,11 +1,17 @@
 pub mod squeezer;
 
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use ansi_term::Color;
 use ansi_term::Color::Fixed;
 
 use squeezer::{SqueezeAction, Squeezer};
+
+type Cancelled = Arc<AtomicBool>;
+
+const BUFFER_SIZE: usize = 256;
 
 const COLOR_NULL: Color = Fixed(242); // grey
 const COLOR_OFFSET: Color = Fixed(242); // grey
@@ -386,5 +392,83 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
     pub fn header_was_printed(&self) -> bool {
         self.header_was_printed
+    }
+
+    /// Loop through the given `Reader`, printing until the `Reader` buffer
+    /// is exhausted, or the optional `cancelled` bool is set to true.
+    pub fn print_all<Reader: Read>(
+        &mut self,
+        mut reader: Reader,
+        canceller: Option<Cancelled>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut buffer = [0; BUFFER_SIZE];
+        'mainloop: loop {
+            let size = reader.read(&mut buffer)?;
+            if size == 0 {
+                break;
+            }
+
+            if let Some(cancelled) = &canceller {
+                if cancelled.load(Ordering::SeqCst) {
+                    eprintln!("hexyl has been cancelled.");
+                    std::process::exit(130); // Set exit code to 128 + SIGINT
+                }
+            }
+
+            for b in &buffer[..size] {
+                let res = self.print_byte(*b);
+
+                if res.is_err() {
+                    // Broken pipe
+                    break 'mainloop;
+                }
+            }
+        }
+
+        // Finish last line
+        self.print_textline().ok();
+        if !self.header_was_printed() {
+            self.header();
+        }
+        self.footer();
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+    use std::str;
+
+    use super::*;
+
+    fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) -> () {
+        let mut output = vec![];
+        let mut printer = Printer::new(&mut output, false, BorderStyle::Unicode, true);
+
+        printer.print_all(input, None).unwrap();
+
+        let actual_string: &str = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string)
+    }
+
+    #[test]
+    fn empty_file_passes() {
+        let input = io::empty();
+        let expected_string = "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+└────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
+".to_owned();
+        assert_print_all_output(input, expected_string);
+    }
+
+    #[test]
+    fn short_input_passes() {
+        let input = io::Cursor::new(b"spam");
+        let expected_string = "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+│00000000│ 73 70 61 6d             ┊                         │spam    ┊        │ 
+└────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
+".to_owned();
+        assert_print_all_output(input, expected_string);
     }
 }
