@@ -1,6 +1,6 @@
 pub mod squeezer;
 
-use std::io::{self, StdoutLock, Write};
+use std::io::{self, Write};
 
 use ansi_term::Color;
 use ansi_term::Color::Fixed;
@@ -136,13 +136,13 @@ impl BorderStyle {
     }
 }
 
-pub struct Printer<'a> {
+pub struct Printer<'a, Writer: Write> {
     idx: usize,
     /// The raw bytes used as input for the current line.
     raw_line: Vec<u8>,
-    /// The buffered line built with each byte, ready to print to stdout.
+    /// The buffered line built with each byte, ready to print to writer.
     buffer_line: Vec<u8>,
-    stdout: StdoutLock<'a>,
+    writer: &'a mut Writer,
     show_color: bool,
     border_style: BorderStyle,
     header_was_printed: bool,
@@ -151,18 +151,18 @@ pub struct Printer<'a> {
     squeezer: Squeezer,
 }
 
-impl<'a> Printer<'a> {
+impl<'a, Writer: Write> Printer<'a, Writer> {
     pub fn new(
-        stdout: StdoutLock<'_>,
+        writer: &'a mut Writer,
         show_color: bool,
         border_style: BorderStyle,
         use_squeeze: bool,
-    ) -> Printer<'_> {
+    ) -> Printer<'a, Writer> {
         Printer {
             idx: 1,
             raw_line: vec![],
             buffer_line: vec![],
-            stdout,
+            writer,
             show_color,
             border_style,
             header_was_printed: false,
@@ -197,7 +197,7 @@ impl<'a> Printer<'a> {
             let h25 = h.to_string().repeat(25);
 
             writeln!(
-                self.stdout,
+                self.writer,
                 "{l}{h8}{c}{h25}{c}{h25}{c}{h8}{c}{h8}{r}",
                 l = border_elements.left_corner,
                 c = border_elements.column_separator,
@@ -216,7 +216,7 @@ impl<'a> Printer<'a> {
             let h25 = h.to_string().repeat(25);
 
             writeln!(
-                self.stdout,
+                self.writer,
                 "{l}{h8}{c}{h25}{c}{h25}{c}{h8}{c}{h8}{r}",
                 l = border_elements.left_corner,
                 c = border_elements.column_separator,
@@ -291,7 +291,7 @@ impl<'a> Printer<'a> {
                     self.border_style.inner_sep(),
                     self.border_style.outer_sep(),
                 );
-                self.stdout.write_all(&self.buffer_line)?;
+                self.writer.write_all(&self.buffer_line)?;
             }
             return Ok(());
         }
@@ -376,7 +376,7 @@ impl<'a> Printer<'a> {
             SqueezeAction::Ignore => (),
         }
 
-        self.stdout.write_all(&self.buffer_line)?;
+        self.writer.write_all(&self.buffer_line)?;
 
         self.raw_line.clear();
         self.buffer_line.clear();
