@@ -7,7 +7,7 @@ use std::sync::Arc;
 use ansi_term::Color;
 use ansi_term::Color::Fixed;
 
-use squeezer::{SqueezeAction, Squeezer};
+use crate::squeezer::{SqueezeAction, Squeezer};
 
 type Cancelled = Arc<AtomicBool>;
 
