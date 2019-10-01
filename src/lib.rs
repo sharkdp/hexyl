@@ -340,7 +340,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         if len < 8 {
             let _ = writeln!(
                 &mut self.buffer_line,
-                "{0:1$}{3}{0:2$}{4} ",
+                "{0:1$}{3}{0:2$}{4}",
                 "",
                 8 - len,
                 8,
@@ -466,7 +466,7 @@ mod tests {
     fn short_input_passes() {
         let input = io::Cursor::new(b"spam");
         let expected_string = "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
-│00000000│ 73 70 61 6d             ┊                         │spam    ┊        │ 
+│00000000│ 73 70 61 6d             ┊                         │spam    ┊        │
 └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
 ".to_owned();
         assert_print_all_output(input, expected_string);
