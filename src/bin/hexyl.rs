@@ -69,6 +69,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .possible_values(&["unicode", "ascii", "none"])
                 .default_value("unicode")
                 .help("Whether to draw a border with unicode or ASCII characters, or none at all"),
+        )
+        .arg(
+            Arg::with_name("display_offset")
+                .short("o")
+                .long("display-offset")
+                .takes_value(true)
+                .value_name("OFFSET")
+                .help("Add OFFSET to the displayed file position."),
         );
 
     let matches = app.get_matches_safe()?;
@@ -82,13 +90,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let length_arg = matches.value_of("length").or(matches.value_of("bytes"));
 
-    if let Some(length) = length_arg.and_then(|n| {
-        if n.starts_with("0x") {
-            u64::from_str_radix(n.trim_start_matches("0x"), 16).ok()
-        } else {
-            n.parse::<u64>().ok()
-        }
-    }) {
+    if let Some(length) = length_arg.and_then(parse_hex_or_int) {
         reader = Box::new(reader.take(length));
     }
 
@@ -106,6 +108,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let squeeze = !matches.is_present("nosqueezing");
 
+    let display_offset = matches
+        .value_of("display_offset")
+        .and_then(parse_hex_or_int)
+        .unwrap_or(0);
+
     // Set up Ctrl-C handler
     let cancelled = Arc::new(AtomicBool::new(false));
     let c = cancelled.clone();
@@ -119,6 +126,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout_lock = stdout.lock();
 
     let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
+    printer.display_offset(display_offset as usize);
     printer.print_all(&mut reader, Some(cancelled))?;
 
     Ok(())
@@ -146,5 +154,13 @@ fn main() {
             eprintln!("Error: {}", err);
         }
         std::process::exit(1);
+    }
+}
+
+fn parse_hex_or_int(n: &str) -> Option<u64> {
+    if n.starts_with("0x") {
+        u64::from_str_radix(n.trim_start_matches("0x"), 16).ok()
+    } else {
+        n.parse::<u64>().ok()
     }
 }

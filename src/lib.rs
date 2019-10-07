@@ -155,6 +155,7 @@ pub struct Printer<'a, Writer: Write> {
     byte_hex_table: Vec<String>,
     byte_char_table: Vec<String>,
     squeezer: Squeezer,
+    display_offset: usize,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -193,7 +194,13 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 })
                 .collect(),
             squeezer: Squeezer::new(use_squeeze),
+            display_offset: 0,
         }
+    }
+
+    pub fn display_offset(&mut self, display_offset: usize) -> &mut Self {
+        self.display_offset = display_offset;
+        self
     }
 
     pub fn header(&mut self) {
@@ -241,7 +248,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
 
         let style = COLOR_OFFSET.normal();
-        let byte_index = format!("{:08x}", self.idx - 1);
+        let byte_index = format!("{:08x}", (self.idx - 1) + self.display_offset);
         let formatted_string = if self.show_color {
             format!("{}", style.paint(byte_index))
         } else {
@@ -456,19 +463,45 @@ mod tests {
     #[test]
     fn empty_file_passes() {
         let input = io::empty();
-        let expected_string = "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+        let expected_string =
+            "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
-".to_owned();
+"
+            .to_owned();
         assert_print_all_output(input, expected_string);
     }
 
     #[test]
     fn short_input_passes() {
         let input = io::Cursor::new(b"spam");
-        let expected_string = "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+        let expected_string =
+            "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 │00000000│ 73 70 61 6d             ┊                         │spam    ┊        │
 └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
-".to_owned();
+"
+            .to_owned();
         assert_print_all_output(input, expected_string);
+    }
+
+    #[test]
+    fn display_offset() {
+        let input = io::Cursor::new(b"spamspamspamspamspam");
+        let expected_string =
+            "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+│deadbeef│ 73 70 61 6d 73 70 61 6d ┊ 73 70 61 6d 73 70 61 6d │spamspam┊spamspam│
+│deadbeff│ 73 70 61 6d             ┊                         │spam    ┊        │
+└────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
+"
+            .to_owned();
+
+        let mut output = vec![];
+        let mut printer: Printer<Vec<u8>> =
+            Printer::new(&mut output, false, BorderStyle::Unicode, true);
+        printer.display_offset(0xdeadbeef);
+
+        printer.print_all(input, None).unwrap();
+
+        let actual_string: &str = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string)
     }
 }
