@@ -309,62 +309,66 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             return Ok(());
         }
 
-        if len < 8 {
-            let _ = write!(
-                &mut self.buffer_line,
-                "{0:1$}{3}{0:2$}{4}",
-                "",
-                3 * (8 - len),
-                1 + 3 * 8,
-                self.border_style.inner_sep(),
-                self.border_style.outer_sep(),
-            );
-        } else {
-            let _ = write!(
-                &mut self.buffer_line,
-                "{0:1$}{2}",
-                "",
-                3 * (16 - len),
-                self.border_style.outer_sep()
-            );
-        }
+        let squeeze_action = self.squeezer.action();
 
-        let mut idx = 1;
-        for &b in self.raw_line.iter() {
-            let _ = write!(
-                &mut self.buffer_line,
-                "{}",
-                self.byte_char_table[b as usize]
-            );
-
-            if idx == 8 {
-                let _ = write!(&mut self.buffer_line, "{}", self.border_style.inner_sep());
+        if squeeze_action != SqueezeAction::Delete {
+            if len < 8 {
+                let _ = write!(
+                    &mut self.buffer_line,
+                    "{0:1$}{3}{0:2$}{4}",
+                    "",
+                    3 * (8 - len),
+                    1 + 3 * 8,
+                    self.border_style.inner_sep(),
+                    self.border_style.outer_sep(),
+                );
+            } else {
+                let _ = write!(
+                    &mut self.buffer_line,
+                    "{0:1$}{2}",
+                    "",
+                    3 * (16 - len),
+                    self.border_style.outer_sep()
+                );
             }
 
-            idx += 1;
+            let mut idx = 1;
+            for &b in self.raw_line.iter() {
+                let _ = write!(
+                    &mut self.buffer_line,
+                    "{}",
+                    self.byte_char_table[b as usize]
+                );
+
+                if idx == 8 {
+                    let _ = write!(&mut self.buffer_line, "{}", self.border_style.inner_sep());
+                }
+
+                idx += 1;
+            }
+
+            if len < 8 {
+                let _ = writeln!(
+                    &mut self.buffer_line,
+                    "{0:1$}{3}{0:2$}{4}",
+                    "",
+                    8 - len,
+                    8,
+                    self.border_style.inner_sep(),
+                    self.border_style.outer_sep(),
+                );
+            } else {
+                let _ = writeln!(
+                    &mut self.buffer_line,
+                    "{0:1$}{2}",
+                    "",
+                    16 - len,
+                    self.border_style.outer_sep()
+                );
+            }
         }
 
-        if len < 8 {
-            let _ = writeln!(
-                &mut self.buffer_line,
-                "{0:1$}{3}{0:2$}{4}",
-                "",
-                8 - len,
-                8,
-                self.border_style.inner_sep(),
-                self.border_style.outer_sep(),
-            );
-        } else {
-            let _ = writeln!(
-                &mut self.buffer_line,
-                "{0:1$}{2}",
-                "",
-                16 - len,
-                self.border_style.outer_sep()
-            );
-        }
-
-        match self.squeezer.action() {
+        match squeeze_action {
             SqueezeAction::Print => {
                 self.buffer_line.clear();
                 let style = COLOR_OFFSET.normal();
@@ -393,6 +397,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         self.raw_line.clear();
         self.buffer_line.clear();
+
+        self.squeezer.advance();
 
         Ok(())
     }

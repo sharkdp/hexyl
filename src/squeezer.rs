@@ -86,17 +86,23 @@ impl Squeezer {
         }
     }
 
-    pub fn action(&mut self) -> SqueezeAction {
+    pub fn action(&self) -> SqueezeAction {
+        match self.state {
+            SqueezeState::SqueezeFirstLine => SqueezeAction::Print,
+            SqueezeState::Squeeze => SqueezeAction::Delete,
+            _ => SqueezeAction::Ignore,
+        }
+    }
+
+    pub fn advance(&mut self) {
         match self.state {
             SqueezeState::SqueezeFirstLine => {
                 self.state = SqueezeState::SqueezeActive;
-                SqueezeAction::Print
             }
             SqueezeState::Squeeze => {
                 self.state = SqueezeState::SqueezeActive;
-                SqueezeAction::Delete
             }
-            _ => SqueezeAction::Ignore,
+            _ => {}
         }
     }
 }
@@ -112,6 +118,7 @@ mod tests {
         let mut s = Squeezer::new(true);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
+        s.advance();
 
         let exp = vec![
             SqueezeAction::Ignore, // first line, print as is
@@ -127,6 +134,7 @@ mod tests {
                 idx += 1;
             }
             let action = s.action();
+            s.advance();
             assert_eq!(action, exp[line]);
             line += 1;
         }
@@ -139,6 +147,7 @@ mod tests {
         let mut s = Squeezer::new(true);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
+        s.advance();
 
         let exp = vec![
             SqueezeAction::Ignore, // first line, print as is
@@ -155,6 +164,7 @@ mod tests {
                 idx += 1;
             }
             assert_eq!(s.action(), exp[line]);
+            s.advance();
             line += 1;
         }
     }
@@ -170,6 +180,7 @@ mod tests {
         let mut s = Squeezer::new(true);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
+        s.advance();
 
         let exp = vec![
             SqueezeAction::Ignore, // first line, print as is
@@ -186,6 +197,7 @@ mod tests {
             }
             let action = s.action();
             assert_eq!(action, exp[line]);
+            s.advance();
             line += 1;
         }
     }
@@ -201,6 +213,7 @@ mod tests {
         let mut s = Squeezer::new(true);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
+        s.advance();
 
         let exp = vec![
             SqueezeAction::Ignore, // first line, print as is
@@ -216,6 +229,7 @@ mod tests {
                 idx += 1;
             }
             let action = s.action();
+            s.advance();
             assert_eq!(action, exp[line]);
             line += 1;
         }
@@ -232,6 +246,7 @@ mod tests {
         let mut s = Squeezer::new(true);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
+        s.advance();
 
         let exp = vec![
             SqueezeAction::Ignore, // first line, print as is
@@ -246,6 +261,7 @@ mod tests {
                 idx += 1;
             }
             let action = s.action();
+            s.advance();
             assert_eq!(action, exp[line]);
             line += 1;
         }
@@ -265,6 +281,7 @@ mod tests {
         let mut s = Squeezer::new(true);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
+        s.advance();
 
         let exp = vec![
             SqueezeAction::Ignore, // first line, print as is
@@ -280,6 +297,7 @@ mod tests {
                 idx += 1;
             }
             let action = s.action();
+            s.advance();
             assert_eq!(action, exp[line]);
             line += 1;
         }
@@ -304,6 +322,7 @@ mod tests {
         let mut s = Squeezer::new(true);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
+        s.advance();
 
         let exp = vec![
             SqueezeAction::Ignore,
@@ -328,6 +347,7 @@ mod tests {
                 idx += 1;
             }
             let action = s.action();
+            s.advance();
             assert_eq!(action, exp[line]);
             line += 1;
         }
@@ -346,6 +366,7 @@ mod tests {
         let mut s = Squeezer::new(true);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
+        s.advance();
 
         let exp = vec![
             SqueezeAction::Ignore, // print as is
@@ -362,6 +383,7 @@ mod tests {
                 idx += 1;
             }
             assert_eq!(s.action(), exp[line]);
+            s.advance();
             line += 1;
         }
     }
@@ -378,6 +400,7 @@ mod tests {
         let mut s = Squeezer::new(true);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
+        s.advance();
 
         let exp = vec![
             SqueezeAction::Ignore, // print as is
@@ -393,6 +416,7 @@ mod tests {
                 idx += 1;
             }
             assert_eq!(s.action(), exp[line]);
+            s.advance();
             line += 1;
         }
     }
