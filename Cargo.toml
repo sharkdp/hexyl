@@ -11,7 +11,7 @@ version = "0.6.0"
 edition = "2018"
 
 [dependencies]
-ansi_term = "0.11"
+ansi_term = "0.12"
 atty = "0.2"
 ctrlc = "3.1"
 
