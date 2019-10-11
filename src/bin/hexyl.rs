@@ -33,7 +33,6 @@ mod errors {
 
 use crate::errors::*;
 
-
 fn run() -> Result<()> {
     let app = App::new(crate_name!())
         .setting(AppSettings::ColorAuto)
@@ -136,7 +135,9 @@ fn run() -> Result<()> {
         if let Ok((offset, num_bytes)) = parse_range(range) {
             range_offset = offset;
             let mut discard = vec![0u8; offset as usize];
-            reader.read_exact(&mut discard).map_err(|_| format!("Unable to start reading at {}, input too small", offset))?;
+            reader
+                .read_exact(&mut discard)
+                .map_err(|_| format!("Unable to start reading at {}, input too small", offset))?;
             reader = Box::new(reader.take(num_bytes));
         }
     }
@@ -174,7 +175,9 @@ fn run() -> Result<()> {
 
     let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
     printer.display_offset(display_offset as usize);
-    printer.print_all(&mut reader, Some(cancelled)).map_err(|err| format!("{}", err))?;
+    printer
+        .print_all(&mut reader, Some(cancelled))
+        .map_err(|err| format!("{}", err))?;
 
     Ok(())
 }
@@ -198,7 +201,7 @@ fn main() {
                     }
                     _ => (),
                 }
-            },
+            }
             Error(err, _) => eprintln!("Error: {}", err),
         }
         std::process::exit(1);
@@ -216,23 +219,29 @@ fn parse_hex_or_int(n: &str) -> Option<u64> {
 
 fn parse_range(range_raw: &str) -> Result<(u64, u64)> {
     match range_raw.split(':').collect::<Vec<&str>>()[..] {
-      [offset_raw, bytes_to_read_raw] => {
-        let offset = parse_hex_or_int(&offset_raw).unwrap_or_else(u64::min_value);
-        let bytes_to_read = match parse_hex_or_int(bytes_to_read_raw) {
-            Some(num) if bytes_to_read_raw.starts_with('+') => num,
-            Some(num) if offset <= num => num - offset,
-            Some(num) => return Err(format!("cannot start reading at {} and stop reading at {}", offset, num).into()),
-            None if bytes_to_read_raw != "" => return Err("unable to parse range".into()),
-            None => u64::max_value(),
-        };
-        Ok((offset, bytes_to_read))
-      },
-      [offset_raw] => {
-        let offset = parse_hex_or_int(&offset_raw).unwrap_or_else(u64::min_value);
-        let bytes_to_read = u64::max_value();
-        Ok((offset, bytes_to_read))
-      },
-      _ => Err("expected single ':' character".into()),
+        [offset_raw, bytes_to_read_raw] => {
+            let offset = parse_hex_or_int(&offset_raw).unwrap_or_else(u64::min_value);
+            let bytes_to_read = match parse_hex_or_int(bytes_to_read_raw) {
+                Some(num) if bytes_to_read_raw.starts_with('+') => num,
+                Some(num) if offset <= num => num - offset,
+                Some(num) => {
+                    return Err(format!(
+                        "cannot start reading at {} and stop reading at {}",
+                        offset, num
+                    )
+                    .into())
+                }
+                None if bytes_to_read_raw != "" => return Err("unable to parse range".into()),
+                None => u64::max_value(),
+            };
+            Ok((offset, bytes_to_read))
+        }
+        [offset_raw] => {
+            let offset = parse_hex_or_int(&offset_raw).unwrap_or_else(u64::min_value);
+            let bytes_to_read = u64::max_value();
+            Ok((offset, bytes_to_read))
+        }
+        _ => Err("expected single ':' character".into()),
     }
 }
 
@@ -279,10 +288,10 @@ mod tests {
 
     #[test]
     fn parse_bad_input() {
-      let result = parse_range("1024:512");
-      assert!(result.is_err());
+        let result = parse_range("1024:512");
+        assert!(result.is_err());
 
-      let result = parse_range("512:-512");
-      assert!(result.is_err());
+        let result = parse_range("512:-512");
+        assert!(result.is_err());
     }
 }
