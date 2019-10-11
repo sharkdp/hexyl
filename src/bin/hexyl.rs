@@ -60,6 +60,23 @@ fn run() -> Result<()> {
                 .help("An alias for -n/--length"),
         )
         .arg(
+            Arg::with_name("range")
+                .short("r")
+                .long("range")
+                .takes_value(true)
+                .value_name("N:M")
+                .conflicts_with("length")
+                .conflicts_with("bytes")
+                .help("Read only bytes N through M from the input")
+                .long_help(
+                    "Only print the specified range of bytes. \
+                     For example:\n  \
+                     '--range 512:1024' prints bytes 512 to 1024\n  \
+                     '--range 512:+512' skips 512 bytes and prints the next 512 bytes (equivalent to 512:1024)\n  \
+                     '--range :512' prints the first 512 bytes\n  \
+                     '--range 512:' skips 512 bytes and prints the rest of the input")
+        )
+        .arg(
             Arg::with_name("nosqueezing")
                 .short("v")
                 .long("no-squeezing")
@@ -113,6 +130,17 @@ fn run() -> Result<()> {
         reader = Box::new(reader.take(length));
     }
 
+    let byterange_arg = matches.value_of("range");
+    let mut range_offset = 0;
+    if let Some(range) = byterange_arg {
+        if let Ok((offset, num_bytes)) = parse_range(range) {
+            range_offset = offset;
+            let mut discard = vec![0u8; offset as usize];
+            reader.read_exact(&mut discard).map_err(|_| format!("Unable to start reading at {}, input too small", offset))?;
+            reader = Box::new(reader.take(num_bytes));
+        }
+    }
+
     let show_color = match matches.value_of("color") {
         Some("never") => false,
         Some("auto") => atty::is(Stream::Stdout),
@@ -130,7 +158,7 @@ fn run() -> Result<()> {
     let display_offset = matches
         .value_of("display_offset")
         .and_then(parse_hex_or_int)
-        .unwrap_or(0);
+        .unwrap_or(range_offset);
 
     // Set up Ctrl-C handler
     let cancelled = Arc::new(AtomicBool::new(false));
@@ -178,9 +206,83 @@ fn main() {
 }
 
 fn parse_hex_or_int(n: &str) -> Option<u64> {
+    let n = n.trim_start_matches('+');
     if n.starts_with("0x") {
         u64::from_str_radix(n.trim_start_matches("0x"), 16).ok()
     } else {
         n.parse::<u64>().ok()
+    }
+}
+
+fn parse_range(range_raw: &str) -> Result<(u64, u64)> {
+    match range_raw.split(':').collect::<Vec<&str>>()[..] {
+      [offset_raw, bytes_to_read_raw] => {
+        let offset = parse_hex_or_int(&offset_raw).unwrap_or_else(u64::min_value);
+        let bytes_to_read = match parse_hex_or_int(bytes_to_read_raw) {
+            Some(num) if bytes_to_read_raw.starts_with('+') => num,
+            Some(num) if offset <= num => num - offset,
+            Some(num) => return Err(format!("cannot start reading at {} and stop reading at {}", offset, num).into()),
+            None if bytes_to_read_raw != "" => return Err("unable to parse range".into()),
+            None => u64::max_value(),
+        };
+        Ok((offset, bytes_to_read))
+      },
+      [offset_raw] => {
+        let offset = parse_hex_or_int(&offset_raw).unwrap_or_else(u64::min_value);
+        let bytes_to_read = u64::max_value();
+        Ok((offset, bytes_to_read))
+      },
+      _ => Err("expected single ':' character".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_empty_range() {
+        let (offset, bytes_to_read) = parse_range(":").expect("Not allowed to fail test.");
+        assert_eq!(offset, u64::min_value());
+        assert_eq!(bytes_to_read, u64::max_value());
+    }
+
+    #[test]
+    fn parse_starting_offset() {
+        let (offset, bytes_to_read) = parse_range("0x200:").expect("Not allowed to fail test.");
+        assert_eq!(offset, 512);
+        assert_eq!(bytes_to_read, u64::max_value());
+
+        let (offset, bytes_to_read) = parse_range("0x200").expect("Not allowed to fail test.");
+        assert_eq!(offset, 512);
+        assert_eq!(bytes_to_read, u64::max_value());
+    }
+
+    #[test]
+    fn parse_ending_offset() {
+        let (offset, bytes_to_read) = parse_range(":0x200").expect("Not allowed to fail test.");
+        assert_eq!(offset, u64::min_value());
+        assert_eq!(bytes_to_read, 512);
+
+        let (offset, bytes_to_read) = parse_range(":+512").expect("Not allowed to fail test.");
+        assert_eq!(offset, u64::min_value());
+        assert_eq!(bytes_to_read, 512);
+
+        let (offset, bytes_to_read) = parse_range("512:512").expect("Not allowed to fail test.");
+        assert_eq!(offset, 512);
+        assert_eq!(bytes_to_read, 0);
+
+        let (offset, bytes_to_read) = parse_range("512:+512").expect("Not allowed to fail test.");
+        assert_eq!(offset, 512);
+        assert_eq!(bytes_to_read, 512);
+    }
+
+    #[test]
+    fn parse_bad_input() {
+      let result = parse_range("1024:512");
+      assert!(result.is_err());
+
+      let result = parse_range("512:-512");
+      assert!(result.is_err());
     }
 }
