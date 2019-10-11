@@ -413,7 +413,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         &mut self,
         mut reader: Reader,
         canceller: Option<Cancelled>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), std::io::Error> {
         let mut buffer = [0; BUFFER_SIZE];
         'mainloop: loop {
             let size = reader.read(&mut buffer)?;

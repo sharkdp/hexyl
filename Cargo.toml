@@ -19,6 +19,11 @@ ctrlc = "3.1"
 version = "2"
 features = ["suggestions", "color", "wrap_help"]
 
+[dependencies.error-chain]
+version = "0.12"
+default-features = false
+features = []
+
 [profile.release]
 lto = true
 codegen-units = 1

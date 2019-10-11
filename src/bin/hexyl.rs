@@ -1,3 +1,9 @@
+// `error_chain!` can recurse deeply
+#![recursion_limit = "1024"]
+
+#[macro_use]
+extern crate error_chain;
+
 #[macro_use]
 extern crate clap;
 
@@ -15,7 +21,20 @@ use atty::Stream;
 
 use hexyl::{BorderStyle, Printer};
 
-fn run() -> Result<(), Box<dyn std::error::Error>> {
+mod errors {
+    error_chain! {
+        foreign_links {
+            Clap(::clap::Error);
+            Io(::std::io::Error);
+            ParseIntError(::std::num::ParseIntError);
+        }
+    }
+}
+
+use crate::errors::*;
+
+
+fn run() -> Result<()> {
     let app = App::new(crate_name!())
         .setting(AppSettings::ColorAuto)
         .setting(AppSettings::ColoredHelp)
@@ -127,7 +146,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
     printer.display_offset(display_offset as usize);
-    printer.print_all(&mut reader, Some(cancelled))?;
+    printer.print_all(&mut reader, Some(cancelled)).map_err(|err| format!("{}", err))?;
 
     Ok(())
 }
@@ -140,18 +159,19 @@ fn main() {
     let result = run();
 
     if let Err(err) = result {
-        if let Some(clap_err) = err.downcast_ref::<clap::Error>() {
-            eprint!("{}", clap_err); // Clap errors already have newlines
+        match err {
+            Error(ErrorKind::Clap(ref clap_error), _) => {
+                eprint!("{}", clap_error); // Clap errors already have newlines
 
-            match clap_err.kind {
-                // The exit code should not indicate an error for --help / --version
-                clap::ErrorKind::HelpDisplayed | clap::ErrorKind::VersionDisplayed => {
-                    std::process::exit(0)
+                match clap_error.kind {
+                    // The exit code should not indicate an error for --help / --version
+                    clap::ErrorKind::HelpDisplayed | clap::ErrorKind::VersionDisplayed => {
+                        std::process::exit(0)
+                    }
+                    _ => (),
                 }
-                _ => (),
-            }
-        } else {
-            eprintln!("Error: {}", err);
+            },
+            Error(err, _) => eprintln!("Error: {}", err),
         }
         std::process::exit(1);
     }
