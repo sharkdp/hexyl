@@ -254,6 +254,10 @@ mod tests {
         let (offset, bytes_to_read) = parse_range(":").expect("Not allowed to fail test.");
         assert_eq!(offset, 0);
         assert_eq!(bytes_to_read, u64::max_value());
+
+        let (offset, bytes_to_read) = parse_range("").expect("Not allowed to fail test.");
+        assert_eq!(offset, 0);
+        assert_eq!(bytes_to_read, u64::max_value());
     }
 
     #[test]
