@@ -252,7 +252,7 @@ mod tests {
     #[test]
     fn parse_empty_range() {
         let (offset, bytes_to_read) = parse_range(":").expect("Not allowed to fail test.");
-        assert_eq!(offset, u64::min_value());
+        assert_eq!(offset, 0);
         assert_eq!(bytes_to_read, u64::max_value());
     }
 
@@ -270,11 +270,11 @@ mod tests {
     #[test]
     fn parse_ending_offset() {
         let (offset, bytes_to_read) = parse_range(":0x200").expect("Not allowed to fail test.");
-        assert_eq!(offset, u64::min_value());
+        assert_eq!(offset, 0);
         assert_eq!(bytes_to_read, 512);
 
         let (offset, bytes_to_read) = parse_range(":+512").expect("Not allowed to fail test.");
-        assert_eq!(offset, u64::min_value());
+        assert_eq!(offset, 0);
         assert_eq!(bytes_to_read, 512);
 
         let (offset, bytes_to_read) = parse_range("512:512").expect("Not allowed to fail test.");
