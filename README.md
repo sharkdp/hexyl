@@ -3,6 +3,7 @@
 [![Build Status](https://travis-ci.org/sharkdp/hexyl.svg?branch=master)](https://travis-ci.org/sharkdp/hexyl)
 [![](https://img.shields.io/crates/l/hexyl.svg?colorB=22ba4c)](https://crates.io/crates/hexyl)
 ![](https://img.shields.io/crates/v/hexyl.svg?colorB=00aa88)
+[![Scarf](https://scarf.sh/package/badge/hexyl)](https://scarf.sh/package/scarf/hexyl)
 
 `hexyl` is a simple hex viewer for the terminal. It uses a colored output to distinguish different categories
 of bytes (NULL bytes, printable ASCII characters, ASCII whitespace characters, other ASCII characters and non-ASCII).
@@ -50,6 +51,14 @@ pkg install hexyl
 
 ```
 nix-env -i hexyl
+```
+
+### Via Scarf
+
+If you'd like to support this project, `hexyl` is available via [Scarf](https://scarf.sh/package/scarf/hexyl):
+
+```
+scarf install hexyl
 ```
 
 ### On other distributions
