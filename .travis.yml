@@ -13,7 +13,7 @@ matrix:
       rust: stable
       env: TARGET=x86_64-apple-darwin
     - os: windows
-      rust: stable
+      rust: 1.39.0 # TODO: change back to 'stable'
       env: TARGET=x86_64-pc-windows-msvc
 
     # Minimum Rust supported channel.
