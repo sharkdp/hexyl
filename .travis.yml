@@ -12,9 +12,9 @@ matrix:
     - os: osx
       rust: stable
       env: TARGET=x86_64-apple-darwin
-    # - os: windows
-    #   rust: stable
-    #   env: TARGET=x86_64-pc-windows-msvc
+    - os: windows
+      rust: stable
+      env: TARGET=x86_64-pc-windows-msvc
 
     # Minimum Rust supported channel.
     - os: linux
