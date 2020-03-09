@@ -1,15 +1,11 @@
 pub mod squeezer;
 
 use std::io::{self, Read, Write};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 
 use ansi_term::Color;
 use ansi_term::Color::Fixed;
 
 use crate::squeezer::{SqueezeAction, Squeezer};
-
-type Cancelled = Arc<AtomicBool>;
 
 const BUFFER_SIZE: usize = 256;
 
@@ -408,24 +404,16 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     }
 
     /// Loop through the given `Reader`, printing until the `Reader` buffer
-    /// is exhausted, or the optional `cancelled` bool is set to true.
+    /// is exhausted.
     pub fn print_all<Reader: Read>(
         &mut self,
-        mut reader: Reader,
-        canceller: Option<Cancelled>,
+        mut reader: Reader
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut buffer = [0; BUFFER_SIZE];
         'mainloop: loop {
             let size = reader.read(&mut buffer)?;
             if size == 0 {
                 break;
-            }
-
-            if let Some(cancelled) = &canceller {
-                if cancelled.load(Ordering::SeqCst) {
-                    eprintln!("hexyl has been cancelled.");
-                    std::process::exit(130); // Set exit code to 128 + SIGINT
-                }
             }
 
             for b in &buffer[..size] {

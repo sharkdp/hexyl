@@ -2,12 +2,9 @@
 extern crate clap;
 
 use atty;
-use ctrlc;
 
 use std::fs::File;
 use std::io::{self, prelude::*};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 
 use clap::{App, AppSettings, Arg};
 
@@ -113,21 +110,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .and_then(parse_hex_or_int)
         .unwrap_or(0);
 
-    // Set up Ctrl-C handler
-    let cancelled = Arc::new(AtomicBool::new(false));
-    let c = cancelled.clone();
-
-    ctrlc::set_handler(move || {
-        c.store(true, Ordering::SeqCst);
-    })
-    .expect("Error setting Ctrl-C handler");
-
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
 
     let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
     printer.display_offset(display_offset as usize);
-    printer.print_all(&mut reader, Some(cancelled))?;
+    printer.print_all(&mut reader)?;
 
     Ok(())
 }
