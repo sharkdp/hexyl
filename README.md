@@ -19,12 +19,30 @@ of bytes (NULL bytes, printable ASCII characters, ASCII whitespace characters, o
 
 ## Installation
 
-### On Debian-based systems
+### On Ubuntu
+
+*... and other Debian-based Linux distributions.*
+
+If you run Ubuntu 19.10 (Eoan Ermine) or newer, you can install the [officially maintained package](https://packages.ubuntu.com/eoan/hexyl):
+```bash
+sudo apt install hexyl
+```
+If you use an older version of Ubuntu, you can download
+the latest `.deb` package from the release page and install it via:
 
 ``` bash
-wget "https://github.com/sharkdp/hexyl/releases/download/v0.7.0/hexyl_0.7.0_amd64.deb"
-sudo dpkg -i hexyl_0.7.0_amd64.deb
+sudo dpkg -i hexyl_0.7.0_amd64.deb  # adapt version number and architecture
 ```
+
+### On Debian
+
+If you run Debian Buster or newer, you can install the [officially maintained Debian package](https://packages.debian.org/buster/hexyl):
+```bash
+sudo apt-get install hexyl
+```
+
+If you run an older version of Debian, see above for instructions on how to
+manually install `hexyl`.
 
 ### On Arch Linux
 
