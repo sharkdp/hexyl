@@ -16,5 +16,5 @@ fn main() {
     let border_style = BorderStyle::Unicode;
 
     let mut printer = Printer::new(&mut handle, show_color, border_style, use_squeezing);
-    printer.print_all(&input[..], None).unwrap();
+    printer.print_all(&input[..]).unwrap();
 }

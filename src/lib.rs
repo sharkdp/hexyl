@@ -448,7 +448,7 @@ mod tests {
         let mut output = vec![];
         let mut printer = Printer::new(&mut output, false, BorderStyle::Unicode, true);
 
-        printer.print_all(input, None).unwrap();
+        printer.print_all(input).unwrap();
 
         let actual_string: &str = str::from_utf8(&output).unwrap();
         assert_eq!(actual_string, expected_string)
@@ -493,7 +493,7 @@ mod tests {
             Printer::new(&mut output, false, BorderStyle::Unicode, true);
         printer.display_offset(0xdeadbeef);
 
-        printer.print_all(input, None).unwrap();
+        printer.print_all(input).unwrap();
 
         let actual_string: &str = str::from_utf8(&output).unwrap();
         assert_eq!(actual_string, expected_string)
