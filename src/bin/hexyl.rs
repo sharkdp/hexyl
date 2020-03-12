@@ -74,6 +74,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .takes_value(true)
                 .value_name("OFFSET")
                 .help("Add OFFSET to the displayed file position."),
+        )
+        .arg(
+            Arg::with_name("skip")
+                .short("s")
+                .long("skip")
+                .takes_value(true)
+                .value_name("OFFSET")
+                .help("Skip reading first OFFSET bytes")
         );
 
     let matches = app.get_matches_safe()?;
@@ -86,9 +94,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let length_arg = matches.value_of("length").or(matches.value_of("bytes"));
-
+    let skip_arg = matches.value_of("skip");
+    
+    let skip = match skip_arg.and_then(parse_hex_or_int)
+    {
+        Some(skip_val) => skip_val,
+        None => 0,
+    };
+    
     if let Some(length) = length_arg.and_then(parse_hex_or_int) {
-        reader = Box::new(reader.take(length));
+        reader = Box::new(reader.take(length + skip));
     }
 
     let show_color = match matches.value_of("color") {
@@ -108,13 +123,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let display_offset = matches
         .value_of("display_offset")
         .and_then(parse_hex_or_int)
-        .unwrap_or(0);
+        .unwrap_or(0) + skip;
 
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
 
     let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
-    printer.display_offset(display_offset as usize);
+
+    printer.read_offset(skip as usize).display_offset(display_offset as usize);
     printer.print_all(&mut reader)?;
 
     Ok(())
