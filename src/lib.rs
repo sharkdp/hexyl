@@ -425,7 +425,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             for b in &buffer[..size] {
                 if bytes_read < self.skip_offset
                 {
-                    bytes_read+=1;
+                    bytes_read += 1;
                     continue;
                 }
 
