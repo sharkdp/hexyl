@@ -1,4 +1,7 @@
+pub(crate) mod input;
 pub mod squeezer;
+
+pub use input::*;
 
 use std::io::{self, Read, Write};
 
@@ -407,7 +410,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     /// is exhausted.
     pub fn print_all<Reader: Read>(
         &mut self,
-        mut reader: Reader
+        mut reader: Reader,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut buffer = [0; BUFFER_SIZE];
         'mainloop: loop {

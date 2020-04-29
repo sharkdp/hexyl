@@ -3,14 +3,15 @@ extern crate clap;
 
 use atty;
 
+use std::cell::RefCell;
 use std::fs::File;
-use std::io::{self, prelude::*};
+use std::io::{self, prelude::*, SeekFrom};
 
 use clap::{App, AppSettings, Arg};
 
 use atty::Stream;
 
-use hexyl::{BorderStyle, Printer};
+use hexyl::{BorderStyle, Input, Printer};
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let app = App::new(crate_name!())
@@ -36,6 +37,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .takes_value(true)
                 .value_name("N")
                 .help("An alias for -n/--length"),
+        )
+        .arg(
+            Arg::with_name("skip")
+                .short("s")
+                .long("skip")
+                .takes_value(true)
+                .value_name("N")
+                .help("Skip first N bytes"),
         )
         .arg(
             Arg::with_name("nosqueezing")
@@ -80,16 +89,24 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let stdin = io::stdin();
 
-    let mut reader: Box<dyn Read> = match matches.value_of("file") {
-        Some(filename) => Box::new(File::open(filename)?),
-        None => Box::new(stdin.lock()),
+    let mut reader: Input = match matches.value_of("file") {
+        Some(filename) => Input::File(File::open(filename)?),
+        None => Input::Stdin(RefCell::new(stdin.lock())),
     };
+
+    let skip_arg = matches.value_of("skip");
+
+    if let Some(length) = skip_arg.and_then(parse_hex_or_int) {
+        reader.seek(SeekFrom::Start(length))?;
+    }
 
     let length_arg = matches.value_of("length").or(matches.value_of("bytes"));
 
-    if let Some(length) = length_arg.and_then(parse_hex_or_int) {
-        reader = Box::new(reader.take(length));
-    }
+    let mut reader = if let Some(length) = length_arg.and_then(parse_hex_or_int) {
+        Box::new(reader.take(length))
+    } else {
+        reader.into_inner()
+    };
 
     let show_color = match matches.value_of("color") {
         Some("never") => false,
