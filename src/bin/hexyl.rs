@@ -3,7 +3,6 @@ extern crate clap;
 
 use atty;
 
-use std::cell::RefCell;
 use std::fs::File;
 use std::io::{self, prelude::*, SeekFrom};
 
@@ -91,7 +90,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut reader: Input = match matches.value_of("file") {
         Some(filename) => Input::File(File::open(filename)?),
-        None => Input::Stdin(RefCell::new(stdin.lock())),
+        None => Input::Stdin(stdin.lock()),
     };
 
     let skip_arg = matches.value_of("skip");
