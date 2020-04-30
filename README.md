@@ -82,7 +82,7 @@ or Windows Terminal since Windows 10 1903).
 
 ### Via cargo
 
-If you have Rust 1.31 or higher, you can install `hexyl` from source via `cargo`:
+If you have Rust 1.36 or higher, you can install `hexyl` from source via `cargo`:
 ```
 cargo install hexyl
 ```
