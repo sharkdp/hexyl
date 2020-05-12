@@ -93,10 +93,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         None => Input::Stdin(stdin.lock()),
     };
 
-    let skip_arg = matches.value_of("skip");
+    let skip_arg = matches.value_of("skip").and_then(parse_hex_or_int);
 
-    if let Some(length) = skip_arg.and_then(parse_hex_or_int) {
-        reader.seek(SeekFrom::Start(length))?;
+    if let Some(skip) = skip_arg {
+        reader.seek(SeekFrom::Start(skip))?;
     }
 
     let length_arg = matches.value_of("length").or(matches.value_of("bytes"));
@@ -124,7 +124,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let display_offset = matches
         .value_of("display_offset")
         .and_then(parse_hex_or_int)
-        .unwrap_or(0);
+        .unwrap_or(skip_arg.unwrap_or(0));
 
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
