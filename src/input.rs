@@ -20,14 +20,14 @@ impl<'a> Seek for Input<'a> {
         match *self {
             Input::File(ref mut file) => {
                 let seek_res = file.seek(pos);
-                if let Err(Some(29)) = seek_res.as_ref().map_err(|err| err.raw_os_error()) {
+                if let Err(Some(libc::ESPIPE)) = seek_res.as_ref().map_err(|err| err.raw_os_error())
+                {
                     return Err(io::Error::new(
                         io::ErrorKind::Other,
                         "Using '--seek' is not supported when using a pipe",
                     )
                     .into());
                 };
-                dbg!(&seek_res);
                 seek_res
             }
             Input::Stdin(_) => Err(io::Error::new(
