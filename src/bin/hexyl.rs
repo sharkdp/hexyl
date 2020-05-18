@@ -163,7 +163,11 @@ fn main() {
 
 fn parse_hex_or_int(n: &str) -> Option<u64> {
     if n.starts_with("0x") {
-        u64::from_str_radix(n.trim_start_matches("0x"), 16).ok()
+        let n = n.trim_start_matches("0x");
+        if n.chars().next() == Some('+') {
+            return None;
+        }
+        u64::from_str_radix(n, 16).ok()
     } else {
         n.parse::<u64>().ok()
     }
