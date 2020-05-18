@@ -162,8 +162,10 @@ fn main() {
 }
 
 fn parse_hex_or_int(n: &str) -> Option<u64> {
-    if n.starts_with("0x") {
-        let n = n.trim_start_matches("0x");
+    const HEX_PREFIX: &'static str = "0x";
+
+    if n.starts_with(HEX_PREFIX) {
+        let n = n.trim_start_matches(HEX_PREFIX);
         if n.chars().next() == Some('+') {
             return None;
         }
