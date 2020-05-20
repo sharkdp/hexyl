@@ -91,7 +91,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         None => Input::Stdin(stdin.lock()),
     };
 
-    let skip_arg = matches.value_of("skip").and_then(parse_hex_or_int);
+    let skip_arg = matches.value_of("skip").and_then(parse_byte_count);
 
     if let Some(skip) = skip_arg {
         reader.seek(SeekFrom::Start(skip))?;
@@ -101,7 +101,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .value_of("length")
         .or_else(|| matches.value_of("bytes"));
 
-    let mut reader = if let Some(length) = length_arg.and_then(parse_hex_or_int) {
+    let mut reader = if let Some(length) = length_arg.and_then(parse_byte_count) {
         Box::new(reader.take(length))
     } else {
         reader.into_inner()
@@ -123,7 +123,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let display_offset = matches
         .value_of("display_offset")
-        .and_then(parse_hex_or_int)
+        .and_then(parse_byte_count)
         .unwrap_or_else(|| skip_arg.unwrap_or(0));
 
     let stdout = io::stdout();
@@ -161,16 +161,111 @@ fn main() {
     }
 }
 
-fn parse_hex_or_int(n: &str) -> Option<u64> {
+fn parse_byte_count(n: &str) -> Option<u64> {
     const HEX_PREFIX: &'static str = "0x";
+
+    let n = {
+        let mut chars = n.chars();
+        match chars.next()? {
+            '+' => chars.as_str(),
+            _ => n,
+        }
+    };
 
     if n.starts_with(HEX_PREFIX) {
         let n = n.trim_start_matches(HEX_PREFIX);
         if n.chars().next() == Some('+') {
             return None;
         }
-        u64::from_str_radix(n, 16).ok()
-    } else {
-        n.parse::<u64>().ok()
+        return u64::from_str_radix(n, 16).ok();
     }
+
+    let (n, unit_multiplier) = match n.chars().position(|c| !c.is_ascii_digit()) {
+        Some(unit_begin_idx) => {
+            let (n, raw_unit) = n.split_at(unit_begin_idx);
+            let raw_unit = raw_unit.to_lowercase();
+            (
+                n,
+                [
+                    ("b", 1),
+                    ("kb", 1000u64.pow(1)),
+                    ("mb", 1000u64.pow(2)),
+                    ("gb", 1000u64.pow(3)),
+                    ("tb", 1000u64.pow(4)),
+                    ("kib", 1024u64.pow(1)),
+                    ("mib", 1024u64.pow(2)),
+                    ("gib", 1024u64.pow(3)),
+                    ("tib", 1024u64.pow(4)),
+                ]
+                .iter()
+                .cloned()
+                .find_map(|(unit, multiplier)| {
+                    if unit == raw_unit {
+                        Some(multiplier)
+                    } else {
+                        None
+                    }
+                })?,
+            )
+        }
+        None => (n, 1),
+    };
+
+    n.parse::<u64>().ok()?.checked_mul(unit_multiplier)
+}
+
+#[test]
+fn test_parse_byte_count() {
+    macro_rules! success {
+        ($input: expr, $expected: expr) => {
+            assert_eq!(parse_byte_count($input), Some($expected));
+        };
+    }
+
+    macro_rules! error {
+        ($input: expr) => {
+            assert_eq!(parse_byte_count($input), None);
+        };
+    }
+
+    success!("0", 0);
+    success!("1", 1);
+    success!("1", 1);
+    success!("100", 100);
+    success!("+100", 100);
+
+    success!("1KB", 1000);
+    success!("2MB", 2000000);
+    success!("3GB", 3000000000);
+    success!("4TB", 4000000000000);
+    success!("+4TB", 4000000000000);
+
+    success!("1GiB", 1073741824);
+    success!("2TiB", 2199023255552);
+    success!("+2TiB", 2199023255552);
+
+    success!("0xff", 255);
+    success!("0xEE", 238);
+    success!("+0xFF", 255);
+
+    // empty string is invalid
+    error!("");
+    // These are also bad.
+    error!("+");
+    error!("-");
+    // leading/trailing space is invalid
+    error!(" 0");
+    error!("0 ");
+    // Negatives make no sense for byte counts
+    error!("-1");
+    error!("0x-12");
+    // This was previously accepted but shouldn't be.
+    error!("0x+12");
+    // invalid suffix
+    error!("1234asdf");
+    // bad numbers
+    error!("asdf1234");
+    error!("a1s2d3f4");
+    // multiplication overflows u64
+    error!("20000000TiB");
 }
