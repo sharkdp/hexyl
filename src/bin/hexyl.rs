@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate clap;
 
-use atty;
-
 use std::fs::File;
 use std::io::{self, prelude::*, SeekFrom};
 
