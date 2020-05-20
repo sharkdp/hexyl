@@ -44,6 +44,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .help("Skip first N bytes"),
         )
         .arg(
+            Arg::with_name("block_size")
+                .long("block-size")
+                .takes_value(true)
+                .value_name("SIZE")
+                .help(
+                    "Sets the size of the `block` unit to SIZE. Examples: \
+                    --block-size=1024, --block-size=4kB",
+                ),
+        )
+        .arg(
             Arg::with_name("nosqueezing")
                 .short("v")
                 .long("no-squeezing")
@@ -91,7 +101,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         None => Input::Stdin(stdin.lock()),
     };
 
-    let skip_arg = matches.value_of("skip").and_then(parse_byte_count);
+    let block_size = matches
+        .value_of("block_size")
+        .and_then(|bs| bs.parse::<u64>().ok())
+        .unwrap_or(512);
+
+    let skip_arg = matches
+        .value_of("skip")
+        .and_then(|s| parse_byte_count(s, block_size));
 
     if let Some(skip) = skip_arg {
         reader.seek(SeekFrom::Start(skip))?;
@@ -101,7 +118,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .value_of("length")
         .or_else(|| matches.value_of("bytes"));
 
-    let mut reader = if let Some(length) = length_arg.and_then(parse_byte_count) {
+    let mut reader = if let Some(length) = length_arg.and_then(|s| parse_byte_count(s, block_size))
+    {
         Box::new(reader.take(length))
     } else {
         reader.into_inner()
@@ -123,7 +141,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let display_offset = matches
         .value_of("display_offset")
-        .and_then(parse_byte_count)
+        .and_then(|s| parse_byte_count(s, block_size))
         .unwrap_or_else(|| skip_arg.unwrap_or(0));
 
     let stdout = io::stdout();
@@ -161,7 +179,7 @@ fn main() {
     }
 }
 
-fn parse_byte_count(n: &str) -> Option<u64> {
+fn parse_byte_count(n: &str, block_size: u64) -> Option<u64> {
     const HEX_PREFIX: &'static str = "0x";
 
     let n = {
@@ -196,6 +214,7 @@ fn parse_byte_count(n: &str) -> Option<u64> {
                     ("mib", 1024u64.pow(2)),
                     ("gib", 1024u64.pow(3)),
                     ("tib", 1024u64.pow(4)),
+                    ("block", block_size),
                 ]
                 .iter()
                 .cloned()
@@ -218,13 +237,16 @@ fn parse_byte_count(n: &str) -> Option<u64> {
 fn test_parse_byte_count() {
     macro_rules! success {
         ($input: expr, $expected: expr) => {
-            assert_eq!(parse_byte_count($input), Some($expected));
+            success!($input, 512, $expected)
+        };
+        ($input: expr, $block_size: expr, $expected: expr) => {
+            assert_eq!(parse_byte_count($input, $block_size), Some($expected));
         };
     }
 
     macro_rules! error {
         ($input: expr) => {
-            assert_eq!(parse_byte_count($input), None);
+            assert_eq!(parse_byte_count($input, 512), None);
         };
     }
 
@@ -248,11 +270,20 @@ fn test_parse_byte_count() {
     success!("0xEE", 238);
     success!("+0xFF", 255);
 
+    success!("1block", 512, 512);
+    success!("2block", 512, 1024);
+    success!("1block", 4, 4);
+    success!("2block", 4, 8);
+
     // empty string is invalid
     error!("");
     // These are also bad.
     error!("+");
     error!("-");
+    error!("K");
+    error!("k");
+    error!("m");
+    error!("block");
     // leading/trailing space is invalid
     error!(" 0");
     error!("0 ");
