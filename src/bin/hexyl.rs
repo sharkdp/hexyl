@@ -191,7 +191,7 @@ fn parse_byte_count(n: &str, block_size: u64) -> Option<u64> {
     };
 
     if n.starts_with(HEX_PREFIX) {
-        let n = n.trim_start_matches(HEX_PREFIX);
+        let n = &n[HEX_PREFIX.len()..];
         if n.chars().next() == Some('+') {
             return None;
         }
