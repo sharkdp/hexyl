@@ -97,7 +97,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         reader.seek(SeekFrom::Start(skip))?;
     }
 
-    let length_arg = matches.value_of("length").or(matches.value_of("bytes"));
+    let length_arg = matches
+        .value_of("length")
+        .or_else(|| matches.value_of("bytes"));
 
     let mut reader = if let Some(length) = length_arg.and_then(parse_hex_or_int) {
         Box::new(reader.take(length))
@@ -122,7 +124,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let display_offset = matches
         .value_of("display_offset")
         .and_then(parse_hex_or_int)
-        .unwrap_or(skip_arg.unwrap_or(0));
+        .unwrap_or_else(|| skip_arg.unwrap_or(0));
 
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
