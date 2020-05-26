@@ -52,6 +52,11 @@ You can install `hexyl` from [the official package repository](https://www.archl
 pacman -S hexyl
 ```
 
+### On Void Linux
+```
+xbps-install hexyl
+```
+
 ### On macOS
 
 ```
