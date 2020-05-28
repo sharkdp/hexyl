@@ -56,7 +56,8 @@ fn run() -> Result<(), AnyhowError> {
                 .value_name("N")
                 .help(
                     "Skip the first N bytes of the input. The N argument can also include \
-                     a unit (see `--length` for details)",
+                     a unit (see `--length` for details)\n\
+                     A negative value is valid and will seek from the end of the file.",
                 ),
         )
         .arg(
@@ -111,7 +112,9 @@ fn run() -> Result<(), AnyhowError> {
                 .value_name("N")
                 .help(
                     "Add N bytes to the displayed file position. The N argument can also \
-                    include a unit (see `--length` for details)",
+                    include a unit (see `--length` for details)\n\
+                    A negative value is valid and calculates an offset relative to the \
+                    end of the file.",
                 ),
         );
 
@@ -144,29 +147,43 @@ fn run() -> Result<(), AnyhowError> {
     let skip_arg = matches
         .value_of("skip")
         .map(|s| {
-            parse_byte_count(s, block_size).context(anyhow!(
+            parse_byte_offset(s, block_size).context(anyhow!(
                 "failed to parse `--skip` arg {:?} as byte count",
                 s
             ))
         })
         .transpose()?;
 
-    if let Some(skip) = skip_arg {
-        reader.seek(SeekFrom::Current(skip.into_inner()))?;
-    }
+    let default_display_offset = if let Some(ByteOffset { kind, value }) = skip_arg {
+        let value = value.into_inner();
+        reader.seek(match kind {
+            ByteOffsetKind::ForwardFromBeginning | ByteOffsetKind::ForwardFromLastOffset => {
+                SeekFrom::Current(value)
+            }
+            ByteOffsetKind::BackwardFromEnd => SeekFrom::End(value.checked_neg().unwrap()),
+        })?
+    } else {
+        0
+    };
+
+    let parse_byte_count = |s| -> Result<u64, AnyhowError> {
+        Ok(parse_byte_offset(s, block_size)?
+            .assume_forward_offset_from_start()?.into())
+    };
 
     let mut reader = if let Some(length) = matches
         .value_of("length")
         .or_else(|| matches.value_of("bytes"))
         .map(|s| {
-            parse_byte_count(s, block_size).context(anyhow!(
-                "failed to parse `--length` arg {:?} as byte count",
-                s
-            ))
+            parse_byte_count(s)
+                .context(anyhow!(
+                    "failed to parse `--length` arg {:?} as byte count",
+                    s
+                ))
         })
         .transpose()?
     {
-        Box::new(reader.take(length.into()))
+        Box::new(reader.take(length))
     } else {
         reader.into_inner()
     };
@@ -188,14 +205,13 @@ fn run() -> Result<(), AnyhowError> {
     let display_offset = matches
         .value_of("display_offset")
         .map(|s| {
-            parse_byte_count(s, block_size).context(anyhow!(
+            parse_byte_count(s).context(anyhow!(
                 "failed to parse `--display-offset` arg {:?} as byte count",
                 s
             ))
         })
         .transpose()?
-        .or(skip_arg)
-        .unwrap_or_default()
+        .unwrap_or(default_display_offset)
         .into();
 
     let stdout = io::stdout();
@@ -259,14 +275,41 @@ impl Into<u64> for PositiveI64 {
 
 const HEX_PREFIX: &str = "0x";
 
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+enum ByteOffsetKind {
+    ForwardFromBeginning,
+    ForwardFromLastOffset,
+    BackwardFromEnd,
+}
+
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+struct ByteOffset {
+    value: PositiveI64,
+    kind: ByteOffsetKind,
+}
+
+#[derive(Clone, Debug, ThisError)]
+#[error("negative offset specified, but only positive offsets (counts) are accepted in this context")]
+struct NegativeOffsetSpecifiedError;
+
+impl ByteOffset {
+    fn assume_forward_offset_from_start(&self) -> Result<PositiveI64, NegativeOffsetSpecifiedError> {
+        let &Self { value, kind } = self;
+        match kind {
+            ByteOffsetKind::ForwardFromBeginning | ByteOffsetKind::ForwardFromLastOffset => {
+                Ok(value)
+            }
+            ByteOffsetKind::BackwardFromEnd => Err(NegativeOffsetSpecifiedError),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, ThisError)]
-enum ByteCountParseError {
+enum ByteOffsetParseError {
     #[error("no character data found, did you forget to write it?")]
     Empty,
     #[error("no digits found after sign, did you forget to write them?")]
     EmptyAfterSign,
-    #[error("negative byte offsets are not accepted (yet)")]
-    Negative,
     #[error(
         "found {0:?} sign after hex prefix ({:?}); signs should go before it",
         HEX_PREFIX
@@ -284,22 +327,32 @@ enum ByteCountParseError {
     UnitMultiplicationOverflow,
 }
 
-fn parse_byte_count(n: &str, block_size: PositiveI64) -> Result<PositiveI64, ByteCountParseError> {
-    use ByteCountParseError::*;
+fn parse_byte_offset(n: &str, block_size: PositiveI64) -> Result<ByteOffset, ByteOffsetParseError> {
+    use ByteOffsetParseError::*;
 
-    let n = {
+    let (n, kind) = {
         let mut chars = n.chars();
-        match chars.next() {
-            Some('+') => {
-                if chars.clone().next().is_none() {
-                    return Err(EmptyAfterSign);
-                }
-                chars.as_str()
+        let next_char = chars.next();
+        let check_empty_after_sign = || {
+            if chars.clone().next().is_none() {
+                Err(EmptyAfterSign)
+            } else {
+                Ok(chars.as_str())
             }
-            Some('-') => return Err(Negative),
+        };
+        match next_char {
+            Some('+') => (check_empty_after_sign()?, ByteOffsetKind::ForwardFromLastOffset),
+            Some('-') => (check_empty_after_sign()?, ByteOffsetKind::BackwardFromEnd),
             None => return Err(Empty),
-            _ => n,
+            _ => (n, ByteOffsetKind::ForwardFromBeginning),
         }
+    };
+
+    let into_byte_offset = |value| {
+        Ok(ByteOffset {
+            value: PositiveI64::new(value).unwrap(),
+            kind,
+        })
     };
 
     if n.starts_with(HEX_PREFIX) {
@@ -316,7 +369,7 @@ fn parse_byte_count(n: &str, block_size: PositiveI64) -> Result<PositiveI64, Byt
             _ => (),
         }
         return i64::from_str_radix(n, 16)
-            .map(|x| Ok(PositiveI64::new(x).unwrap()))
+            .map(into_byte_offset)
             .map_err(ParseNum)?;
     }
 
@@ -355,7 +408,7 @@ fn parse_byte_count(n: &str, block_size: PositiveI64) -> Result<PositiveI64, Byt
         (Ok(num), Ok((_raw_unit, unit_multiplier))) => num
             .checked_mul(unit_multiplier)
             .ok_or_else(|| UnitMultiplicationOverflow)
-            .and_then(|x| PositiveI64::new(x).ok_or(Negative)),
+            .and_then(into_byte_offset),
         (Ok(_), Err(e)) => Err(e),
         (Err(e), Ok((raw_unit, _unit_multiplier))) => match raw_unit {
             Some(raw_unit) if num.is_empty() => Err(EmptyWithUnit(raw_unit.to_owned())),
@@ -366,17 +419,22 @@ fn parse_byte_count(n: &str, block_size: PositiveI64) -> Result<PositiveI64, Byt
 }
 
 #[test]
-fn test_parse_byte_count() {
-    use ByteCountParseError::*;
+fn test_parse_byte_offset() {
+    use ByteOffsetParseError::*;
 
     macro_rules! success {
-        ($input: expr, $expected: expr) => {
-            success!($input, 512, $expected)
+        ($input: expr, $expected_kind: ident $expected_value: expr) => {
+            success!($input, $expected_kind $expected_value; block_size: 512)
         };
-        ($input: expr, $block_size: expr, $expected: expr) => {
+        ($input: expr, $expected_kind: ident $expected_value: expr; block_size: $block_size: expr) => {
             assert_eq!(
-                parse_byte_count($input, PositiveI64::new($block_size).unwrap()),
-                Ok(PositiveI64::new($expected).unwrap()),
+                parse_byte_offset($input, PositiveI64::new($block_size).unwrap()),
+                Ok(
+                    ByteOffset {
+                        value: PositiveI64::new($expected_value).unwrap(),
+                        kind: ByteOffsetKind::$expected_kind,
+                    }
+                ),
             );
         };
     }
@@ -384,46 +442,46 @@ fn test_parse_byte_count() {
     macro_rules! error {
         ($input: expr, $expected_err: expr) => {
             assert_eq!(
-                parse_byte_count($input, PositiveI64::new(512).unwrap()),
+                parse_byte_offset($input, PositiveI64::new(512).unwrap()),
                 Err($expected_err),
             );
         };
     }
 
-    success!("0", 0);
-    success!("1", 1);
-    success!("1", 1);
-    success!("100", 100);
-    success!("+100", 100);
+    success!("0", ForwardFromBeginning 0);
+    success!("1", ForwardFromBeginning 1);
+    success!("1", ForwardFromBeginning 1);
+    success!("100", ForwardFromBeginning 100);
+    success!("+100", ForwardFromLastOffset 100);
 
-    success!("0x0", 0);
-    success!("0xf", 15);
-    success!("0xdeadbeef", 3_735_928_559);
+    success!("0x0", ForwardFromBeginning 0);
+    success!("0xf", ForwardFromBeginning 15);
+    success!("0xdeadbeef", ForwardFromBeginning 3_735_928_559);
 
-    success!("1KB", 1000);
-    success!("2MB", 2000000);
-    success!("3GB", 3000000000);
-    success!("4TB", 4000000000000);
-    success!("+4TB", 4000000000000);
+    success!("1KB", ForwardFromBeginning 1000);
+    success!("2MB", ForwardFromBeginning 2000000);
+    success!("3GB", ForwardFromBeginning 3000000000);
+    success!("4TB", ForwardFromBeginning 4000000000000);
+    success!("+4TB", ForwardFromLastOffset 4000000000000);
 
-    success!("1GiB", 1073741824);
-    success!("2TiB", 2199023255552);
-    success!("+2TiB", 2199023255552);
+    success!("1GiB", ForwardFromBeginning 1073741824);
+    success!("2TiB", ForwardFromBeginning 2199023255552);
+    success!("+2TiB", ForwardFromLastOffset 2199023255552);
 
-    success!("0xff", 255);
-    success!("0xEE", 238);
-    success!("+0xFF", 255);
+    success!("0xff", ForwardFromBeginning 255);
+    success!("0xEE", ForwardFromBeginning 238);
+    success!("+0xFF", ForwardFromLastOffset 255);
 
-    success!("1block", 512, 512);
-    success!("2block", 512, 1024);
-    success!("1block", 4, 4);
-    success!("2block", 4, 8);
+    success!("1block", ForwardFromBeginning 512; block_size: 512);
+    success!("2block", ForwardFromBeginning 1024; block_size: 512);
+    success!("1block", ForwardFromBeginning 4; block_size: 4);
+    success!("2block", ForwardFromBeginning 8; block_size: 4);
 
     // empty string is invalid
     error!("", Empty);
     // These are also bad.
     error!("+", EmptyAfterSign);
-    error!("-", Negative);
+    error!("-", EmptyAfterSign);
     error!("K", InvalidNumAndUnit("K".to_owned()));
     error!("k", InvalidNumAndUnit("k".to_owned()));
     error!("m", InvalidNumAndUnit("m".to_owned()));
@@ -431,9 +489,7 @@ fn test_parse_byte_count() {
     // leading/trailing space is invalid
     error!(" 0", InvalidNumAndUnit(" 0".to_owned()));
     error!("0 ", InvalidUnit(" ".to_owned()));
-    // Negatives make no sense for byte counts
-    error!("-1", Negative);
-    error!("-0x-12", Negative);
+    // Signs after the hex prefix make no sense
     error!("0x-12", SignFoundAfterHexPrefix('-'));
     // This was previously accepted but shouldn't be.
     error!("0x+12", SignFoundAfterHexPrefix('+'));
@@ -445,7 +501,7 @@ fn test_parse_byte_count() {
     // multiplication overflows u64
     error!("20000000TiB", UnitMultiplicationOverflow);
 
-    assert!(match parse_byte_count("99999999999999999999", PositiveI64::new(512).unwrap()) {
+    assert!(match parse_byte_offset("99999999999999999999", PositiveI64::new(512).unwrap()) {
         // We can't check against the kind of the `ParseIntError`, so we'll just make sure it's the
         // same as trying to do the parse directly.
         Err(ParseNum(e)) => e == "99999999999999999999".parse::<i64>().unwrap_err(),
