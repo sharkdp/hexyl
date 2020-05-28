@@ -142,7 +142,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let display_offset = matches
         .value_of("display_offset")
         .and_then(|s| parse_byte_count(s, block_size))
-        .unwrap_or_else(|| skip_arg.unwrap_or(0));
+        .or(skip_arg)
+        .unwrap_or(0);
 
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
