@@ -460,36 +460,36 @@ mod tests {
     #[test]
     fn empty_file_passes() {
         let input = io::empty();
-        let expected_string =
-            "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+        let expected_string = "\
+┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
 "
-            .to_owned();
+        .to_owned();
         assert_print_all_output(input, expected_string);
     }
 
     #[test]
     fn short_input_passes() {
         let input = io::Cursor::new(b"spam");
-        let expected_string =
-            "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+        let expected_string = "\
+┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 │00000000│ 73 70 61 6d             ┊                         │spam    ┊        │
 └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
 "
-            .to_owned();
+        .to_owned();
         assert_print_all_output(input, expected_string);
     }
 
     #[test]
     fn display_offset() {
         let input = io::Cursor::new(b"spamspamspamspamspam");
-        let expected_string =
-            "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+        let expected_string = "\
+┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 │deadbeef│ 73 70 61 6d 73 70 61 6d ┊ 73 70 61 6d 73 70 61 6d │spamspam┊spamspam│
 │deadbeff│ 73 70 61 6d             ┊                         │spam    ┊        │
 └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
 "
-            .to_owned();
+        .to_owned();
 
         let mut output = vec![];
         let mut printer: Printer<Vec<u8>> =
