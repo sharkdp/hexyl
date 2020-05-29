@@ -1,5 +1,6 @@
+use std::convert::TryFrom;
 use std::fs;
-use std::io::{self, Read, Seek, SeekFrom};
+use std::io::{self, copy, sink, Read, Seek, SeekFrom};
 
 pub enum Input<'a> {
     File(fs::File),
@@ -17,23 +18,39 @@ impl<'a> Read for Input<'a> {
 
 impl<'a> Seek for Input<'a> {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        fn try_skip<R>(reader: R, pos: SeekFrom, err_desc: &'static str) -> io::Result<u64>
+        where
+            R: Read,
+        {
+            let cant_seek_abs_err = || Err(io::Error::new(io::ErrorKind::Other, err_desc));
+
+            let offset = match pos {
+                SeekFrom::Current(o) => u64::try_from(o).or_else(|_e| cant_seek_abs_err())?,
+                SeekFrom::Start(_) | SeekFrom::End(_) => cant_seek_abs_err()?,
+            };
+
+            copy(&mut reader.take(offset), &mut sink())
+        }
+
         match *self {
             Input::File(ref mut file) => {
                 let seek_res = file.seek(pos);
                 if let Err(Some(libc::ESPIPE)) = seek_res.as_ref().map_err(|err| err.raw_os_error())
                 {
-                    return Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        "Using '--seek' is not supported when using a pipe",
+                    try_skip(
+                        file,
+                        pos,
+                        "Pipes only support seeking forward with a relative offset",
                     )
-                    .into());
-                };
-                seek_res
+                } else {
+                    seek_res
+                }
             }
-            Input::Stdin(_) => Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Using '--seek' is not supported when reading from STDIN",
-            )),
+            Input::Stdin(ref mut stdin) => try_skip(
+                stdin,
+                pos,
+                "STDIN only supports seeking forward with a relative offset",
+            ),
         }
     }
 }
