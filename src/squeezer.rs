@@ -32,7 +32,7 @@ pub enum SqueezeAction {
 }
 
 /// line size
-const LSIZE: usize = 16;
+const LSIZE: u64 = 16;
 
 impl Squeezer {
     pub fn new(enabled: bool) -> Squeezer {
@@ -46,7 +46,7 @@ impl Squeezer {
         }
     }
 
-    pub fn process(&mut self, b: u8, i: usize) {
+    pub fn process(&mut self, b: u8, i: u64) {
         use self::SqueezeState::*;
         if self.state == Disabled {
             return;
@@ -111,10 +111,12 @@ impl Squeezer {
 mod tests {
     use super::*;
 
+    const LSIZE_USIZE: usize = LSIZE as usize;
+
     #[test]
     fn three_same_lines() {
         const LINES: usize = 3;
-        let v = vec![0u8; LINES * LSIZE];
+        let v = vec![0u8; LINES * LSIZE_USIZE];
         let mut s = Squeezer::new(true);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
@@ -128,7 +130,7 @@ mod tests {
 
         let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE) {
+        for z in v.chunks(LSIZE_USIZE) {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
@@ -143,7 +145,7 @@ mod tests {
     #[test]
     fn incomplete_while_squeeze() {
         // fourth line only has 12 bytes and should be printed
-        let v = vec![0u8; 3 * LSIZE + 12];
+        let v = vec![0u8; 3 * LSIZE_USIZE + 12];
         let mut s = Squeezer::new(true);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
@@ -158,7 +160,7 @@ mod tests {
 
         let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE) {
+        for z in v.chunks(LSIZE_USIZE) {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
@@ -190,7 +192,7 @@ mod tests {
 
         let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE) {
+        for z in v.chunks(LSIZE_USIZE) {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
@@ -207,7 +209,7 @@ mod tests {
     /// print
     fn one_squeeze_no_delete() {
         const LINES: usize = 3;
-        let mut v = vec![0u8; (LINES - 1) * LSIZE];
+        let mut v = vec![0u8; (LINES - 1) * LSIZE_USIZE];
         v.extend(vec![1u8; 16]);
 
         let mut s = Squeezer::new(true);
@@ -223,7 +225,7 @@ mod tests {
 
         let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE) {
+        for z in v.chunks(LSIZE_USIZE) {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
@@ -239,7 +241,7 @@ mod tests {
     /// First line all eq, 2nd half eq with first line, then change
     fn second_line_different() {
         const LINES: usize = 2;
-        let mut v = vec![0u8; (LINES - 1) * LSIZE];
+        let mut v = vec![0u8; (LINES - 1) * LSIZE_USIZE];
         v.extend(vec![0u8; 8]);
         v.extend(vec![1u8; 8]);
 
@@ -255,7 +257,7 @@ mod tests {
 
         let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE) {
+        for z in v.chunks(LSIZE_USIZE) {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
@@ -291,7 +293,7 @@ mod tests {
 
         let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE) {
+        for z in v.chunks(LSIZE_USIZE) {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
@@ -341,7 +343,7 @@ mod tests {
 
         let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE) {
+        for z in v.chunks(LSIZE_USIZE) {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
@@ -377,7 +379,7 @@ mod tests {
 
         let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE) {
+        for z in v.chunks(LSIZE_USIZE) {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
@@ -410,7 +412,7 @@ mod tests {
 
         let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE) {
+        for z in v.chunks(LSIZE_USIZE) {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;

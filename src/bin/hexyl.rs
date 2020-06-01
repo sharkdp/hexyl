@@ -149,7 +149,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut stdout_lock = stdout.lock();
 
     let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
-    printer.display_offset(display_offset as usize);
+    printer.display_offset(display_offset);
     printer.print_all(&mut reader)?;
 
     Ok(())

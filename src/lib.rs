@@ -142,7 +142,7 @@ impl BorderStyle {
 }
 
 pub struct Printer<'a, Writer: Write> {
-    idx: usize,
+    idx: u64,
     /// The raw bytes used as input for the current line.
     raw_line: Vec<u8>,
     /// The buffered line built with each byte, ready to print to writer.
@@ -154,7 +154,7 @@ pub struct Printer<'a, Writer: Write> {
     byte_hex_table: Vec<String>,
     byte_char_table: Vec<String>,
     squeezer: Squeezer,
-    display_offset: usize,
+    display_offset: u64,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -197,7 +197,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
     }
 
-    pub fn display_offset(&mut self, display_offset: usize) -> &mut Self {
+    pub fn display_offset(&mut self, display_offset: u64) -> &mut Self {
         self.display_offset = display_offset;
         self
     }
@@ -247,7 +247,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
 
         let style = COLOR_OFFSET.normal();
-        let byte_index = format!("{:08x}", (self.idx - 1) + self.display_offset);
+        let byte_index = format!("{:08x}", self.idx - 1 + self.display_offset);
         let formatted_string = if self.show_color {
             format!("{}", style.paint(byte_index))
         } else {
