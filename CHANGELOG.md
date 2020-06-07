@@ -2,9 +2,8 @@
 
 ## Features
 
-- Added a new `--skip <N>` / `-s <N>` option to skip the first `N` bytes of the input, see #16, #88
-    (Thanks to @Tarnadas, @MaxJohansen)
-- The `--length`/`--bytes`/`--skip` options can now take units for their value argument, for example:
+- A new `--skip <N>` / `-s <N>` option can be used to skip the first `N` bytes of the input, see #16, #88 (@Tarnadas, @MaxJohansen, @ErichDonGubler)
+- The `--length`/`--bytes`/`--skip`/`--display-offset` options can now take units for their value argument, for example:
   ``` bash
   hexyl /dev/random --length=1KiB
   hexyl $(which hexyl) --skip=1MiB --length=10KiB

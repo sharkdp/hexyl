@@ -19,14 +19,21 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .setting(AppSettings::UnifiedHelpMessage)
         .version(crate_version!())
         .about(crate_description!())
-        .arg(Arg::with_name("file").help("File to display"))
+        .arg(
+            Arg::with_name("FILE")
+                .help("The file to display. If no FILE argument is given, read from STDIN."),
+        )
         .arg(
             Arg::with_name("length")
                 .short("n")
                 .long("length")
                 .takes_value(true)
                 .value_name("N")
-                .help("Read only N bytes from the input"),
+                .help(
+                    "Only read N bytes from the input. The N argument can also include a \
+                      unit with a decimal prefix (kB, MB, ..) or binary prefix (kiB, MiB, ..).\n\
+                      Examples: --length=64, --length=4KiB",
+                ),
         )
         .arg(
             Arg::with_name("bytes")
@@ -42,7 +49,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .long("skip")
                 .takes_value(true)
                 .value_name("N")
-                .help("Skip first N bytes"),
+                .help(
+                    "Skip the first N bytes of the input. The N argument can also include \
+                      a unit (see `--length` for details)",
+                ),
         )
         .arg(
             Arg::with_name("block_size")
@@ -50,8 +60,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .takes_value(true)
                 .value_name("SIZE")
                 .help(
-                    "Sets the size of the `block` unit to SIZE. Examples: \
-                     --block-size=1024, --block-size=4kB",
+                    "Sets the size of the `block` unit to SIZE.\n\
+                    Examples: --block-size=1024, --block-size=4kB",
                 ),
         )
         .arg(
@@ -68,7 +78,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             Arg::with_name("color")
                 .long("color")
                 .takes_value(true)
-                .value_name("when")
+                .value_name("WHEN")
                 .possible_values(&["always", "auto", "never"])
                 .default_value("always")
                 .help(
@@ -80,24 +90,26 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             Arg::with_name("border")
                 .long("border")
                 .takes_value(true)
+                .value_name("STYLE")
                 .possible_values(&["unicode", "ascii", "none"])
                 .default_value("unicode")
-                .help("Whether to draw a border with unicode or ASCII characters, or none at all"),
+                .help("Whether to draw a border with Unicode characters, ASCII characters, or none at all"),
         )
         .arg(
             Arg::with_name("display_offset")
                 .short("o")
                 .long("display-offset")
                 .takes_value(true)
-                .value_name("OFFSET")
-                .help("Add OFFSET to the displayed file position."),
+                .value_name("N")
+                .help("Add N bytes to the displayed file position. The N argument can also include \
+                a unit (see `--length` for details)"),
         );
 
     let matches = app.get_matches_safe()?;
 
     let stdin = io::stdin();
 
-    let mut reader: Input = match matches.value_of("file") {
+    let mut reader: Input = match matches.value_of("FILE") {
         Some(filename) => Input::File(File::open(filename)?),
         None => Input::Stdin(stdin.lock()),
     };
