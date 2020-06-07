@@ -34,10 +34,7 @@ impl Byte {
     fn category(self) -> ByteCategory {
         if self.0 == 0x00 {
             ByteCategory::Null
-        } else if self.0.is_ascii_alphanumeric()
-            || self.0.is_ascii_punctuation()
-            || self.0.is_ascii_graphic()
-        {
+        } else if self.0.is_ascii_graphic() {
             ByteCategory::AsciiPrintable
         } else if self.0.is_ascii_whitespace() {
             ByteCategory::AsciiWhitespace
