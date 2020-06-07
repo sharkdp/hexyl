@@ -111,7 +111,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .value_of("skip")
         .and_then(|s| parse_byte_count(s, block_size));
 
-    if let Some(skip) = skip_arg.clone() {
+    if let Some(skip) = skip_arg {
         reader.seek(SeekFrom::Current(skip.into_inner()))?;
     }
 
@@ -207,7 +207,7 @@ impl Into<u64> for PositiveI64 {
 }
 
 fn parse_byte_count(n: &str, block_size: PositiveI64) -> Option<PositiveI64> {
-    const HEX_PREFIX: &'static str = "0x";
+    const HEX_PREFIX: &str = "0x";
 
     let n = {
         let mut chars = n.chars();
