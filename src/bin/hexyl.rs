@@ -51,7 +51,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .value_name("SIZE")
                 .help(
                     "Sets the size of the `block` unit to SIZE. Examples: \
-                    --block-size=1024, --block-size=4kB",
+                     --block-size=1024, --block-size=4kB",
                 ),
         )
         .arg(
