@@ -44,6 +44,7 @@ script:
   # Incorporate TARGET env var to the build and test process
   - cargo build --target $TARGET --verbose
   - cargo test --target $TARGET --verbose
+  - cargo run --target $TARGET --example=simple
 
 before_deploy:
   - bash ci/before_deploy.bash
