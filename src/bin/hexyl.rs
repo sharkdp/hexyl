@@ -17,6 +17,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .setting(AppSettings::ColoredHelp)
         .setting(AppSettings::DeriveDisplayOrder)
         .setting(AppSettings::UnifiedHelpMessage)
+        .max_term_width(90)
         .version(crate_version!())
         .about(crate_description!())
         .arg(

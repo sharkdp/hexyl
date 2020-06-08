@@ -17,6 +17,7 @@ libc = "0.2"
 
 [dependencies.clap]
 version = "2"
+default-features = false
 features = ["suggestions", "color", "wrap_help"]
 
 [profile.release]
