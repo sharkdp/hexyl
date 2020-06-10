@@ -112,7 +112,7 @@ fn run() -> Result<(), AnyhowError> {
 
     let stdin = io::stdin();
 
-    let mut reader: Input = match matches.value_of("FILE") {
+    let mut reader = match matches.value_of("FILE") {
         Some(filename) => Input::File(File::open(filename)?),
         None => Input::Stdin(stdin.lock()),
     };
