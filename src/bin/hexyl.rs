@@ -34,8 +34,8 @@ fn run() -> Result<(), AnyhowError> {
                 .value_name("N")
                 .help(
                     "Only read N bytes from the input. The N argument can also include a \
-                      unit with a decimal prefix (kB, MB, ..) or binary prefix (kiB, MiB, ..).\n\
-                      Examples: --length=64, --length=4KiB",
+                     unit with a decimal prefix (kB, MB, ..) or binary prefix (kiB, MiB, ..).\n\
+                     Examples: --length=64, --length=4KiB",
                 ),
         )
         .arg(
@@ -54,7 +54,7 @@ fn run() -> Result<(), AnyhowError> {
                 .value_name("N")
                 .help(
                     "Skip the first N bytes of the input. The N argument can also include \
-                      a unit (see `--length` for details)",
+                     a unit (see `--length` for details)",
                 ),
         )
         .arg(
@@ -64,7 +64,7 @@ fn run() -> Result<(), AnyhowError> {
                 .value_name("SIZE")
                 .help(
                     "Sets the size of the `block` unit to SIZE.\n\
-                    Examples: --block-size=1024, --block-size=4kB",
+                     Examples: --block-size=1024, --block-size=4kB",
                 ),
         )
         .arg(
@@ -96,7 +96,10 @@ fn run() -> Result<(), AnyhowError> {
                 .value_name("STYLE")
                 .possible_values(&["unicode", "ascii", "none"])
                 .default_value("unicode")
-                .help("Whether to draw a border with Unicode characters, ASCII characters, or none at all"),
+                .help(
+                    "Whether to draw a border with Unicode characters, ASCII characters, \
+                    or none at all",
+                ),
         )
         .arg(
             Arg::with_name("display_offset")
@@ -104,8 +107,10 @@ fn run() -> Result<(), AnyhowError> {
                 .long("display-offset")
                 .takes_value(true)
                 .value_name("N")
-                .help("Add N bytes to the displayed file position. The N argument can also include \
-                a unit (see `--length` for details)"),
+                .help(
+                    "Add N bytes to the displayed file position. The N argument can also \
+                    include a unit (see `--length` for details)",
+                ),
         );
 
     let matches = app.get_matches_safe()?;
