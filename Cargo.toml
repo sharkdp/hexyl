@@ -12,6 +12,7 @@ edition = "2018"
 
 [dependencies]
 ansi_term = "0.12"
+anyhow = "1.0.31"
 atty = "0.2"
 libc = "0.2"
 

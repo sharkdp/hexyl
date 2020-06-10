@@ -408,7 +408,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     pub fn print_all<Reader: Read>(
         &mut self,
         mut reader: Reader,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut buffer = [0; BUFFER_SIZE];
         'mainloop: loop {
             let size = reader.read(&mut buffer)?;
