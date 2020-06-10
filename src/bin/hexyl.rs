@@ -9,9 +9,11 @@ use clap::{App, AppSettings, Arg};
 
 use atty::Stream;
 
+use anyhow::{anyhow, Error as AnyhowError};
+
 use hexyl::{BorderStyle, Input, Printer};
 
-fn run() -> Result<(), Box<dyn std::error::Error>> {
+fn run() -> Result<(), AnyhowError> {
     let app = App::new(crate_name!())
         .setting(AppSettings::ColorAuto)
         .setting(AppSettings::ColoredHelp)
@@ -165,7 +167,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
     printer.display_offset(display_offset);
-    printer.print_all(&mut reader)?;
+    printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
 
     Ok(())
 }
@@ -189,7 +191,7 @@ fn main() {
                 _ => (),
             }
         } else {
-            eprintln!("Error: {}", err);
+            eprintln!("Error: {:?}", err);
         }
         std::process::exit(1);
     }
