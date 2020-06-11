@@ -9,7 +9,9 @@ use clap::{App, AppSettings, Arg};
 
 use atty::Stream;
 
-use anyhow::{anyhow, Error as AnyhowError};
+use anyhow::{anyhow, Context, Error as AnyhowError};
+
+use thiserror::Error as ThisError;
 
 use hexyl::{BorderStyle, Input, Printer};
 
@@ -124,22 +126,45 @@ fn run() -> Result<(), AnyhowError> {
 
     let block_size = matches
         .value_of("block_size")
-        .and_then(|bs| bs.parse().ok().and_then(PositiveI64::new))
+        .map(|bs| {
+            bs.parse::<i64>()
+                .map_err(|e| anyhow!(e))
+                .and_then(|x| {
+                    PositiveI64::new(x)
+                        .ok_or_else(|| anyhow!("negative block sizes don't make sense"))
+                })
+                .context(anyhow!(
+                    "failed to parse `--block-size` arg {:?} as positive integer",
+                    bs
+                ))
+        })
+        .transpose()?
         .unwrap_or_else(|| PositiveI64::new(512).unwrap());
 
     let skip_arg = matches
         .value_of("skip")
-        .and_then(|s| parse_byte_count(s, block_size));
+        .map(|s| {
+            parse_byte_count(s, block_size).context(anyhow!(
+                "failed to parse `--skip` arg {:?} as byte count",
+                s
+            ))
+        })
+        .transpose()?;
 
     if let Some(skip) = skip_arg {
         reader.seek(SeekFrom::Current(skip.into_inner()))?;
     }
 
-    let length_arg = matches
+    let mut reader = if let Some(length) = matches
         .value_of("length")
-        .or_else(|| matches.value_of("bytes"));
-
-    let mut reader = if let Some(length) = length_arg.and_then(|s| parse_byte_count(s, block_size))
+        .or_else(|| matches.value_of("bytes"))
+        .map(|s| {
+            parse_byte_count(s, block_size).context(anyhow!(
+                "failed to parse `--length` arg {:?} as byte count",
+                s
+            ))
+        })
+        .transpose()?
     {
         Box::new(reader.take(length.into()))
     } else {
@@ -162,7 +187,13 @@ fn run() -> Result<(), AnyhowError> {
 
     let display_offset = matches
         .value_of("display_offset")
-        .and_then(|s| parse_byte_count(s, block_size))
+        .map(|s| {
+            parse_byte_count(s, block_size).context(anyhow!(
+                "failed to parse `--display-offset` arg {:?} as byte count",
+                s
+            ))
+        })
+        .transpose()?
         .or(skip_arg)
         .unwrap_or_default()
         .into();
@@ -226,67 +257,118 @@ impl Into<u64> for PositiveI64 {
     }
 }
 
-fn parse_byte_count(n: &str, block_size: PositiveI64) -> Option<PositiveI64> {
-    const HEX_PREFIX: &str = "0x";
+const HEX_PREFIX: &str = "0x";
+
+#[derive(Clone, Debug, Eq, PartialEq, ThisError)]
+enum ByteCountParseError {
+    #[error("no character data found, did you forget to write it?")]
+    Empty,
+    #[error("no digits found after sign, did you forget to write them?")]
+    EmptyAfterSign,
+    #[error("negative byte offsets are not accepted (yet)")]
+    Negative,
+    #[error(
+        "found {0:?} sign after hex prefix ({:?}); signs should go before it",
+        HEX_PREFIX
+    )]
+    SignFoundAfterHexPrefix(char),
+    #[error("{0:?} is not of the expected form <pos-integer>[<unit>]")]
+    InvalidNumAndUnit(String),
+    #[error("{0:?} is a valid unit, but an integer should come before it")]
+    EmptyWithUnit(String),
+    #[error("invalid unit {0:?}")]
+    InvalidUnit(String),
+    #[error("failed to parse integer part")]
+    ParseNum(#[source] std::num::ParseIntError),
+    #[error("count multipled by the unit overflowed a signed 64-bit integer; are you sure it should be that big?")]
+    UnitMultiplicationOverflow,
+}
+
+fn parse_byte_count(n: &str, block_size: PositiveI64) -> Result<PositiveI64, ByteCountParseError> {
+    use ByteCountParseError::*;
 
     let n = {
         let mut chars = n.chars();
-        match chars.next()? {
-            '+' => chars.as_str(),
-            '-' => return None,
+        match chars.next() {
+            Some('+') => {
+                if chars.clone().next().is_none() {
+                    return Err(EmptyAfterSign);
+                }
+                chars.as_str()
+            }
+            Some('-') => return Err(Negative),
+            None => return Err(Empty),
             _ => n,
         }
     };
 
     if n.starts_with(HEX_PREFIX) {
         let n = &n[HEX_PREFIX.len()..];
-        match n.chars().next() {
-            Some('+') | Some('-') => return None,
+        let mut chars = n.chars();
+        match chars.next() {
+            Some(c @ '+') | Some(c @ '-') => {
+                return if chars.next().is_none() {
+                    Err(EmptyAfterSign)
+                } else {
+                    Err(SignFoundAfterHexPrefix(c))
+                }
+            }
             _ => (),
         }
-        return i64::from_str_radix(n, 16).ok().and_then(PositiveI64::new);
+        return i64::from_str_radix(n, 16)
+            .map(|x| Ok(PositiveI64::new(x).unwrap()))
+            .map_err(ParseNum)?;
     }
 
-    let (n, unit_multiplier) = match n.chars().position(|c| !c.is_ascii_digit()) {
+    let (num, unit) = match n.chars().position(|c| !c.is_ascii_digit()) {
         Some(unit_begin_idx) => {
             let (n, raw_unit) = n.split_at(unit_begin_idx);
-            let raw_unit = raw_unit.to_lowercase();
-            (
-                n,
-                [
-                    ("b", 1),
-                    ("kb", 1000i64.pow(1)),
-                    ("mb", 1000i64.pow(2)),
-                    ("gb", 1000i64.pow(3)),
-                    ("tb", 1000i64.pow(4)),
-                    ("kib", 1024i64.pow(1)),
-                    ("mib", 1024i64.pow(2)),
-                    ("gib", 1024i64.pow(3)),
-                    ("tib", 1024i64.pow(4)),
-                    ("block", block_size.into_inner()),
-                ]
-                .iter()
-                .cloned()
-                .find_map(|(unit, multiplier)| {
-                    if unit == raw_unit {
-                        Some(multiplier)
-                    } else {
-                        None
-                    }
-                })?,
-            )
+            let raw_unit_lower = raw_unit.to_lowercase();
+            let multiplier = [
+                ("b", 1),
+                ("kb", 1000i64.pow(1)),
+                ("mb", 1000i64.pow(2)),
+                ("gb", 1000i64.pow(3)),
+                ("tb", 1000i64.pow(4)),
+                ("kib", 1024i64.pow(1)),
+                ("mib", 1024i64.pow(2)),
+                ("gib", 1024i64.pow(3)),
+                ("tib", 1024i64.pow(4)),
+                ("block", block_size.into_inner()),
+            ]
+            .iter()
+            .cloned()
+            .find_map(|(unit, multiplier)| {
+                if unit == raw_unit_lower {
+                    Some(multiplier)
+                } else {
+                    None
+                }
+            })
+            .ok_or_else(|| InvalidUnit(raw_unit.to_owned()));
+            (n, multiplier.map(|m| (Some(raw_unit), m)))
         }
-        None => (n, 1),
+        None => (n, Ok((None, 1))),
     };
 
-    n.parse::<i64>()
-        .ok()?
-        .checked_mul(unit_multiplier)
-        .and_then(PositiveI64::new)
+    match (num.parse::<i64>(), unit) {
+        (Ok(num), Ok((_raw_unit, unit_multiplier))) => num
+            .checked_mul(unit_multiplier)
+            .ok_or_else(|| UnitMultiplicationOverflow)
+            .and_then(|x| PositiveI64::new(x).ok_or(Negative)),
+        (Ok(_), Err(e)) => Err(e),
+        (Err(e), Ok((raw_unit, _unit_multiplier))) => match raw_unit {
+            Some(raw_unit) if num.is_empty() => Err(EmptyWithUnit(raw_unit.to_owned())),
+            _ => Err(ParseNum(e)),
+        },
+        (Err(_), Err(_)) => Err(InvalidNumAndUnit(n.to_owned())),
+    }
 }
 
 #[test]
 fn test_parse_byte_count() {
+    use ByteCountParseError::*;
+
     macro_rules! success {
         ($input: expr, $expected: expr) => {
             success!($input, 512, $expected)
@@ -294,16 +376,16 @@ fn test_parse_byte_count() {
         ($input: expr, $block_size: expr, $expected: expr) => {
             assert_eq!(
                 parse_byte_count($input, PositiveI64::new($block_size).unwrap()),
-                Some(PositiveI64::new($expected).unwrap())
+                Ok(PositiveI64::new($expected).unwrap()),
             );
         };
     }
 
     macro_rules! error {
-        ($input: expr) => {
+        ($input: expr, $expected_err: expr) => {
             assert_eq!(
                 parse_byte_count($input, PositiveI64::new(512).unwrap()),
-                None
+                Err($expected_err),
             );
         };
     }
@@ -313,6 +395,10 @@ fn test_parse_byte_count() {
     success!("1", 1);
     success!("100", 100);
     success!("+100", 100);
+
+    success!("0x0", 0);
+    success!("0xf", 15);
+    success!("0xdeadbeef", 3_735_928_559);
 
     success!("1KB", 1000);
     success!("2MB", 2000000);
@@ -334,27 +420,35 @@ fn test_parse_byte_count() {
     success!("2block", 4, 8);
 
     // empty string is invalid
-    error!("");
+    error!("", Empty);
     // These are also bad.
-    error!("+");
-    error!("-");
-    error!("K");
-    error!("k");
-    error!("m");
-    error!("block");
+    error!("+", EmptyAfterSign);
+    error!("-", Negative);
+    error!("K", InvalidNumAndUnit("K".to_owned()));
+    error!("k", InvalidNumAndUnit("k".to_owned()));
+    error!("m", InvalidNumAndUnit("m".to_owned()));
+    error!("block", EmptyWithUnit("block".to_owned()));
     // leading/trailing space is invalid
-    error!(" 0");
-    error!("0 ");
+    error!(" 0", InvalidNumAndUnit(" 0".to_owned()));
+    error!("0 ", InvalidUnit(" ".to_owned()));
     // Negatives make no sense for byte counts
-    error!("-1");
-    error!("0x-12");
+    error!("-1", Negative);
+    error!("-0x-12", Negative);
+    error!("0x-12", SignFoundAfterHexPrefix('-'));
     // This was previously accepted but shouldn't be.
-    error!("0x+12");
+    error!("0x+12", SignFoundAfterHexPrefix('+'));
     // invalid suffix
-    error!("1234asdf");
+    error!("1234asdf", InvalidUnit("asdf".to_owned()));
     // bad numbers
-    error!("asdf1234");
-    error!("a1s2d3f4");
+    error!("asdf1234", InvalidNumAndUnit("asdf1234".to_owned()));
+    error!("a1s2d3f4", InvalidNumAndUnit("a1s2d3f4".to_owned()));
     // multiplication overflows u64
-    error!("20000000TiB");
+    error!("20000000TiB", UnitMultiplicationOverflow);
+
+    assert!(match parse_byte_count("99999999999999999999", PositiveI64::new(512).unwrap()) {
+        // We can't check against the kind of the `ParseIntError`, so we'll just make sure it's the
+        // same as trying to do the parse directly.
+        Err(ParseNum(e)) => e == "99999999999999999999".parse::<i64>().unwrap_err(),
+        _ => false,
+    });
 }
