@@ -19,6 +19,12 @@ of bytes (NULL bytes, printable ASCII characters, ASCII whitespace characters, o
 
 ## Installation
 
+### On Linux
+
+```bash
+curl -fsS https://webinstall.dev/hexyl | bash
+```
+
 ### On Ubuntu
 
 *... and other Debian-based Linux distributions.*
@@ -61,6 +67,12 @@ xbps-install hexyl
 
 ```
 brew install hexyl
+```
+
+or
+
+```bash
+curl -fsS https://webinstall.dev/hexyl | bash
 ```
 
 ### On FreeBSD
