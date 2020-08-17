@@ -69,6 +69,15 @@ brew install hexyl
 pkg install hexyl
 ```
 
+### on Termux
+```
+pkg install hexyl
+```
+or 
+```
+apt install hexyl
+```
+
 ### Via Nix
 
 ```
