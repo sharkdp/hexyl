@@ -22,6 +22,9 @@ version = "2"
 default-features = false
 features = ["suggestions", "color", "wrap_help"]
 
+[dev-dependencies]
+assert_cmd = "1.0.1"
+
 [profile.release]
 lto = true
 codegen-units = 1
