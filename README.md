@@ -101,6 +101,17 @@ If you have Rust 1.36 or higher, you can install `hexyl` from source via `cargo`
 cargo install hexyl
 ```
 
+### Via snap package
+
+This package available on snapcraft with 5 different architechture `amd64`, `arm64`, `i386`, `ppc64el` and `s390x` with 4 different channel `stable`, `candidate`, `beta` and `edge`.
+
+You can install this package by running following commnad,
+```
+sudo snap install hexyl
+```
+
+This package is maintained by Github User [Purvesh Patel](https://github.com/purveshpatel511). You can find snap support repo [here](https://github.com/purveshpatel511/hexyl-snap). Feel free to open any snap related issues on [here](https://github.com/purveshpatel511/hexyl-snap/issues).
+
 ## License
 
 Licensed under either of
