@@ -26,6 +26,32 @@ fn fails_on_non_existing_input() {
 }
 
 #[test]
+fn length_restricts_output_size() {
+    hexyl()
+        .arg("hello_world_elf64")
+        .arg("--color=never")
+        .arg("--length=32")
+        .assert()
+        .success()
+        .stdout(
+            "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐\n\
+             │00000000│ 7f 45 4c 46 02 01 01 00 ┊ 00 00 00 00 00 00 00 00 │•ELF•••0┊00000000│\n\
+             │00000010│ 02 00 3e 00 01 00 00 00 ┊ 00 10 40 00 00 00 00 00 │•0>0•000┊0•@00000│\n\
+             └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘\n",
+        );
+}
+
+#[test]
+fn fail_if_length_and_bytes_options_are_used_simultaneously() {
+    hexyl()
+        .arg("hello_world_elf64")
+        .arg("--length=32")
+        .arg("--bytes=10")
+        .assert()
+        .failure();
+}
+
+#[test]
 fn display_offset() {
     hexyl()
         .arg("ascii")

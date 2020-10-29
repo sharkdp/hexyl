@@ -46,6 +46,7 @@ fn run() -> Result<(), AnyhowError> {
                 .long("bytes")
                 .takes_value(true)
                 .value_name("N")
+                .conflicts_with("length")
                 .help("An alias for -n/--length"),
         )
         .arg(
