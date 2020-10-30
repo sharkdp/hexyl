@@ -1,3 +1,16 @@
+# unreleased
+
+## Features
+
+## Bugfixes
+
+- Argument `--length` silently takes precedence over `--bytes`, see #105
+
+## Other
+
+## Packaging
+
+
 # v0.8.0
 
 ## Features
