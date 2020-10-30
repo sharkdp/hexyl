@@ -155,7 +155,7 @@ fn run() -> Result<(), AnyhowError> {
         })
         .transpose()?;
 
-    let default_display_offset = if let Some(ByteOffset { kind, value }) = skip_arg {
+    let skip_offset = if let Some(ByteOffset { kind, value }) = skip_arg {
         let value = value.into_inner();
         reader.seek(match kind {
             ByteOffsetKind::ForwardFromBeginning | ByteOffsetKind::ForwardFromLastOffset => {
@@ -203,7 +203,7 @@ fn run() -> Result<(), AnyhowError> {
 
     let squeeze = !matches.is_present("nosqueezing");
 
-    let display_offset = matches
+    let display_offset: u64 = matches
         .value_of("display_offset")
         .map(|s| {
             parse_byte_count(s).context(anyhow!(
@@ -212,14 +212,14 @@ fn run() -> Result<(), AnyhowError> {
             ))
         })
         .transpose()?
-        .unwrap_or(default_display_offset)
+        .unwrap_or(0)
         .into();
 
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
 
     let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
-    printer.display_offset(display_offset);
+    printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
 
     Ok(())

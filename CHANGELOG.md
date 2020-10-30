@@ -1,5 +1,9 @@
 # unreleased
 
+## Changes
+
+- Breaking change (binary): setting the `-o/--display-offset` flag no longer overrides the value set by `--skip` [#115](https://github.com/sharkdp/hexyl/issues/115). The first displayed address is now the sum of the two values - this matches the behaviour of `xxd`.
+
 ## Features
 
 - Allow relative and negative byte offsets (e.g. `hexyl --skip=-1block`), see #99 (@ErichDonGubler)
