@@ -5,6 +5,7 @@
 ## Bugfixes
 
 - Argument `--length` silently takes precedence over `--bytes`, see #105
+- Print warning on empty content, see #107 and #108
 
 ## Other
 
