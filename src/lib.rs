@@ -428,8 +428,10 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         // Finish last line
         self.print_textline().ok();
+
         if !self.header_was_printed() {
             self.header();
+            writeln!(self.writer, "│        │ No content to print     │                         │        │        │").ok();
         }
         self.footer();
 
@@ -459,6 +461,7 @@ mod tests {
         let input = io::empty();
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+│        │ No content to print     │                         │        │        │
 └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
 "
         .to_owned();
