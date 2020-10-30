@@ -2,11 +2,15 @@
 
 ## Features
 
+- Allow relative and negative byte offsets (e.g. `hexyl --skip=-1block`), see #99 (@ErichDonGubler)
+
 ## Bugfixes
 
 - Argument `--length` silently takes precedence over `--bytes`, see #105
 
 ## Other
+
+- Better diagnostic messages, see #98 (@ErichDonGubler)
 
 ## Packaging
 
