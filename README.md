@@ -107,7 +107,7 @@ cargo install hexyl
 sudo snap install hexyl
 ```
 
-[![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-white.svg)](https://snapcraft.io/hexyl)
+[Get it from the Snap Store](https://snapcraft.io/hexyl)
 
 ## License
 
