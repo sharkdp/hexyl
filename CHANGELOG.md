@@ -36,6 +36,7 @@
 ## Packaging
 
 - `hexyl` is now available on Void Linux, see #91 (@notramo)
+- `hexyl` is now available on snapstore, see #116 (@purveshpatel511)
 
 # v0.7.0
 
