@@ -103,14 +103,11 @@ cargo install hexyl
 
 ### Via snap package
 
-This package available on snapcraft with 5 different architechture `amd64`, `arm64`, `i386`, `ppc64el` and `s390x` with 4 different channel `stable`, `candidate`, `beta` and `edge`.
-
-You can install this package by running following commnad,
 ```
 sudo snap install hexyl
 ```
 
-This package is maintained by Github User [Purvesh Patel](https://github.com/purveshpatel511). You can find snap support repo [here](https://github.com/purveshpatel511/hexyl-snap). Feel free to open any snap related issues on [here](https://github.com/purveshpatel511/hexyl-snap/issues).
+[![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-white.svg)](https://snapcraft.io/hexyl)
 
 ## License
 
