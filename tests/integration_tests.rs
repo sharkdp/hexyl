@@ -42,6 +42,35 @@ fn length_restricts_output_size() {
 }
 
 #[test]
+fn prints_warning_on_empty_content() {
+    hexyl()
+        .arg("empty")
+        .arg("--color=never")
+        .assert()
+        .success()
+        .stdout(
+            "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐\n\
+             │        │ No content to print     │                         │        │        │\n\
+             └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘\n",
+        );
+}
+
+#[test]
+fn prints_warning_when_skipping_past_the_end() {
+    hexyl()
+        .arg("ascii")
+        .arg("--color=never")
+        .arg("--skip=1000")
+        .assert()
+        .success()
+        .stdout(
+            "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐\n\
+             │        │ No content to print     │                         │        │        │\n\
+             └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘\n",
+        );
+}
+
+#[test]
 fn fail_if_length_and_bytes_options_are_used_simultaneously() {
     hexyl()
         .arg("hello_world_elf64")
