@@ -135,12 +135,8 @@ fn run() -> Result<(), AnyhowError> {
                 .map_err(|e| anyhow!(e))
                 .and_then(|x| {
                     PositiveI64::new(x)
-                        .ok_or_else(|| anyhow!("negative block sizes don't make sense"))
+                        .ok_or_else(|| anyhow!("block size argument must be positive"))
                 })
-                .context(anyhow!(
-                    "failed to parse `--block-size` arg {:?} as positive integer",
-                    bs
-                ))
         })
         .transpose()?
         .unwrap_or_else(|| PositiveI64::new(512).unwrap());
@@ -251,11 +247,35 @@ fn main() {
 }
 
 #[derive(Clone, Copy, Debug, Default, Hash, Eq, Ord, PartialEq, PartialOrd)]
+pub struct NonNegativeI64(i64);
+
+impl NonNegativeI64 {
+    pub fn new(x: i64) -> Option<Self> {
+        if x.is_negative() {
+            None
+        } else {
+            Some(Self(x))
+        }
+    }
+
+    pub fn into_inner(self) -> i64 {
+        self.0
+    }
+}
+
+impl Into<u64> for NonNegativeI64 {
+    fn into(self) -> u64 {
+        u64::try_from(self.0)
+            .expect("invariant broken: NonNegativeI64 should contain a non-negative i64 value")
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Hash, Eq, Ord, PartialEq, PartialOrd)]
 pub struct PositiveI64(i64);
 
 impl PositiveI64 {
     pub fn new(x: i64) -> Option<Self> {
-        if x.is_negative() {
+        if x < 1 {
             None
         } else {
             Some(Self(x))
@@ -285,7 +305,7 @@ enum ByteOffsetKind {
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct ByteOffset {
-    value: PositiveI64,
+    value: NonNegativeI64,
     kind: ByteOffsetKind,
 }
 
@@ -294,7 +314,7 @@ struct ByteOffset {
 struct NegativeOffsetSpecifiedError;
 
 impl ByteOffset {
-    fn assume_forward_offset_from_start(&self) -> Result<PositiveI64, NegativeOffsetSpecifiedError> {
+    fn assume_forward_offset_from_start(&self) -> Result<NonNegativeI64, NegativeOffsetSpecifiedError> {
         let &Self { value, kind } = self;
         match kind {
             ByteOffsetKind::ForwardFromBeginning | ByteOffsetKind::ForwardFromLastOffset => {
@@ -351,7 +371,7 @@ fn parse_byte_offset(n: &str, block_size: PositiveI64) -> Result<ByteOffset, Byt
 
     let into_byte_offset = |value| {
         Ok(ByteOffset {
-            value: PositiveI64::new(value).unwrap(),
+            value: NonNegativeI64::new(value).unwrap(),
             kind,
         })
     };
@@ -432,7 +452,7 @@ fn test_parse_byte_offset() {
                 parse_byte_offset($input, PositiveI64::new($block_size).unwrap()),
                 Ok(
                     ByteOffset {
-                        value: PositiveI64::new($expected_value).unwrap(),
+                        value: NonNegativeI64::new($expected_value).unwrap(),
                         kind: ByteOffsetKind::$expected_kind,
                     }
                 ),

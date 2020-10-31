@@ -111,3 +111,18 @@ fn display_offset_and_skip() {
              └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘\n",
         );
 }
+
+#[test]
+fn fails_for_zero_or_negative_blocksize() {
+    hexyl()
+        .arg("ascii")
+        .arg("--block-size=0")
+        .assert()
+        .failure();
+
+    hexyl()
+        .arg("ascii")
+        .arg("--block-size=-16")
+        .assert()
+        .failure();
+}
