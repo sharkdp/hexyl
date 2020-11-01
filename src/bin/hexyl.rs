@@ -150,12 +150,20 @@ fn run() -> Result<(), AnyhowError> {
 
     let skip_offset = if let Some(ByteOffset { kind, value }) = skip_arg {
         let value = value.into_inner();
-        reader.seek(match kind {
-            ByteOffsetKind::ForwardFromBeginning | ByteOffsetKind::ForwardFromLastOffset => {
-                SeekFrom::Current(value)
-            }
-            ByteOffsetKind::BackwardFromEnd => SeekFrom::End(value.checked_neg().unwrap()),
-        })?
+        reader
+            .seek(match kind {
+                ByteOffsetKind::ForwardFromBeginning | ByteOffsetKind::ForwardFromLastOffset => {
+                    SeekFrom::Current(value)
+                }
+                ByteOffsetKind::BackwardFromEnd => SeekFrom::End(value.checked_neg().unwrap()),
+            })
+            .map_err(|_| {
+                anyhow!(
+                    "Failed to jump to the desired input position. \
+                     This could be caused by a negative offset that is too large or by \
+                     an input that is not seek-able (e.g. if the input comes from a pipe)."
+                )
+            })?
     } else {
         0
     };

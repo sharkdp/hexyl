@@ -23,7 +23,8 @@ default-features = false
 features = ["suggestions", "color", "wrap_help"]
 
 [dev-dependencies]
-assert_cmd = "1.0.1"
+assert_cmd = "1.0"
+predicates = "1.0"
 
 [profile.release]
 lto = true
