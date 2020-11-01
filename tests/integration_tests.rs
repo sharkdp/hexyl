@@ -85,6 +85,27 @@ fn prints_warning_when_skipping_past_the_end() {
 }
 
 #[test]
+fn can_handle_negative_skip_arguments() {
+    hexyl()
+        .arg("hello_world_elf64")
+        .arg("--color=never")
+        .arg("--skip=-1KiB")
+        .assert()
+        .success();
+}
+
+#[test]
+fn fails_if_negative_offset_is_too_large() {
+    hexyl()
+        .arg("hello_world_elf64")
+        .arg("--color=never")
+        .arg("--skip=-1MiB")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("Failed to jump"));
+}
+
+#[test]
 fn fail_if_length_and_bytes_options_are_used_simultaneously() {
     hexyl()
         .arg("hello_world_elf64")
