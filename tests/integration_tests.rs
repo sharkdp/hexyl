@@ -21,6 +21,20 @@ fn can_print_simple_ascii_file() {
 }
 
 #[test]
+fn can_read_input_from_stdin() {
+    hexyl()
+        .arg("--color=never")
+        .write_stdin("abc")
+        .assert()
+        .success()
+        .stdout(
+            "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐\n\
+             │00000000│ 61 62 63                ┊                         │abc     ┊        │\n\
+             └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘\n",
+        );
+}
+
+#[test]
 fn fails_on_non_existing_input() {
     hexyl().arg("non-existing").assert().failure();
 }
