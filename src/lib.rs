@@ -431,7 +431,11 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         if !self.header_was_printed() {
             self.header();
-            writeln!(self.writer, "│        │ No content to print     │                         │        │        │").ok();
+            writeln!(
+                self.writer,
+                "│        │ No content to print     │                         │        │        │"
+            )
+            .ok();
         }
         self.footer();
 

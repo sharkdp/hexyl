@@ -131,12 +131,9 @@ fn run() -> Result<(), AnyhowError> {
     let block_size = matches
         .value_of("block_size")
         .map(|bs| {
-            bs.parse::<i64>()
-                .map_err(|e| anyhow!(e))
-                .and_then(|x| {
-                    PositiveI64::new(x)
-                        .ok_or_else(|| anyhow!("block size argument must be positive"))
-                })
+            bs.parse::<i64>().map_err(|e| anyhow!(e)).and_then(|x| {
+                PositiveI64::new(x).ok_or_else(|| anyhow!("block size argument must be positive"))
+            })
         })
         .transpose()?
         .unwrap_or_else(|| PositiveI64::new(512).unwrap());
@@ -165,18 +162,18 @@ fn run() -> Result<(), AnyhowError> {
 
     let parse_byte_count = |s| -> Result<u64, AnyhowError> {
         Ok(parse_byte_offset(s, block_size)?
-            .assume_forward_offset_from_start()?.into())
+            .assume_forward_offset_from_start()?
+            .into())
     };
 
     let mut reader = if let Some(length) = matches
         .value_of("length")
         .or_else(|| matches.value_of("bytes"))
         .map(|s| {
-            parse_byte_count(s)
-                .context(anyhow!(
-                    "failed to parse `--length` arg {:?} as byte count",
-                    s
-                ))
+            parse_byte_count(s).context(anyhow!(
+                "failed to parse `--length` arg {:?} as byte count",
+                s
+            ))
         })
         .transpose()?
     {
@@ -310,11 +307,15 @@ struct ByteOffset {
 }
 
 #[derive(Clone, Debug, ThisError)]
-#[error("negative offset specified, but only positive offsets (counts) are accepted in this context")]
+#[error(
+    "negative offset specified, but only positive offsets (counts) are accepted in this context"
+)]
 struct NegativeOffsetSpecifiedError;
 
 impl ByteOffset {
-    fn assume_forward_offset_from_start(&self) -> Result<NonNegativeI64, NegativeOffsetSpecifiedError> {
+    fn assume_forward_offset_from_start(
+        &self,
+    ) -> Result<NonNegativeI64, NegativeOffsetSpecifiedError> {
         let &Self { value, kind } = self;
         match kind {
             ByteOffsetKind::ForwardFromBeginning | ByteOffsetKind::ForwardFromLastOffset => {
@@ -362,7 +363,10 @@ fn parse_byte_offset(n: &str, block_size: PositiveI64) -> Result<ByteOffset, Byt
             }
         };
         match next_char {
-            Some('+') => (check_empty_after_sign()?, ByteOffsetKind::ForwardFromLastOffset),
+            Some('+') => (
+                check_empty_after_sign()?,
+                ByteOffsetKind::ForwardFromLastOffset,
+            ),
             Some('-') => (check_empty_after_sign()?, ByteOffsetKind::BackwardFromEnd),
             None => return Err(Empty),
             _ => (n, ByteOffsetKind::ForwardFromBeginning),
@@ -522,10 +526,12 @@ fn test_parse_byte_offset() {
     // multiplication overflows u64
     error!("20000000TiB", UnitMultiplicationOverflow);
 
-    assert!(match parse_byte_offset("99999999999999999999", PositiveI64::new(512).unwrap()) {
-        // We can't check against the kind of the `ParseIntError`, so we'll just make sure it's the
-        // same as trying to do the parse directly.
-        Err(ParseNum(e)) => e == "99999999999999999999".parse::<i64>().unwrap_err(),
-        _ => false,
-    });
+    assert!(
+        match parse_byte_offset("99999999999999999999", PositiveI64::new(512).unwrap()) {
+            // We can't check against the kind of the `ParseIntError`, so we'll just make sure it's the
+            // same as trying to do the parse directly.
+            Err(ParseNum(e)) => e == "99999999999999999999".parse::<i64>().unwrap_err(),
+            _ => false,
+        }
+    );
 }
