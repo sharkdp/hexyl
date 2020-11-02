@@ -10,6 +10,7 @@
 - Themes (default: Hexylamine) added, see #123 (@sivizius)
 - Formats (default: ascii; possible, but not implemented yet: ebcdic, elf, …) added, see #123 (@sivizius)
 - One could choose between lower-case and upper-case hex-values now, see #123 (@sivizius)
+- New format: EBCDIC, see #123 (@sivizius
 
 ## Bugfixes
 

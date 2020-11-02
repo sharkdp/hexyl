@@ -1,3 +1,4 @@
+#[derive(Clone, Copy)]
 pub(crate) struct BorderElements {
     pub(crate) left_corner:      char,
     pub(crate) horizontal_line:  char,
@@ -6,6 +7,7 @@ pub(crate) struct BorderElements {
 }
 
 /// Style of the Border arround bytes and characters.
+#[derive(Clone, Copy)]
 pub enum BorderStyle {
     /// Use special unicode characters for border.
     /// This is the nicest one.
@@ -17,57 +19,54 @@ pub enum BorderStyle {
     None,
 }
 
+const LOOKUP_HEADER: [Option<BorderElements>; 3] = [
+    Some(BorderElements {
+        left_corner:      '┌',
+        horizontal_line:  '─',
+        column_separator: '┬',
+        right_corner:     '┐',
+    }),
+    Some(BorderElements {
+        left_corner:      '+',
+        horizontal_line:  '-',
+        column_separator: '+',
+        right_corner:     '+',
+    }),
+    None,
+];
+const LOOKUP_FOOTER: [Option<BorderElements>; 3] = [
+    Some(BorderElements {
+        left_corner:      '└',
+        horizontal_line:  '─',
+        column_separator: '┴',
+        right_corner:     '┘',
+    }),
+    Some(BorderElements {
+        left_corner:      '+',
+        horizontal_line:  '-',
+        column_separator: '+',
+        right_corner:     '+',
+    }),
+    None,
+];
+const LOOKUP_OUTER_SEP: [char; 3] = ['│', '|', ' '];
+const LOOKUP_INNER_SEP: [char; 3] = ['┊', '|', ' '];
+
 impl BorderStyle {
     pub(crate) fn header_elems(&self) -> Option<BorderElements> {
-        match self {
-            BorderStyle::Unicode => Some(BorderElements {
-                left_corner:      '┌',
-                horizontal_line:  '─',
-                column_separator: '┬',
-                right_corner:     '┐',
-            }),
-            BorderStyle::Ascii => Some(BorderElements {
-                left_corner:      '+',
-                horizontal_line:  '-',
-                column_separator: '+',
-                right_corner:     '+',
-            }),
-            BorderStyle::None => None,
-        }
+        LOOKUP_HEADER[*self as usize]
     }
 
     pub(crate) fn footer_elems(&self) -> Option<BorderElements> {
-        match self {
-            BorderStyle::Unicode => Some(BorderElements {
-                left_corner:      '└',
-                horizontal_line:  '─',
-                column_separator: '┴',
-                right_corner:     '┘',
-            }),
-            BorderStyle::Ascii => Some(BorderElements {
-                left_corner:      '+',
-                horizontal_line:  '-',
-                column_separator: '+',
-                right_corner:     '+',
-            }),
-            BorderStyle::None => None,
-        }
+        LOOKUP_FOOTER[*self as usize]
     }
 
     pub(crate) fn outer_sep(&self) -> char {
-        match self {
-            BorderStyle::Unicode => '│',
-            BorderStyle::Ascii   => '|',
-            BorderStyle::None    => ' ',
-        }
+        LOOKUP_OUTER_SEP[*self as usize]
     }
 
     pub(crate) fn inner_sep(&self) -> char {
-        match self {
-            BorderStyle::Unicode => '┊',
-            BorderStyle::Ascii   => '|',
-            BorderStyle::None    => ' ',
-        }
+        LOOKUP_INNER_SEP[*self as usize]
     }
 }
 

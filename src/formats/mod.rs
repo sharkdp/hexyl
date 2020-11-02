@@ -1,8 +1,11 @@
 /// American Standard Code for Information Interchange.
 mod ascii;
+/// Extended Binary Coded Decimal Interchange Code.
+mod ebcdic;
 
 use std::borrow::Cow;
 use ascii::{AsciiFormatter};
+use ebcdic::{EbcdicFormatter};
 use crate::themes::CategoryColors;
 
 /// One formatted byte.
@@ -19,29 +22,21 @@ impl Byte {
         hextable: [&'static str; 256],
     ) -> Cow<'static, str> {
         if let Some(colors) = colors {
-            Cow::Owned (
-                colors[self.category as usize]
-                .paint(hextable[self.byte as usize])
-                .to_string()
+            Cow::Owned(colors[self.category as usize]
+                .paint(hextable[self.byte as usize]).to_string()
             )
         } else {
-            Cow::Borrowed (
-                hextable[self.byte as usize]
-            )
+            Cow::Borrowed(hextable[self.byte as usize])
         }
     }
 
     pub(crate) fn paint_char(&self, colors: &Option<CategoryColors>) -> Cow<'static, str> {
       if let Some(colors) = colors {
-            Cow::Owned (
-                colors[self.category as usize]
-                .paint(self.character)
-                .to_string()
+            Cow::Owned(colors[self.category as usize]
+                .paint(self.character).to_string()
             )
         } else {
-          Cow::Borrowed (
-              self.character
-          )
+          Cow::Borrowed(self.character)
         }
     }
 }
@@ -86,12 +81,15 @@ pub(crate) trait ByteFormatter {
 pub enum InputFormat {
     /// ASCII-encoded text.
     Ascii,
+    /// EBCDIC-encoded text.
+    Ebcdic,
 }
 
 impl InputFormat {
     pub(crate) fn get(self) -> Box<dyn ByteFormatter> {
         match self {
             InputFormat::Ascii  => Box::new(AsciiFormatter),
+            InputFormat::Ebcdic => Box::new(EbcdicFormatter),
         }
     }
 }
@@ -166,6 +164,11 @@ mod tests {
         let input_format = InputFormat::Ascii;
         assert_eq! (
             "ASCII",
+            input_format.get().name(),
+        );
+        let input_format = InputFormat::Ebcdic;
+        assert_eq! (
+            "EBCDIC",
             input_format.get().name(),
         );
     }

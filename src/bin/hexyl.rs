@@ -128,7 +128,7 @@ fn run() -> Result<(), AnyhowError> {
                 .long("format")
                 .takes_value(true)
                 .value_name("FORMAT")
-                .possible_values(&["ascii"])
+                .possible_values(&["ascii","ebcdic"])
                 .default_value("ascii")
                 .help(
                     "Protocol/File format of the input."
@@ -251,7 +251,8 @@ fn run() -> Result<(), AnyhowError> {
     //  ToDo: Add more formats and remove attribute.
     #[allow(clippy::match_single_binding)]
     let input_format = match matches.value_of("format") {
-        _ => InputFormat::Ascii,
+        Some("ebcdic") => InputFormat::Ebcdic,
+        _              => InputFormat::Ascii,
     };
 
     let squeeze = !matches.is_present("nosqueezing");

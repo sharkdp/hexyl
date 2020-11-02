@@ -65,13 +65,28 @@ impl Squeezer {
         }
     }
 
-    pub(crate) fn advance(&mut self) {
+    pub(crate) fn advance(&mut self) -> bool {
         match self.state {
             SqueezeState::SqueezeFirstLine | SqueezeState::Squeeze => {
                 self.state = SqueezeState::SqueezeActive;
+                true
             },
-            _ => {},
+            _ => false,
         }
+    }
+
+    fn advance_process(&mut self) {
+        use self::SqueezeState::*;
+        self.state = match self.state {
+            NoSqueeze               => Probe,
+            Probe                   => SqueezeActiveFirstLine,
+            SqueezeActiveFirstLine  => SqueezeFirstLine,
+            SqueezeFirstLine        => SqueezeActive,
+            SqueezeActive           => Squeeze,
+            Squeeze                 => SqueezeActive,
+            //  Untestable, because unrechable.
+            Disabled                => unreachable!(),
+        };
     }
 
     /// Process a single byte.
@@ -86,16 +101,7 @@ impl Squeezer {
             if !eq {
                 self.state = Probe;
             } else {
-                self.state = match self.state {
-                    NoSqueeze               => Probe,
-                    Probe                   => SqueezeActiveFirstLine,
-                    SqueezeActiveFirstLine  => SqueezeFirstLine,
-                    SqueezeFirstLine        => SqueezeActive,
-                    SqueezeActive           => Squeeze,
-                    Squeeze                 => SqueezeActive,
-                    //  Untestable, because unrechable.
-                    Disabled                => unreachable!(),
-                };
+                self.advance_process();
             }
         } else if !eq {
             if i % LSIZE == 1 {
@@ -116,22 +122,24 @@ mod tests {
 
     const LSIZE_USIZE: usize = LSIZE as usize;
 
-    fn advance_helper(squeezer: &mut Squeezer, input: SqueezeState, output: SqueezeState) {
+    fn advance_helper(squeezer: &mut Squeezer, input: SqueezeState, output: SqueezeState) -> bool {
       squeezer.state = input;
-      squeezer.advance();
+      let result = squeezer.advance();
       assert_eq!(squeezer.state, output);
+      result
     }
 
     #[test]
     fn advance() {
+        use self::SqueezeState::*;
         let mut squeezer = Squeezer::new(true);
-        advance_helper(&mut squeezer, SqueezeState::Disabled,               SqueezeState::Disabled              );
-        advance_helper(&mut squeezer, SqueezeState::NoSqueeze,              SqueezeState::NoSqueeze             );
-        advance_helper(&mut squeezer, SqueezeState::Probe,                  SqueezeState::Probe                 );
-        advance_helper(&mut squeezer, SqueezeState::SqueezeActive,          SqueezeState::SqueezeActive         );
-        advance_helper(&mut squeezer, SqueezeState::Squeeze,                SqueezeState::SqueezeActive         );
-        advance_helper(&mut squeezer, SqueezeState::SqueezeFirstLine,       SqueezeState::SqueezeActive         );
-        advance_helper(&mut squeezer, SqueezeState::SqueezeActiveFirstLine, SqueezeState::SqueezeActiveFirstLine);
+        assert_eq!(false, advance_helper(&mut squeezer, Disabled,               Disabled              ));
+        assert_eq!(false, advance_helper(&mut squeezer, NoSqueeze,              NoSqueeze             ));
+        assert_eq!(false, advance_helper(&mut squeezer, Probe,                  Probe                 ));
+        assert_eq!(false, advance_helper(&mut squeezer, SqueezeActive,          SqueezeActive         ));
+        assert_eq!(true,  advance_helper(&mut squeezer, Squeeze,                SqueezeActive         ));
+        assert_eq!(true,  advance_helper(&mut squeezer, SqueezeFirstLine,       SqueezeActive         ));
+        assert_eq!(false, advance_helper(&mut squeezer, SqueezeActiveFirstLine, SqueezeActiveFirstLine));
     }
 
     fn process_helper(squeezer: &mut Squeezer, input: SqueezeState, output: SqueezeState) {
@@ -142,17 +150,26 @@ mod tests {
 
     #[test]
     fn process() {
+        use self::SqueezeState::*;
         let mut squeezer = Squeezer::new(false);
         assert_eq!(false, squeezer.process(0,0));
         let mut squeezer = Squeezer::new(true);
         assert_eq!(true,  squeezer.process(0,0));
-        process_helper(&mut squeezer, SqueezeState::Disabled,               SqueezeState::Disabled              );
-        process_helper(&mut squeezer, SqueezeState::NoSqueeze,              SqueezeState::Probe                 );
-        process_helper(&mut squeezer, SqueezeState::Probe,                  SqueezeState::SqueezeActiveFirstLine);
-        process_helper(&mut squeezer, SqueezeState::SqueezeActive,          SqueezeState::Squeeze               );
-        process_helper(&mut squeezer, SqueezeState::Squeeze,                SqueezeState::SqueezeActive         );
-        process_helper(&mut squeezer, SqueezeState::SqueezeFirstLine,       SqueezeState::SqueezeActive         );
-        process_helper(&mut squeezer, SqueezeState::SqueezeActiveFirstLine, SqueezeState::SqueezeFirstLine      );
+        process_helper(&mut squeezer, Disabled,               Disabled              );
+        process_helper(&mut squeezer, NoSqueeze,              Probe                 );
+        process_helper(&mut squeezer, Probe,                  SqueezeActiveFirstLine);
+        process_helper(&mut squeezer, SqueezeActive,          Squeeze               );
+        process_helper(&mut squeezer, Squeeze,                SqueezeActive         );
+        process_helper(&mut squeezer, SqueezeFirstLine,       SqueezeActive         );
+        process_helper(&mut squeezer, SqueezeActiveFirstLine, SqueezeFirstLine      );
+    }
+
+    #[test]
+    #[should_panic]
+    fn advance_process() {
+        let mut squeezer = Squeezer::new(false);
+        squeezer.state = SqueezeState::Disabled;
+        squeezer.advance_process();
     }
 
     #[test]
