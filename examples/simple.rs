@@ -1,6 +1,6 @@
 use std::io;
 
-use hexyl::{BorderStyle, Printer};
+use hexyl::{BorderStyle, Printer, themes};
 
 fn main() {
     let input = vec![
@@ -11,10 +11,10 @@ fn main() {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
 
-    let show_color = true;
+    let theme = Some(themes::Hexylamine);
     let use_squeezing = false;
     let border_style = BorderStyle::Unicode;
 
-    let mut printer = Printer::new(&mut handle, show_color, border_style, use_squeezing);
+    let mut printer = Printer::new(&mut handle, theme, border_style, use_squeezing);
     printer.print_all(&input[..]).unwrap();
 }

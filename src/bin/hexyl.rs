@@ -13,7 +13,7 @@ use anyhow::{anyhow, Context, Error as AnyhowError};
 
 use thiserror::Error as ThisError;
 
-use hexyl::{BorderStyle, Input, Printer};
+use hexyl::{border::BorderStyle, Input, Printer, themes::Hexylamine};
 
 fn run() -> Result<(), AnyhowError> {
     let app = App::new(crate_name!())
@@ -117,6 +117,18 @@ fn run() -> Result<(), AnyhowError> {
                     A negative value is valid and calculates an offset relative to the \
                     end of the file.",
                 ),
+        )
+        .arg(
+            Arg::with_name("theme")
+                .short("t")
+                .long("theme")
+                .takes_value(true)
+                .value_name("THEME")
+                .possible_values(&["hexylamine"])
+                .default_value("hexylamine")
+                .help(
+                    "Theme (Colors)."
+                ),
         );
 
     let matches = app.get_matches_safe()?;
@@ -196,6 +208,15 @@ fn run() -> Result<(), AnyhowError> {
         _ => true,
     };
 
+    let theme = if show_color {
+        match matches.value_of("theme") {
+            Some("hexylamine") => Some(Hexylamine),
+            _ => None,
+        }
+    } else {
+        None
+    };
+
     let border_style = match matches.value_of("border") {
         Some("unicode") => BorderStyle::Unicode,
         Some("ascii") => BorderStyle::Ascii,
@@ -219,7 +240,7 @@ fn run() -> Result<(), AnyhowError> {
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
 
-    let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
+    let mut printer = Printer::new(&mut stdout_lock, theme, border_style, squeeze);
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
 

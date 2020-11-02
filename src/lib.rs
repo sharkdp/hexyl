@@ -1,23 +1,23 @@
+/// Some nice borders around the dump.
+pub mod border;
 pub(crate) mod input;
 pub mod squeezer;
+/// Customable themes.
+pub mod themes;
 
 pub use input::*;
 
 use std::io::{self, Read, Write};
 
-use ansi_term::Color;
-use ansi_term::Color::Fixed;
-
 use crate::squeezer::{SqueezeAction, Squeezer};
 
-const BUFFER_SIZE: usize = 256;
+use crate::themes::CategoryColors;
 
-const COLOR_NULL: Color = Fixed(242); // grey
-const COLOR_OFFSET: Color = Fixed(242); // grey
-const COLOR_ASCII_PRINTABLE: Color = Color::Cyan;
-const COLOR_ASCII_WHITESPACE: Color = Color::Green;
-const COLOR_ASCII_OTHER: Color = Color::Purple;
-const COLOR_NONASCII: Color = Color::Yellow;
+// Reexports
+pub use crate::border::BorderStyle;
+pub use crate::themes::Theme;
+
+const BUFFER_SIZE: usize = 256;
 
 pub enum ByteCategory {
     Null,
@@ -45,18 +45,6 @@ impl Byte {
         }
     }
 
-    fn color(self) -> &'static Color {
-        use crate::ByteCategory::*;
-
-        match self.category() {
-            Null => &COLOR_NULL,
-            AsciiPrintable => &COLOR_ASCII_PRINTABLE,
-            AsciiWhitespace => &COLOR_ASCII_WHITESPACE,
-            AsciiOther => &COLOR_ASCII_OTHER,
-            NonAscii => &COLOR_NONASCII,
-        }
-    }
-
     fn as_char(self) -> char {
         use crate::ByteCategory::*;
 
@@ -71,82 +59,60 @@ impl Byte {
     }
 }
 
-struct BorderElements {
-    left_corner: char,
-    horizontal_line: char,
-    column_separator: char,
-    right_corner: char,
+struct PrinterStyle {
+    border_prefix:    String,
+    border_style:     BorderStyle,
+    border_suffix:    String,
+    offset_prefix:    String,
+    offset_suffix:    String,
+    category_colors:  Option<CategoryColors>,
 }
 
-pub enum BorderStyle {
-    Unicode,
-    Ascii,
-    None,
-}
-
-impl BorderStyle {
-    fn header_elems(&self) -> Option<BorderElements> {
-        match self {
-            BorderStyle::Unicode => Some(BorderElements {
-                left_corner: '┌',
-                horizontal_line: '─',
-                column_separator: '┬',
-                right_corner: '┐',
-            }),
-            BorderStyle::Ascii => Some(BorderElements {
-                left_corner: '+',
-                horizontal_line: '-',
-                column_separator: '+',
-                right_corner: '+',
-            }),
-            BorderStyle::None => None,
-        }
-    }
-
-    fn footer_elems(&self) -> Option<BorderElements> {
-        match self {
-            BorderStyle::Unicode => Some(BorderElements {
-                left_corner: '└',
-                horizontal_line: '─',
-                column_separator: '┴',
-                right_corner: '┘',
-            }),
-            BorderStyle::Ascii => Some(BorderElements {
-                left_corner: '+',
-                horizontal_line: '-',
-                column_separator: '+',
-                right_corner: '+',
-            }),
-            BorderStyle::None => None,
-        }
-    }
-
-    fn outer_sep(&self) -> char {
-        match self {
-            BorderStyle::Unicode => '│',
-            BorderStyle::Ascii => '|',
-            BorderStyle::None => ' ',
-        }
-    }
-
-    fn inner_sep(&self) -> char {
-        match self {
-            BorderStyle::Unicode => '┊',
-            BorderStyle::Ascii => '|',
-            BorderStyle::None => ' ',
+impl PrinterStyle {
+    fn new(theme: Option<Theme>, border_style: BorderStyle) -> Self {
+        let (
+            border_prefix,
+            border_suffix,
+            offset_prefix,
+            offset_suffix,
+            category_colors,
+        ) = if let Some(theme) = theme {
+            (
+                theme.border.prefix().to_string(),
+                theme.border.suffix().to_string(),
+                theme.offset.prefix().to_string(),
+                theme.offset.suffix().to_string(),
+                Some(theme.category.to_colors()),
+            )
+        } else {
+            (
+              String::new(),
+              String::new(),
+              String::new(),
+              String::new(),
+              None,
+            )
+        };
+        Self {
+            border_prefix,
+            border_style,
+            border_suffix,
+            offset_prefix,
+            offset_suffix,
+            category_colors,
         }
     }
 }
 
 pub struct Printer<'a, Writer: Write> {
-    idx: u64,
+    index: u64,
     /// The raw bytes used as input for the current line.
     raw_line: Vec<u8>,
     /// The buffered line built with each byte, ready to print to writer.
     buffer_line: Vec<u8>,
     writer: &'a mut Writer,
-    show_color: bool,
-    border_style: BorderStyle,
+    /// The style to use for nice output.
+    style: PrinterStyle,
     header_was_printed: bool,
     byte_hex_table: Vec<String>,
     byte_char_table: Vec<String>,
@@ -157,38 +123,40 @@ pub struct Printer<'a, Writer: Write> {
 impl<'a, Writer: Write> Printer<'a, Writer> {
     pub fn new(
         writer: &'a mut Writer,
-        show_color: bool,
+        theme: Option<Theme>,
         border_style: BorderStyle,
         use_squeeze: bool,
     ) -> Printer<'a, Writer> {
+        let style = PrinterStyle::new(theme, border_style);
+        let byte_hex_table = (0u8..=u8::max_value())
+            .map(|i| {
+                let byte_hex = format!("{:02x} ", i);
+                if let Some(colors) = &style.category_colors {
+                    colors[Byte(i).category() as usize].paint(byte_hex).to_string()
+                } else {
+                    byte_hex
+                }
+            })
+            .collect();
+        let byte_char_table = (0u8..=u8::max_value())
+            .map(|i| {
+                let byte_char = format!("{}", Byte(i).as_char());
+                if let Some(colors) = &style.category_colors {
+                    colors[Byte(i).category() as usize].paint(byte_char).to_string()
+                } else {
+                    byte_char
+                }
+            })
+            .collect();
         Printer {
-            idx: 1,
+            index: 1,
             raw_line: vec![],
             buffer_line: vec![],
             writer,
-            show_color,
-            border_style,
+            style,
             header_was_printed: false,
-            byte_hex_table: (0u8..=u8::max_value())
-                .map(|i| {
-                    let byte_hex = format!("{:02x} ", i);
-                    if show_color {
-                        Byte(i).color().paint(byte_hex).to_string()
-                    } else {
-                        byte_hex
-                    }
-                })
-                .collect(),
-            byte_char_table: (0u8..=u8::max_value())
-                .map(|i| {
-                    let byte_char = format!("{}", Byte(i).as_char());
-                    if show_color {
-                        Byte(i).color().paint(byte_char).to_string()
-                    } else {
-                        byte_char
-                    }
-                })
-                .collect(),
+            byte_hex_table,
+            byte_char_table,
             squeezer: Squeezer::new(use_squeeze),
             display_offset: 0,
         }
@@ -199,106 +167,107 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         self
     }
 
-    pub fn header(&mut self) {
-        if let Some(border_elements) = self.border_style.header_elems() {
+    fn header(&mut self) {
+        if let Some(border_elements) = self.style.border_style.header_elems() {
             let h = border_elements.horizontal_line;
             let h8 = h.to_string().repeat(8);
             let h25 = h.to_string().repeat(25);
 
             writeln!(
                 self.writer,
-                "{l}{h8}{c}{h25}{c}{h25}{c}{h8}{c}{h8}{r}",
-                l = border_elements.left_corner,
-                c = border_elements.column_separator,
-                r = border_elements.right_corner,
-                h8 = h8,
-                h25 = h25
+                "{bp}{lc}{h8}{sep}{h25}{sep}{h25}{sep}{h8}{sep}{h8}{rc}{bs}",
+                lc  = border_elements.left_corner,
+                sep = border_elements.column_separator,
+                rc  = border_elements.right_corner,
+                h8  = h8,
+                h25 = h25,
+                bp  = self.style.border_prefix,
+                bs  = self.style.border_suffix,
             )
             .ok();
         }
     }
 
-    pub fn footer(&mut self) {
-        if let Some(border_elements) = self.border_style.footer_elems() {
-            let h = border_elements.horizontal_line;
-            let h8 = h.to_string().repeat(8);
-            let h25 = h.to_string().repeat(25);
-
+    fn footer(&mut self) {
+        if let Some(border_elements) = self.style.border_style.footer_elems() {
+            let h   = border_elements.horizontal_line;
             writeln!(
                 self.writer,
-                "{l}{h8}{c}{h25}{c}{h25}{c}{h8}{c}{h8}{r}",
-                l = border_elements.left_corner,
-                c = border_elements.column_separator,
-                r = border_elements.right_corner,
-                h8 = h8,
-                h25 = h25
+                "{bp}{lc}{h8}{sep}{h25}{sep}{h25}{sep}{h8}{sep}{h8}{rc}{bs}",
+                lc  = border_elements.left_corner,
+                sep  = border_elements.column_separator,
+                rc  = border_elements.right_corner,
+                h8  = h.to_string().repeat(8),
+                h25 = h.to_string().repeat(25),
+                bp  = self.style.border_prefix,
+                bs  = self.style.border_suffix,
             )
             .ok();
         }
     }
 
-    fn print_position_indicator(&mut self) {
+    fn print_position_indicator(&mut self) -> io::Result<()> {
         if !self.header_was_printed {
             self.header();
             self.header_was_printed = true;
         }
 
-        let style = COLOR_OFFSET.normal();
-        let byte_index = format!("{:08x}", self.idx - 1 + self.display_offset);
-        let formatted_string = if self.show_color {
-            format!("{}", style.paint(byte_index))
-        } else {
-            byte_index
-        };
-        let _ = write!(
+        write!(
             &mut self.buffer_line,
-            "{}{}{} ",
-            self.border_style.outer_sep(),
-            formatted_string,
-            self.border_style.outer_sep()
-        );
+            "{bp}{sep}{bs}{op}{off:08x}{os}{bp}{sep}{bs} ",
+            off = self.index - 1 + self.display_offset,
+            sep = self.style.border_style.outer_sep(),
+            bp  = self.style.border_prefix,
+            bs  = self.style.border_suffix,
+            op  = self.style.offset_prefix,
+            os  = self.style.offset_suffix,
+        )
     }
 
     pub fn print_byte(&mut self, b: u8) -> io::Result<()> {
-        if self.idx % 16 == 1 {
-            self.print_position_indicator();
+        if self.index % 16 == 1 {
+            self.print_position_indicator()?;
         }
 
         write!(&mut self.buffer_line, "{}", self.byte_hex_table[b as usize])?;
         self.raw_line.push(b);
 
-        self.squeezer.process(b, self.idx);
+        self.squeezer.process(b, self.index);
 
-        match self.idx % 16 {
-            8 => {
-                let _ = write!(&mut self.buffer_line, "{} ", self.border_style.inner_sep());
-            }
-            0 => {
-                self.print_textline()?;
-            }
+        match self.index % 16 {
+            8 => write! (
+                    &mut self.buffer_line,
+                    "{bp}{sep}{bs} ",
+                    sep = self.style.border_style.inner_sep(),
+                    bp  = self.style.border_prefix,
+                    bs  = self.style.border_suffix,
+                )?,
+            0 =>  self.print_textline()?,
             _ => {}
         }
 
-        self.idx += 1;
+        self.index += 1;
 
         Ok(())
     }
 
-    pub fn print_textline(&mut self) -> io::Result<()> {
-        let len = self.raw_line.len();
+    fn print_textline(&mut self) -> io::Result<()> {
+        let length = self.raw_line.len();
 
-        if len == 0 {
+        if length == 0 {
             if self.squeezer.active() {
-                self.print_position_indicator();
+                self.print_position_indicator()?;
                 let _ = writeln!(
                     &mut self.buffer_line,
-                    "{0:1$}{4}{0:2$}{5}{0:3$}{4}{0:3$}{5}",
-                    "",
-                    24,
-                    25,
-                    8,
-                    self.border_style.inner_sep(),
-                    self.border_style.outer_sep(),
+                    "{bp}{w:h24$}{is}{w:h25$}{os}{w:h8$}{is}{w:h8$}{os}{bs}",
+                    w   = "",
+                    h24 = 24,
+                    h25 = 25,
+                    h8  = 8,
+                    is  = self.style.border_style.inner_sep(),
+                    os  = self.style.border_style.outer_sep(),
+                    bp  = self.style.border_prefix,
+                    bs  = self.style.border_suffix,
                 );
                 self.writer.write_all(&self.buffer_line)?;
             }
@@ -308,58 +277,69 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let squeeze_action = self.squeezer.action();
 
         if squeeze_action != SqueezeAction::Delete {
-            if len < 8 {
+            if length < 8 {
                 let _ = write!(
                     &mut self.buffer_line,
-                    "{0:1$}{3}{0:2$}{4}",
-                    "",
-                    3 * (8 - len),
-                    1 + 3 * 8,
-                    self.border_style.inner_sep(),
-                    self.border_style.outer_sep(),
+                    "{bp}{w:hl$}{is}{w:h25$}{os}{bs}",
+                    w   = "",
+                    hl  = 3 * (8 - length),
+                    h25 = 1 + 3 * 8,
+                    is  = self.style.border_style.inner_sep(),
+                    os  = self.style.border_style.outer_sep(),
+                    bp  = self.style.border_prefix,
+                    bs  = self.style.border_suffix,
                 );
             } else {
                 let _ = write!(
                     &mut self.buffer_line,
-                    "{0:1$}{2}",
-                    "",
-                    3 * (16 - len),
-                    self.border_style.outer_sep()
+                    "{bp}{w:hl$}{sep}{bs}",
+                    w   = "",
+                    hl  = 3 * (16 - length),
+                    sep = self.style.border_style.outer_sep(),
+                    bp  = self.style.border_prefix,
+                    bs  = self.style.border_suffix,
                 );
             }
 
-            let mut idx = 1;
-            for &b in self.raw_line.iter() {
+            for (index,byte) in self.raw_line.iter().enumerate() {
                 let _ = write!(
                     &mut self.buffer_line,
                     "{}",
-                    self.byte_char_table[b as usize]
+                    self.byte_char_table[*byte as usize],
                 );
 
-                if idx == 8 {
-                    let _ = write!(&mut self.buffer_line, "{}", self.border_style.inner_sep());
+                if index == 7 {
+                    write! (
+                      &mut self.buffer_line,
+                      "{bp}{sep}{bs}",
+                      sep = self.style.border_style.inner_sep(),
+                      bp  = self.style.border_prefix,
+                      bs  = self.style.border_suffix,
+                  )?;
                 }
-
-                idx += 1;
             }
 
-            if len < 8 {
+            if length < 8 {
                 let _ = writeln!(
                     &mut self.buffer_line,
-                    "{0:1$}{3}{0:2$}{4}",
-                    "",
-                    8 - len,
-                    8,
-                    self.border_style.inner_sep(),
-                    self.border_style.outer_sep(),
+                    "{p}{w:hl$}{i}{w:h8$}{o}{s}",
+                    w  = "",
+                    hl = 8 - length,
+                    h8 = 8,
+                    i  = self.style.border_style.inner_sep(),
+                    o  = self.style.border_style.outer_sep(),
+                    p  = self.style.border_prefix,
+                    s  = self.style.border_suffix,
                 );
             } else {
                 let _ = writeln!(
                     &mut self.buffer_line,
-                    "{0:1$}{2}",
-                    "",
-                    16 - len,
-                    self.border_style.outer_sep()
+                    "{p}{w:h$}{o}{s}",
+                    w  = "",
+                    h  = 16 - length,
+                    o  = self.style.border_style.outer_sep(),
+                    p  = self.style.border_prefix,
+                    s  = self.style.border_suffix,
                 );
             }
         }
@@ -367,22 +347,19 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         match squeeze_action {
             SqueezeAction::Print => {
                 self.buffer_line.clear();
-                let style = COLOR_OFFSET.normal();
-                let asterisk = if self.show_color {
-                    format!("{}", style.paint("*"))
-                } else {
-                    String::from("*")
-                };
                 let _ = writeln!(
                     &mut self.buffer_line,
-                    "{5}{0}{1:2$}{5}{1:3$}{6}{1:3$}{5}{1:4$}{6}{1:4$}{5}",
-                    asterisk,
-                    "",
-                    7,
-                    25,
-                    8,
-                    self.border_style.outer_sep(),
-                    self.border_style.inner_sep(),
+                    "{bp}{o}{bs}{op}*{os}{bp}{w:h7$}{o}{w:h25$}{i}{w:h25$}{o}{w:h8$}{i}{w:h8$}{o}{bs}",
+                    w   = "",
+                    h7  = 7,
+                    h25 = 25,
+                    h8  = 8,
+                    o   = self.style.border_style.outer_sep(),
+                    i   = self.style.border_style.inner_sep(),
+                    bp  = self.style.border_prefix,
+                    bs  = self.style.border_suffix,
+                    op  = self.style.offset_prefix,
+                    os  = self.style.offset_suffix,
                 );
             }
             SqueezeAction::Delete => self.buffer_line.clear(),
@@ -429,13 +406,14 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         // Finish last line
         self.print_textline().ok();
 
-        if !self.header_was_printed() {
+        if !self.header_was_printed {
             self.header();
-            writeln!(
+            writeln! (
                 self.writer,
-                "│        │ No content to print     │                         │        │        │"
-            )
-            .ok();
+                "{p}│        │ No content to print     │                         │        │        │{s}",
+                p = self.style.border_prefix,
+                s = self.style.border_suffix,
+            ).ok();
         }
         self.footer();
 
@@ -452,7 +430,7 @@ mod tests {
 
     fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) -> () {
         let mut output = vec![];
-        let mut printer = Printer::new(&mut output, false, BorderStyle::Unicode, true);
+        let mut printer = Printer::new(&mut output, None, BorderStyle::Unicode, true);
 
         printer.print_all(input).unwrap();
 
@@ -497,7 +475,7 @@ mod tests {
 
         let mut output = vec![];
         let mut printer: Printer<Vec<u8>> =
-            Printer::new(&mut output, false, BorderStyle::Unicode, true);
+            Printer::new(&mut output, None, BorderStyle::Unicode, true);
         printer.display_offset(0xdeadbeef);
 
         printer.print_all(input).unwrap();
