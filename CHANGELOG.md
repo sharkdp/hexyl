@@ -7,6 +7,9 @@
 ## Features
 
 - Allow relative and negative byte offsets (e.g. `hexyl --skip=-1block`), see #99 (@ErichDonGubler)
+- Themes (default: Hexylamine) added, see #123 (@sivizius)
+- Formats (default: ascii; possible, but not implemented yet: ebcdic, elf, …) added, see #123 (@sivizius)
+- One could choose between lower-case and upper-case hex-values now, see #123 (@sivizius)
 
 ## Bugfixes
 
@@ -17,6 +20,7 @@
 ## Other
 
 - Better diagnostic messages, see #98 (@ErichDonGubler)
+- Some more documentation, contant lookup tables, minor things, see #123 (@sivizius)
 
 ## Packaging
 
@@ -52,7 +56,7 @@
 
 ## Bugfixes
 
-- hexyl can now be closed with `Ctrl-C` when reading input from STDIN, see #84 
+- hexyl can now be closed with `Ctrl-C` when reading input from STDIN, see #84
 
 ## Changes
 

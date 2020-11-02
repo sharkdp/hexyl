@@ -1,20 +1,24 @@
-#[macro_use]
-extern crate clap;
+//! Hexyl is a simple hex viewer for the terminal.
+//! It uses a colored output to distinguish different categories of bytes
+//!   (NULL bytes, printable ASCII characters, ASCII whitespace characters, other ASCII characters and non-ASCII).
 
-use std::convert::TryFrom;
-use std::fs::File;
-use std::io::{self, prelude::*, SeekFrom};
-
-use clap::{App, AppSettings, Arg};
-
-use atty::Stream;
+#![warn(clippy::all)]
+#![warn(missing_docs)]
+#![warn(future_incompatible)]
+#![deny(unused_must_use)]
 
 use anyhow::{anyhow, Context, Error as AnyhowError};
-
+use atty::Stream;
+use clap::{ crate_description, crate_name, crate_version, App, AppSettings, Arg};
+use hexyl::{border::BorderStyle, formats::InputFormat, themes::Hexylamine, Input, Printer};
+use std::{
+    convert::TryFrom,
+    fs::File,
+    io::{self, prelude::*, SeekFrom},
+};
 use thiserror::Error as ThisError;
 
-use hexyl::{border::BorderStyle, formats::InputFormat, Input, Printer, themes::Hexylamine};
-
+#[cfg(not(tarpaulin_include))]
 fn run() -> Result<(), AnyhowError> {
     let app = App::new(crate_name!())
         .setting(AppSettings::ColorAuto)
@@ -200,9 +204,11 @@ fn run() -> Result<(), AnyhowError> {
     };
 
     let parse_byte_count = |s| -> Result<u64, AnyhowError> {
-        Ok(parse_byte_offset(s, block_size)?
+        Ok (
+            parse_byte_offset(s, block_size)?
             .assume_forward_offset_from_start()?
-            .into())
+            .into()
+        )
     };
 
     let mut reader = if let Some(length) = matches
@@ -242,6 +248,8 @@ fn run() -> Result<(), AnyhowError> {
         _ => BorderStyle::None,
     };
 
+    //  ToDo: Add more formats and remove attribute.
+    #[allow(clippy::match_single_binding)]
     let input_format = match matches.value_of("format") {
         _ => InputFormat::Ascii,
     };
@@ -249,7 +257,7 @@ fn run() -> Result<(), AnyhowError> {
     let squeeze = !matches.is_present("nosqueezing");
     let upper_case = matches.is_present("upper_case");
 
-    let display_offset: u64 = matches
+    let display_offset = matches
         .value_of("display_offset")
         .map(|s| {
             parse_byte_count(s).context(anyhow!(
@@ -258,19 +266,29 @@ fn run() -> Result<(), AnyhowError> {
             ))
         })
         .transpose()?
-        .unwrap_or(0)
-        .into();
+        .unwrap_or(0);
 
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
 
-    let mut printer = Printer::new(&mut stdout_lock, theme, border_style, input_format, squeeze, upper_case);
-    printer.display_offset(skip_offset + display_offset);
-    printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
+    Printer::new (
+        &mut stdout_lock,
+        theme,
+        border_style,
+        input_format,
+        squeeze,
+        upper_case,
+    )
+    .set_display_offset(skip_offset + display_offset)
+    .print_all(&mut reader)
+    .map_err(|e| anyhow!(e))?;
 
     Ok(())
 }
 
+// Main-Function cannot really be tested.
+// Try different inputs and see, if it looks right.
+#[cfg(not(tarpaulin_include))]
 fn main() {
     // Enable ANSI support for Windows
     #[cfg(windows)]
@@ -297,10 +315,10 @@ fn main() {
 }
 
 #[derive(Clone, Copy, Debug, Default, Hash, Eq, Ord, PartialEq, PartialOrd)]
-pub struct NonNegativeI64(i64);
+struct NonNegativeI64(i64);
 
 impl NonNegativeI64 {
-    pub fn new(x: i64) -> Option<Self> {
+    fn new(x: i64) -> Option<Self> {
         if x.is_negative() {
             None
         } else {
@@ -308,9 +326,7 @@ impl NonNegativeI64 {
         }
     }
 
-    pub fn into_inner(self) -> i64 {
-        self.0
-    }
+    fn into_inner(self) -> i64 {self.0}
 }
 
 impl Into<u64> for NonNegativeI64 {
@@ -320,11 +336,26 @@ impl Into<u64> for NonNegativeI64 {
     }
 }
 
+#[test]
+fn non_negative_i64() {
+    assert_eq!(None,                      NonNegativeI64::new(-23));
+    assert_eq!(Some(NonNegativeI64(0)),   NonNegativeI64::new(0));
+    assert_eq!(Some(NonNegativeI64(42)),  NonNegativeI64::new(42));
+    assert_eq!(1337,                      NonNegativeI64(1337).into_inner());
+    assert_eq!(9001u64,                   NonNegativeI64(9001).into());
+}
+
+#[test]
+#[should_panic]
+fn non_negative_i64_into() {
+    let _: u64 = NonNegativeI64(-23).into();
+}
+
 #[derive(Clone, Copy, Debug, Default, Hash, Eq, Ord, PartialEq, PartialOrd)]
-pub struct PositiveI64(i64);
+struct PositiveI64(i64);
 
 impl PositiveI64 {
-    pub fn new(x: i64) -> Option<Self> {
+    fn new(x: i64) -> Option<Self> {
         if x < 1 {
             None
         } else {
@@ -332,9 +363,7 @@ impl PositiveI64 {
         }
     }
 
-    pub fn into_inner(self) -> i64 {
-        self.0
-    }
+    fn into_inner(self) -> i64 {self.0}
 }
 
 impl Into<u64> for PositiveI64 {
@@ -342,6 +371,21 @@ impl Into<u64> for PositiveI64 {
         u64::try_from(self.0)
             .expect("invariant broken: PositiveI64 should contain a positive i64 value")
     }
+}
+
+#[test]
+fn positive_i64() {
+    assert_eq!(None,                  PositiveI64::new(-23));
+    assert_eq!(None,                  PositiveI64::new(0));
+    assert_eq!(Some(PositiveI64(42)), PositiveI64::new(42));
+    assert_eq!(1337,                  PositiveI64(1337).into_inner());
+    assert_eq!(9001u64,               PositiveI64(9001).into());
+}
+
+#[test]
+#[should_panic]
+fn positive_i64_into() {
+    let _: u64 = PositiveI64(-23).into();
 }
 
 const HEX_PREFIX: &str = "0x";
@@ -377,6 +421,28 @@ impl ByteOffset {
             ByteOffsetKind::BackwardFromEnd => Err(NegativeOffsetSpecifiedError),
         }
     }
+}
+
+#[test]
+fn assume_forward_offset_from_start() {
+    assert! (
+        ByteOffset {
+            value: NonNegativeI64(1337),
+            kind: ByteOffsetKind::ForwardFromBeginning,
+        }.assume_forward_offset_from_start().is_ok()
+    );
+    assert! (
+        ByteOffset {
+            value: NonNegativeI64(2342),
+            kind: ByteOffsetKind::ForwardFromLastOffset,
+        }.assume_forward_offset_from_start().is_ok()
+    );
+    assert! (
+        ByteOffset {
+            value: NonNegativeI64(2342),
+            kind: ByteOffsetKind::BackwardFromEnd,
+        }.assume_forward_offset_from_start().is_err()
+    );
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, ThisError)]
@@ -568,6 +634,8 @@ fn test_parse_byte_offset() {
     error!(" 0", InvalidNumAndUnit(" 0".to_owned()));
     error!("0 ", InvalidUnit(" ".to_owned()));
     // Signs after the hex prefix make no sense
+    error!("0x-", EmptyAfterSign);
+    error!("0x+", EmptyAfterSign);
     error!("0x-12", SignFoundAfterHexPrefix('-'));
     // This was previously accepted but shouldn't be.
     error!("0x+12", SignFoundAfterHexPrefix('+'));

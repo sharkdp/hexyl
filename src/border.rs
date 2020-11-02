@@ -70,3 +70,88 @@ impl BorderStyle {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{BorderElements, BorderStyle};
+
+    fn helper(style: BorderStyle, expection: String) {
+        let header = if let Some(header) = style.header_elems() {
+            header
+        } else {
+            BorderElements {
+                left_corner:      '1',
+                horizontal_line:  '2',
+                column_separator: '3',
+                right_corner:     '4',
+            }
+        };
+        let footer = if let Some(footer) = style.footer_elems() {
+            footer
+        } else {
+            BorderElements {
+                left_corner:      '5',
+                horizontal_line:  '6',
+                column_separator: '7',
+                right_corner:     '8',
+            }
+        };
+        let outer  = style.outer_sep();
+        let inner  = style.inner_sep();
+        assert_eq! (
+            format! (
+                "{hlc}{hhl}{hcs}{hhl}{hrc}\n{os} {is} {os}\n{flc}{fhl}{fcs}{fhl}{frc}",
+                hlc = header.left_corner,
+                hhl = header.horizontal_line,
+                hcs = header.column_separator,
+                hrc = header.right_corner,
+                os  = outer,
+                is  = inner,
+                flc = footer.left_corner,
+                fhl = footer.horizontal_line,
+                fcs = footer.column_separator,
+                frc = footer.right_corner,
+            ),
+            expection,
+        )
+    }
+
+    #[test]
+    fn unicode() {
+        helper (
+            BorderStyle::Unicode,
+            format! (
+                "{}\n{}\n{}",
+                "┌─┬─┐",
+                "│ ┊ │",
+                "└─┴─┘",
+            )
+        );
+    }
+
+    #[test]
+    fn ascii() {
+        helper (
+            BorderStyle::Ascii,
+            format! (
+                "{}\n{}\n{}",
+                "+-+-+",
+                "| | |",
+                "+-+-+",
+            )
+        );
+    }
+
+    #[test]
+    fn none() {
+        helper (
+            BorderStyle::None,
+            format! (
+                "{}\n{}\n{}",
+                "12324",
+                "     ",
+                "56768",
+            )
+        );
+    }
+}

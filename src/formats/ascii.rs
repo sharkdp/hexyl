@@ -7,7 +7,7 @@ macro_rules! p {($Character:literal)  => {(ByteCategory::Printable,   $Character
 macro_rules! w {($Character:literal)  => {(ByteCategory::Whitespace,  $Character)};}
 macro_rules! z {()                    => {(ByteCategory::Null,        "0"       )};}
 
-pub(crate) const LOOKUP_ASCII: [(ByteCategory, &'static str); 256] = [
+pub(crate) const LOOKUP_ASCII: [(ByteCategory, &str); 256] = [
     z!(),     o!(),     o!(),     o!(),     o!(),     o!(),     o!(),     o!(),
     o!(),     w!("_" ), w!("_" ), o!(),     o!(),     o!(),     o!(),     o!(),
     o!(),     o!(),     o!(),     o!(),     o!(),     o!(),     o!(),     o!(),
@@ -45,16 +45,14 @@ pub(crate) const LOOKUP_ASCII: [(ByteCategory, &'static str); 256] = [
 pub struct AsciiFormatter;
 
 impl ByteFormatter for AsciiFormatter {
+    fn name(&self) -> &'static str { "ASCII" }
+
     fn parse(&mut self, buffer: &[u8]) -> Vec<Byte> {
         buffer
-        .into_iter()
+        .iter()
         .map(|&byte| {
-            let item = LOOKUP_ASCII[byte as usize];
-            Byte {
-                byte,
-                category: item.0,
-                character: item.1,
-            }
+            let (category, character) = LOOKUP_ASCII[byte as usize];
+            Byte{byte, category, character}
         })
         .collect()
     }

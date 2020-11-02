@@ -1,41 +1,43 @@
 #[derive(Debug, PartialEq)]
 enum SqueezeState {
-    /// not enabled
+    /// Not enabled.
     Disabled,
     /// Will be set from all states if equal condition can't be hold up.
     /// Set if previous byte is not equal the current processed byte.
     NoSqueeze,
-    /// Valid for a whole line to identify if it is candidate for squeezing
+    /// Valid for a whole line to identify if it is candidate for squeezing.
     Probe,
-    /// Squeeze line parsing is active, but EOL is not reached yet
+    /// Squeeze line parsing is active, but EOL is not reached yet.
     SqueezeActive,
-    /// Squeeze line, EOL is reached, will influence the action
+    /// Squeeze line, EOL is reached, will influence the action.
     Squeeze,
-    /// same as Squeeze, however this is only for the first line after
-    /// the squeeze candidate has been set.
+    /// Same as Squeeze, however this is only for the first line after
+    ///   the squeeze candidate has been set.
     SqueezeFirstLine,
-    /// same as SqueezeActive, however this is only for the first line after
-    /// the squeeze candidate has been set.
+    /// Same as SqueezeActive, however this is only for the first line after
+    ///   the squeeze candidate has been set.
     SqueezeActiveFirstLine,
 }
 
-pub struct Squeezer {
+/// Squeezer for `byte`.
+pub(crate) struct Squeezer {
     state: SqueezeState,
     byte: u8,
 }
 
 #[derive(Debug, PartialEq)]
-pub enum SqueezeAction {
+pub(crate) enum SqueezeAction {
     Ignore,
     Print,
     Delete,
 }
 
-/// line size
+/// Line size.
 const LSIZE: u64 = 16;
 
 impl Squeezer {
-    pub fn new(enabled: bool) -> Squeezer {
+    /// Construct a new `Squeezer`.
+    pub(crate) fn new(enabled: bool) -> Squeezer {
         Squeezer {
             state: if enabled {
                 SqueezeState::Probe
@@ -46,10 +48,37 @@ impl Squeezer {
         }
     }
 
-    pub fn process(&mut self, b: u8, i: u64) {
+    pub(crate) fn action(&self) -> SqueezeAction {
+        match self.state {
+            SqueezeState::SqueezeFirstLine => SqueezeAction::Print,
+            SqueezeState::Squeeze => SqueezeAction::Delete,
+            _ => SqueezeAction::Ignore,
+        }
+    }
+
+    /// Is squeezer active?
+    pub(crate) fn active(&self) -> bool {
+        use self::SqueezeState::*;
+        match self.state {
+            Squeeze | SqueezeActive | SqueezeFirstLine | SqueezeActiveFirstLine => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn advance(&mut self) {
+        match self.state {
+            SqueezeState::SqueezeFirstLine | SqueezeState::Squeeze => {
+                self.state = SqueezeState::SqueezeActive;
+            },
+            _ => {},
+        }
+    }
+
+    /// Process a single byte.
+    pub(crate) fn process(&mut self, b: u8, i: u64) -> bool {
         use self::SqueezeState::*;
         if self.state == Disabled {
-            return;
+            return false;
         }
         let eq = b == self.byte;
 
@@ -58,13 +87,14 @@ impl Squeezer {
                 self.state = Probe;
             } else {
                 self.state = match self.state {
-                    NoSqueeze => Probe,
-                    Probe => SqueezeActiveFirstLine,
-                    SqueezeActiveFirstLine => SqueezeFirstLine,
-                    SqueezeFirstLine => SqueezeActive,
-                    SqueezeActive => Squeeze,
-                    Squeeze => SqueezeActive,
-                    Disabled => Disabled,
+                    NoSqueeze               => Probe,
+                    Probe                   => SqueezeActiveFirstLine,
+                    SqueezeActiveFirstLine  => SqueezeFirstLine,
+                    SqueezeFirstLine        => SqueezeActive,
+                    SqueezeActive           => Squeeze,
+                    Squeeze                 => SqueezeActive,
+                    //  Untestable, because unrechable.
+                    Disabled                => unreachable!(),
                 };
             }
         } else if !eq {
@@ -76,34 +106,7 @@ impl Squeezer {
         }
 
         self.byte = b;
-    }
-
-    pub fn active(&self) -> bool {
-        use self::SqueezeState::*;
-        match self.state {
-            Squeeze | SqueezeActive | SqueezeFirstLine | SqueezeActiveFirstLine => true,
-            _ => false,
-        }
-    }
-
-    pub fn action(&self) -> SqueezeAction {
-        match self.state {
-            SqueezeState::SqueezeFirstLine => SqueezeAction::Print,
-            SqueezeState::Squeeze => SqueezeAction::Delete,
-            _ => SqueezeAction::Ignore,
-        }
-    }
-
-    pub fn advance(&mut self) {
-        match self.state {
-            SqueezeState::SqueezeFirstLine => {
-                self.state = SqueezeState::SqueezeActive;
-            }
-            SqueezeState::Squeeze => {
-                self.state = SqueezeState::SqueezeActive;
-            }
-            _ => {}
-        }
+        true
     }
 }
 
@@ -112,6 +115,45 @@ mod tests {
     use super::*;
 
     const LSIZE_USIZE: usize = LSIZE as usize;
+
+    fn advance_helper(squeezer: &mut Squeezer, input: SqueezeState, output: SqueezeState) {
+      squeezer.state = input;
+      squeezer.advance();
+      assert_eq!(squeezer.state, output);
+    }
+
+    #[test]
+    fn advance() {
+        let mut squeezer = Squeezer::new(true);
+        advance_helper(&mut squeezer, SqueezeState::Disabled,               SqueezeState::Disabled              );
+        advance_helper(&mut squeezer, SqueezeState::NoSqueeze,              SqueezeState::NoSqueeze             );
+        advance_helper(&mut squeezer, SqueezeState::Probe,                  SqueezeState::Probe                 );
+        advance_helper(&mut squeezer, SqueezeState::SqueezeActive,          SqueezeState::SqueezeActive         );
+        advance_helper(&mut squeezer, SqueezeState::Squeeze,                SqueezeState::SqueezeActive         );
+        advance_helper(&mut squeezer, SqueezeState::SqueezeFirstLine,       SqueezeState::SqueezeActive         );
+        advance_helper(&mut squeezer, SqueezeState::SqueezeActiveFirstLine, SqueezeState::SqueezeActiveFirstLine);
+    }
+
+    fn process_helper(squeezer: &mut Squeezer, input: SqueezeState, output: SqueezeState) {
+      squeezer.state = input;
+      squeezer.process(0,0);
+      assert_eq!(squeezer.state, output);
+    }
+
+    #[test]
+    fn process() {
+        let mut squeezer = Squeezer::new(false);
+        assert_eq!(false, squeezer.process(0,0));
+        let mut squeezer = Squeezer::new(true);
+        assert_eq!(true,  squeezer.process(0,0));
+        process_helper(&mut squeezer, SqueezeState::Disabled,               SqueezeState::Disabled              );
+        process_helper(&mut squeezer, SqueezeState::NoSqueeze,              SqueezeState::Probe                 );
+        process_helper(&mut squeezer, SqueezeState::Probe,                  SqueezeState::SqueezeActiveFirstLine);
+        process_helper(&mut squeezer, SqueezeState::SqueezeActive,          SqueezeState::Squeeze               );
+        process_helper(&mut squeezer, SqueezeState::Squeeze,                SqueezeState::SqueezeActive         );
+        process_helper(&mut squeezer, SqueezeState::SqueezeFirstLine,       SqueezeState::SqueezeActive         );
+        process_helper(&mut squeezer, SqueezeState::SqueezeActiveFirstLine, SqueezeState::SqueezeFirstLine      );
+    }
 
     #[test]
     fn three_same_lines() {

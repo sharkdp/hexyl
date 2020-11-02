@@ -2,8 +2,11 @@ use std::convert::TryFrom;
 use std::fs;
 use std::io::{self, copy, sink, Read, Seek, SeekFrom};
 
+/// Type of input: This is how we get a byte-stream.
 pub enum Input<'a> {
+    /// Use a file as input.
     File(fs::File),
+    /// Use standard-in as input.
     Stdin(io::StdinLock<'a>),
 }
 
@@ -35,7 +38,8 @@ impl<'a> Seek for Input<'a> {
         match *self {
             Input::File(ref mut file) => {
                 let seek_res = file.seek(pos);
-                if let Err(Some(libc::ESPIPE)) = seek_res.as_ref().map_err(|err| err.raw_os_error())
+                if let Err(Some(libc::ESPIPE)) =
+                    seek_res.as_ref().map_err(|err| err.raw_os_error())
                 {
                     try_skip(
                         file,
@@ -56,6 +60,7 @@ impl<'a> Seek for Input<'a> {
 }
 
 impl<'a> Input<'a> {
+    /// Return the inner readable stream.
     pub fn into_inner(self) -> Box<dyn Read + 'a> {
         match self {
             Input::File(file) => Box::new(file),

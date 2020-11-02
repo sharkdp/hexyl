@@ -1,6 +1,19 @@
 use ansi_term::Style;
 use core::ops::Deref;
 
+pub(super) const EMPTY_STYLE: Style = ansi_term::Style {
+    foreground:       None,
+    background:       None,
+    is_bold:          false,
+    is_dimmed:        false,
+    is_italic:        false,
+    is_underline:     false,
+    is_blink:         false,
+    is_reverse:       false,
+    is_hidden:        false,
+    is_strikethrough: false,
+};
+
 /// Create a style just with the given foreground color.
 macro_rules! style {
     ($Color:expr) => {
@@ -31,9 +44,7 @@ pub(crate) struct CategoryColors {
 
 impl Deref for CategoryColors {
     type Target = [Style; 11];
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
+    fn deref(&self) -> &Self::Target {&self.inner}
 }
 
 /// Style of bytes in different `ByteCategory`s.
@@ -96,4 +107,69 @@ pub struct Theme {
     pub border:   Style,
     /// Style of the characters of each category.
     pub category: CategoryTheme,
+}
+
+#[cfg(test)]
+mod tests {
+    use ansi_term::Color;
+    use super::{CategoryColors, CategoryTheme, EMPTY_STYLE};
+
+    #[test]
+    fn to_colors() {
+        let colors_left = CategoryColors {
+            inner: [
+                style!(Color::Blue),
+                style!(Color::Red),
+                style!(Color::Green),
+                style!(Color::Yellow),
+                style!(Color::Cyan),
+                style!(Color::White),
+                style!(Color::Black),
+                style!(Color::Purple),
+                style!(Color::Fixed(242)),
+                ansi_term::Style {
+                    foreground:       None,
+                    background:       Some(Color::Green),
+                    is_bold:          true,
+                    is_dimmed:        false,
+                    is_italic:        true,
+                    is_underline:     false,
+                    is_blink:         false,
+                    is_reverse:       false,
+                    is_hidden:        false,
+                    is_strikethrough: true,
+                },
+                EMPTY_STYLE,
+            ],
+        };
+
+        let colors_right = CategoryTheme {
+            null:         style!(Color::Blue      ),
+            printable:    style!(Color::Red       ),
+            whitespace:   style!(Color::Green     ),
+            control:      style!(Color::Yellow    ),
+            invalid:      style!(Color::Cyan      ),
+            magic_number: style!(Color::White     ),
+            padding:      style!(Color::Black     ),
+            integer:      style!(Color::Purple    ),
+            float:        style!(Color::Fixed(242)),
+            pointer:      ansi_term::Style {
+                foreground:       None,
+                background:       Some(Color::Green),
+                is_bold:          true,
+                is_dimmed:        false,
+                is_italic:        true,
+                is_underline:     false,
+                is_blink:         false,
+                is_reverse:       false,
+                is_hidden:        false,
+                is_strikethrough: true,
+            },
+            length:       EMPTY_STYLE,
+        }.to_colors();
+
+        for index in 0..11 {
+            assert_eq!(colors_left[index], colors_right[index]);
+        }
+    }
 }

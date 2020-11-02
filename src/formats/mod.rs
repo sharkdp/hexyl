@@ -75,6 +75,9 @@ pub enum ByteCategory {
 }
 
 pub(crate) trait ByteFormatter {
+    /// Return the name of this formatter.
+    fn name(&self) -> &'static str;
+
     /// Give buffer to the formatter to parse and return an iterator over its bytes.
     fn parse(&mut self, buffer: &[u8]) -> Vec<Byte>;
 }
@@ -88,7 +91,82 @@ pub enum InputFormat {
 impl InputFormat {
     pub(crate) fn get(self) -> Box<dyn ByteFormatter> {
         match self {
-          InputFormat::Ascii  => Box::new(AsciiFormatter),
+            InputFormat::Ascii  => Box::new(AsciiFormatter),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::borrow::Cow;
+    use super::{
+        Byte,
+        ByteCategory,
+        InputFormat,
+        super::{
+            lookup::LOOKUP_HEX_LOWER,
+            themes::Hexylamine,
+        },
+    };
+
+    #[test]
+    fn paint_byte() {
+        let byte = Byte {
+            byte:       0x23,
+            category:   ByteCategory::MagicNumber,
+            character:  "#",
+        };
+
+        assert_eq! (
+            Cow::Borrowed("23"),
+            byte.paint_byte(&None, LOOKUP_HEX_LOWER),
+        );
+
+        let theme = Hexylamine;
+        assert_eq! (
+            Cow::Owned::<str> (
+                theme
+                .category
+                .magic_number
+                .paint("23")
+                .to_string()
+            ),
+            byte.paint_byte(&Some(theme.category.to_colors()), LOOKUP_HEX_LOWER),
+        );
+    }
+
+    #[test]
+    fn paint_char() {
+        let byte = Byte {
+            byte:       0x23,
+            category:   ByteCategory::MagicNumber,
+            character:  "#",
+        };
+
+        assert_eq! (
+            Cow::Borrowed("#"),
+            byte.paint_char(&None),
+        );
+
+        let theme = Hexylamine;
+        assert_eq! (
+            Cow::Owned::<str> (
+                theme
+                .category
+                .magic_number
+                .paint("#")
+                .to_string()
+            ),
+            byte.paint_char(&Some(theme.category.to_colors())),
+        );
+    }
+
+    #[test]
+    fn get() {
+        let input_format = InputFormat::Ascii;
+        assert_eq! (
+            "ASCII",
+            input_format.get().name(),
+        );
     }
 }

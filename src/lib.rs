@@ -1,10 +1,21 @@
+//! Hexyl is a simple hex viewer for the terminal.
+//! It uses a colored output to distinguish different categories of bytes
+//!   (NULL bytes, printable ASCII characters, ASCII whitespace characters, other ASCII characters and non-ASCII).
+
+#![warn(clippy::all)]
+#![warn(missing_docs)]
+#![warn(future_incompatible)]
+#![deny(unused_must_use)]
+
 /// Some nice borders around the dump.
 pub mod border;
 /// Style protocol/file-format to highlight the structure-fields.
 pub mod formats;
+/// Input streams.
 pub(crate) mod input;
 /// The look-up-table of the hexadecimal-value of every byte.
 mod lookup;
+/// Ommit big empty chunks.
 pub mod squeezer;
 /// Customable themes.
 pub mod themes;
@@ -70,32 +81,42 @@ impl PrinterStyle {
     }
 }
 
+/// Print a binary dump in a tabular manner
+///   with the hexadecimal value as well as the character of a byte.
 pub struct Printer<'a, Writer: Write> {
-    index: u64,
+    /// Auxilliary variable for formatting.
+    index:              u64,
     /// The raw bytes used as input for the current line.
-    raw_line: Vec<Byte>,
+    raw_line:           Vec<Byte>,
     /// The buffered line built with each byte, ready to print to writer.
-    buffer_line: Vec<u8>,
-    writer: &'a mut Writer,
+    buffer_line:        Vec<u8>,
+    /// The writer itself.
+    writer:             &'a mut Writer,
     /// The style to use for nice output.
-    style: PrinterStyle,
+    style:              PrinterStyle,
+    /// Did I already print the header?
     header_was_printed: bool,
-    squeezer: Squeezer,
+    /// Ommit big empty chunks.
+    squeezer:           Squeezer,
     /// Look-up-table of the hexadecimal-value of every byte.
-    hex_table: LookUpTable,
-    display_offset: u64,
+    hex_table:          LookUpTable,
+    /// Display offset.
+    display_offset:     u64,
     /// The formatter in use for formatting the input-stream, e.g. as ASCII- or ELF-file.
-    formatter: Box<dyn ByteFormatter>,
+    formatter:          Box<dyn ByteFormatter>,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
-    pub fn new(
-        writer: &'a mut Writer,
-        theme: Option<Theme>,
+    /// Construct a new printer with a `writer`, `theme`, `border_style` and `input_format`.
+    /// Set `use_squeeze` if empty chunks shall be omitted.
+    /// Set `upper_case` for upper-case hex-values.
+    pub fn new  (
+        writer:       &'a mut Writer,
+        theme:        Option<Theme>,
         border_style: BorderStyle,
         input_format: InputFormat,
-        use_squeeze: bool,
-        upper_case: bool,
+        use_squeeze:  bool,
+        upper_case:   bool,
     ) -> Printer<'a, Writer> {
         Printer {
             index: 1,
@@ -116,12 +137,13 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
     }
 
-    pub fn display_offset(&mut self, display_offset: u64) -> &mut Self {
+    /// Set display-offset.
+    pub fn set_display_offset(&mut self, display_offset: u64) -> &mut Self {
         self.display_offset = display_offset;
         self
     }
 
-    fn header(&mut self) {
+    fn header(&mut self) -> io::Result<()> {
         if let Some(border_elements) = self.style.border_style.header_elems() {
             let h = border_elements.horizontal_line;
             let h8 = h.to_string().repeat(8);
@@ -137,12 +159,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 h25 = h25,
                 bp  = self.style.border_prefix,
                 bs  = self.style.border_suffix,
-            )
-            .ok();
+            )?;
         }
+        Ok(())
     }
 
-    fn footer(&mut self) {
+    fn footer(&mut self) -> io::Result<()> {
         if let Some(border_elements) = self.style.border_style.footer_elems() {
             let h   = border_elements.horizontal_line;
             writeln!(
@@ -155,14 +177,14 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 h25 = h.to_string().repeat(25),
                 bp  = self.style.border_prefix,
                 bs  = self.style.border_suffix,
-            )
-            .ok();
+            )?;
         }
+        Ok(())
     }
 
     fn print_position_indicator(&mut self) -> io::Result<()> {
         if !self.header_was_printed {
-            self.header();
+            self.header()?;
             self.header_was_printed = true;
         }
 
@@ -338,10 +360,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         Ok(())
     }
 
-    pub fn header_was_printed(&self) -> bool {
-        self.header_was_printed
-    }
-
     /// Loop through the given `Reader`, printing until the `Reader` buffer
     /// is exhausted.
     pub fn print_all<Reader: Read>(
@@ -366,10 +384,10 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
 
         // Finish last line
-        self.print_textline().ok();
+        self.print_textline()?;
 
         if !self.header_was_printed {
-            self.header();
+            self.header()?;
             writeln! (
                 self.writer,
                 "{p}│        │ No content to print     │                         │        │        │{s}",
@@ -377,7 +395,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 s = self.style.border_suffix,
             ).ok();
         }
-        self.footer();
+        self.footer()?;
 
         Ok(())
     }
@@ -391,10 +409,17 @@ mod tests {
     use super::*;
 
     fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) -> () {
-        let mut output = vec![];
-        let mut printer = Printer::new(&mut output, None, BorderStyle::Unicode, InputFormat::Ascii, true, false);
-
-        printer.print_all(input).unwrap();
+        let mut output = Vec::new();
+        Printer::new (
+            &mut output,
+            None,
+            BorderStyle::Unicode,
+            InputFormat::Ascii,
+            true,
+            false,
+        )
+        .print_all(input)
+        .unwrap();
 
         let actual_string: &str = str::from_utf8(&output).unwrap();
         assert_eq!(actual_string, expected_string)
@@ -435,12 +460,18 @@ mod tests {
 "
         .to_owned();
 
-        let mut output = vec![];
-        let mut printer: Printer<Vec<u8>> =
-            Printer::new(&mut output, None, BorderStyle::Unicode, InputFormat::Ascii, true, false);
-        printer.display_offset(0xdeadbeef);
-
-        printer.print_all(input).unwrap();
+        let mut output = Vec::new();
+        Printer::new (
+            &mut output,
+            None,
+            BorderStyle::Unicode,
+            InputFormat::Ascii,
+            true,
+            false,
+        )
+        .set_display_offset(0xdeadbeef)
+        .print_all(input)
+        .unwrap();
 
         let actual_string: &str = str::from_utf8(&output).unwrap();
         assert_eq!(actual_string, expected_string)
