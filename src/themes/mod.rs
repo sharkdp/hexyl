@@ -26,11 +26,11 @@ pub use hexylamine::Hexylamine;
 /// Look-up-table for `paint_char` and `paint_byte` of module `formats`.
 /// This allows the somewhat faster formatting.
 pub(crate) struct CategoryColors {
-    inner: [Style; 5],
+    inner: [Style; 11],
 }
 
 impl Deref for CategoryColors {
-    type Target = [Style; 5];
+    type Target = [Style; 11];
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
@@ -48,6 +48,18 @@ pub struct CategoryTheme {
     pub control:      Style,
     /// Style of invalid characters of the current encoding.
     pub invalid:      Style,
+    /// Style of magic numbers of a binary input format (e.g. ELF: 7f 45 4c 46).
+    pub magic_number: Style,
+    /// Style of padding-bytes.
+    pub padding:      Style,
+    /// Style of an integer value.
+    pub integer:      Style,
+    /// Style of a floating point value.
+    pub float:        Style,
+    /// Style of a pointer or offset value.
+    pub pointer:      Style,
+    /// Style of a length field.
+    pub length:       Style,
 }
 
 /// Just for readability.
@@ -59,11 +71,17 @@ impl CategoryTheme {
     pub(crate) fn to_colors(&self) -> CategoryColors {
       CategoryColors {
           inner: [
-              fakeMap!(ByteCategory::Null,            self.null      ),
-              fakeMap!(ByteCategory::AsciiPrintable,  self.printable ),
-              fakeMap!(ByteCategory::AsciiWhitespace, self.whitespace),
-              fakeMap!(ByteCategory::AsciiOther,      self.control   ),
-              fakeMap!(ByteCategory::NonAscii,        self.invalid   ),
+              fakeMap!(ByteCategory::Null,        self.null        ),
+              fakeMap!(ByteCategory::Printable,   self.printable   ),
+              fakeMap!(ByteCategory::Whitespace,  self.whitespace  ),
+              fakeMap!(ByteCategory::Control,     self.control     ),
+              fakeMap!(ByteCategory::Invalid,     self.invalid     ),
+              fakeMap!(ByteCategory::MagicNumber, self.magic_number),
+              fakeMap!(ByteCategory::Padding,     self.padding     ),
+              fakeMap!(ByteCategory::Integer,     self.integer     ),
+              fakeMap!(ByteCategory::Float,       self.float       ),
+              fakeMap!(ByteCategory::Pointer,     self.pointer     ),
+              fakeMap!(ByteCategory::Length,      self.length      ),
           ]
       }
     }

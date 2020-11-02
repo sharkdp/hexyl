@@ -24,5 +24,11 @@ pub const Hexylamine: Theme = Theme {
       whitespace:   style!(Color::Green     ),
       control:      style!(Color::Purple    ),
       invalid:      style!(Color::Yellow    ),
+      magic_number: style!(Color::Blue      ),
+      padding:      style!(Color::Blue      ),
+      integer:      style!(Color::Blue      ),
+      float:        style!(Color::Blue      ),
+      pointer:      style!(Color::Blue      ),
+      length:       style!(Color::Blue      ),
     }
 };

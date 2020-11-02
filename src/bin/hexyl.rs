@@ -13,7 +13,7 @@ use anyhow::{anyhow, Context, Error as AnyhowError};
 
 use thiserror::Error as ThisError;
 
-use hexyl::{border::BorderStyle, Input, Printer, themes::Hexylamine};
+use hexyl::{border::BorderStyle, formats::InputFormat, Input, Printer, themes::Hexylamine};
 
 fn run() -> Result<(), AnyhowError> {
     let app = App::new(crate_name!())
@@ -116,6 +116,18 @@ fn run() -> Result<(), AnyhowError> {
                     include a unit (see `--length` for details)\n\
                     A negative value is valid and calculates an offset relative to the \
                     end of the file.",
+                ),
+        )
+        .arg(
+            Arg::with_name("format")
+                .short("f")
+                .long("format")
+                .takes_value(true)
+                .value_name("FORMAT")
+                .possible_values(&["ascii"])
+                .default_value("ascii")
+                .help(
+                    "Protocol/File format of the input."
                 ),
         )
         .arg(
@@ -223,6 +235,10 @@ fn run() -> Result<(), AnyhowError> {
         _ => BorderStyle::None,
     };
 
+    let input_format = match matches.value_of("format") {
+        _ => InputFormat::Ascii,
+    };
+
     let squeeze = !matches.is_present("nosqueezing");
 
     let display_offset: u64 = matches
@@ -240,7 +256,7 @@ fn run() -> Result<(), AnyhowError> {
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
 
-    let mut printer = Printer::new(&mut stdout_lock, theme, border_style, squeeze);
+    let mut printer = Printer::new(&mut stdout_lock, theme, border_style, input_format, squeeze);
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
 

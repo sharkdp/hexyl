@@ -14,7 +14,8 @@ fn main() {
     let theme = Some(themes::Hexylamine);
     let use_squeezing = false;
     let border_style = BorderStyle::Unicode;
+    let input_format  = InputFormat::Ascii;
 
-    let mut printer = Printer::new(&mut handle, theme, border_style, use_squeezing);
+    let mut printer = Printer::new(&mut handle, theme, border_style, input_format, use_squeezing);
     printer.print_all(&input[..]).unwrap();
 }

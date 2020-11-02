@@ -1,6 +1,10 @@
 /// Some nice borders around the dump.
 pub mod border;
+/// Style protocol/file-format to highlight the structure-fields.
+pub mod formats;
 pub(crate) mod input;
+/// The look-up-table of the hexadecimal-value of every byte.
+mod lookup;
 pub mod squeezer;
 /// Customable themes.
 pub mod themes;
@@ -9,55 +13,17 @@ pub use input::*;
 
 use std::io::{self, Read, Write};
 
+use crate::formats::{Byte, ByteFormatter};
+use crate::lookup::{LookUpTable, LOOKUP_HEX_LOWER};
 use crate::squeezer::{SqueezeAction, Squeezer};
-
 use crate::themes::CategoryColors;
 
 // Reexports
 pub use crate::border::BorderStyle;
+pub use crate::formats::InputFormat;
 pub use crate::themes::Theme;
 
 const BUFFER_SIZE: usize = 256;
-
-pub enum ByteCategory {
-    Null,
-    AsciiPrintable,
-    AsciiWhitespace,
-    AsciiOther,
-    NonAscii,
-}
-
-#[derive(Copy, Clone)]
-struct Byte(u8);
-
-impl Byte {
-    fn category(self) -> ByteCategory {
-        if self.0 == 0x00 {
-            ByteCategory::Null
-        } else if self.0.is_ascii_graphic() {
-            ByteCategory::AsciiPrintable
-        } else if self.0.is_ascii_whitespace() {
-            ByteCategory::AsciiWhitespace
-        } else if self.0.is_ascii() {
-            ByteCategory::AsciiOther
-        } else {
-            ByteCategory::NonAscii
-        }
-    }
-
-    fn as_char(self) -> char {
-        use crate::ByteCategory::*;
-
-        match self.category() {
-            Null => '0',
-            AsciiPrintable => self.0 as char,
-            AsciiWhitespace if self.0 == 0x20 => ' ',
-            AsciiWhitespace => '_',
-            AsciiOther => '•',
-            NonAscii => '×',
-        }
-    }
-}
 
 struct PrinterStyle {
     border_prefix:    String,
@@ -107,17 +73,19 @@ impl PrinterStyle {
 pub struct Printer<'a, Writer: Write> {
     index: u64,
     /// The raw bytes used as input for the current line.
-    raw_line: Vec<u8>,
+    raw_line: Vec<Byte>,
     /// The buffered line built with each byte, ready to print to writer.
     buffer_line: Vec<u8>,
     writer: &'a mut Writer,
     /// The style to use for nice output.
     style: PrinterStyle,
     header_was_printed: bool,
-    byte_hex_table: Vec<String>,
-    byte_char_table: Vec<String>,
     squeezer: Squeezer,
+    /// Look-up-table of the hexadecimal-value of every byte.
+    hex_table: LookUpTable,
     display_offset: u64,
+    /// The formatter in use for formatting the input-stream, e.g. as ASCII- or ELF-file.
+    formatter: Box<dyn ByteFormatter>,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -125,40 +93,20 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         writer: &'a mut Writer,
         theme: Option<Theme>,
         border_style: BorderStyle,
+        input_format: InputFormat,
         use_squeeze: bool,
     ) -> Printer<'a, Writer> {
-        let style = PrinterStyle::new(theme, border_style);
-        let byte_hex_table = (0u8..=u8::max_value())
-            .map(|i| {
-                let byte_hex = format!("{:02x} ", i);
-                if let Some(colors) = &style.category_colors {
-                    colors[Byte(i).category() as usize].paint(byte_hex).to_string()
-                } else {
-                    byte_hex
-                }
-            })
-            .collect();
-        let byte_char_table = (0u8..=u8::max_value())
-            .map(|i| {
-                let byte_char = format!("{}", Byte(i).as_char());
-                if let Some(colors) = &style.category_colors {
-                    colors[Byte(i).category() as usize].paint(byte_char).to_string()
-                } else {
-                    byte_char
-                }
-            })
-            .collect();
         Printer {
             index: 1,
             raw_line: vec![],
             buffer_line: vec![],
             writer,
-            style,
+            style: PrinterStyle::new(theme, border_style),
             header_was_printed: false,
-            byte_hex_table,
-            byte_char_table,
             squeezer: Squeezer::new(use_squeeze),
+            hex_table: LOOKUP_HEX_LOWER,
             display_offset: 0,
+            formatter: input_format.get(),
         }
     }
 
@@ -224,15 +172,23 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         )
     }
 
-    pub fn print_byte(&mut self, b: u8) -> io::Result<()> {
+    fn print_byte(&mut self, byte: Byte) -> io::Result<()> {
         if self.index % 16 == 1 {
             self.print_position_indicator()?;
         }
 
-        write!(&mut self.buffer_line, "{}", self.byte_hex_table[b as usize])?;
-        self.raw_line.push(b);
+        let raw_byte = byte.byte;
+        write! (
+            &mut self.buffer_line,
+            "{} ",
+            byte.paint_byte (
+                &self.style.category_colors,
+                self.hex_table,
+            )
+        )?;
+        self.raw_line.push(byte);
 
-        self.squeezer.process(b, self.index);
+        self.squeezer.process(raw_byte, self.index);
 
         match self.index % 16 {
             8 => write! (
@@ -257,7 +213,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         if length == 0 {
             if self.squeezer.active() {
                 self.print_position_indicator()?;
-                let _ = writeln!(
+                writeln!(
                     &mut self.buffer_line,
                     "{bp}{w:h24$}{is}{w:h25$}{os}{w:h8$}{is}{w:h8$}{os}{bs}",
                     w   = "",
@@ -268,7 +224,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     os  = self.style.border_style.outer_sep(),
                     bp  = self.style.border_prefix,
                     bs  = self.style.border_suffix,
-                );
+                )?;
                 self.writer.write_all(&self.buffer_line)?;
             }
             return Ok(());
@@ -278,7 +234,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         if squeeze_action != SqueezeAction::Delete {
             if length < 8 {
-                let _ = write!(
+                write!(
                     &mut self.buffer_line,
                     "{bp}{w:hl$}{is}{w:h25$}{os}{bs}",
                     w   = "",
@@ -288,9 +244,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     os  = self.style.border_style.outer_sep(),
                     bp  = self.style.border_prefix,
                     bs  = self.style.border_suffix,
-                );
+                )?;
             } else {
-                let _ = write!(
+                write!(
                     &mut self.buffer_line,
                     "{bp}{w:hl$}{sep}{bs}",
                     w   = "",
@@ -298,15 +254,15 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     sep = self.style.border_style.outer_sep(),
                     bp  = self.style.border_prefix,
                     bs  = self.style.border_suffix,
-                );
+                )?;
             }
 
             for (index,byte) in self.raw_line.iter().enumerate() {
-                let _ = write!(
+                write!(
                     &mut self.buffer_line,
                     "{}",
-                    self.byte_char_table[*byte as usize],
-                );
+                    byte.paint_char(&self.style.category_colors),
+                )?;
 
                 if index == 7 {
                     write! (
@@ -320,7 +276,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
 
             if length < 8 {
-                let _ = writeln!(
+                writeln!(
                     &mut self.buffer_line,
                     "{p}{w:hl$}{i}{w:h8$}{o}{s}",
                     w  = "",
@@ -330,9 +286,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     o  = self.style.border_style.outer_sep(),
                     p  = self.style.border_prefix,
                     s  = self.style.border_suffix,
-                );
+                )?;
             } else {
-                let _ = writeln!(
+                writeln!(
                     &mut self.buffer_line,
                     "{p}{w:h$}{o}{s}",
                     w  = "",
@@ -340,14 +296,14 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     o  = self.style.border_style.outer_sep(),
                     p  = self.style.border_prefix,
                     s  = self.style.border_suffix,
-                );
+                )?;
             }
         }
 
         match squeeze_action {
             SqueezeAction::Print => {
                 self.buffer_line.clear();
-                let _ = writeln!(
+                writeln!(
                     &mut self.buffer_line,
                     "{bp}{o}{bs}{op}*{os}{bp}{w:h7$}{o}{w:h25$}{i}{w:h25$}{o}{w:h8$}{i}{w:h8$}{o}{bs}",
                     w   = "",
@@ -360,7 +316,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     bs  = self.style.border_suffix,
                     op  = self.style.offset_prefix,
                     os  = self.style.offset_suffix,
-                );
+                )?;
             }
             SqueezeAction::Delete => self.buffer_line.clear(),
             SqueezeAction::Ignore => (),
@@ -393,8 +349,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 break;
             }
 
-            for b in &buffer[..size] {
-                let res = self.print_byte(*b);
+            for byte in self.formatter.parse(&buffer[..size]) {
+                let res = self.print_byte(byte);
 
                 if res.is_err() {
                     // Broken pipe
@@ -430,7 +386,7 @@ mod tests {
 
     fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) -> () {
         let mut output = vec![];
-        let mut printer = Printer::new(&mut output, None, BorderStyle::Unicode, true);
+        let mut printer = Printer::new(&mut output, None, BorderStyle::Unicode, InputFormat::Ascii, true);
 
         printer.print_all(input).unwrap();
 
@@ -475,7 +431,7 @@ mod tests {
 
         let mut output = vec![];
         let mut printer: Printer<Vec<u8>> =
-            Printer::new(&mut output, None, BorderStyle::Unicode, true);
+            Printer::new(&mut output, None, BorderStyle::Unicode, InputFormat::Ascii, true);
         printer.display_offset(0xdeadbeef);
 
         printer.print_all(input).unwrap();
