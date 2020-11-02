@@ -131,6 +131,13 @@ fn run() -> Result<(), AnyhowError> {
                 ),
         )
         .arg(
+            Arg::with_name("upper_case")
+                .long("upper-case")
+                .help(
+                    "Print upper-case hex-values instead of lower-case."
+                ),
+        )
+        .arg(
             Arg::with_name("theme")
                 .short("t")
                 .long("theme")
@@ -240,6 +247,7 @@ fn run() -> Result<(), AnyhowError> {
     };
 
     let squeeze = !matches.is_present("nosqueezing");
+    let upper_case = matches.is_present("upper_case");
 
     let display_offset: u64 = matches
         .value_of("display_offset")
@@ -256,7 +264,7 @@ fn run() -> Result<(), AnyhowError> {
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
 
-    let mut printer = Printer::new(&mut stdout_lock, theme, border_style, input_format, squeeze);
+    let mut printer = Printer::new(&mut stdout_lock, theme, border_style, input_format, squeeze, upper_case);
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
 

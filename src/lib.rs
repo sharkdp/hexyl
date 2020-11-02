@@ -14,7 +14,7 @@ pub use input::*;
 use std::io::{self, Read, Write};
 
 use crate::formats::{Byte, ByteFormatter};
-use crate::lookup::{LookUpTable, LOOKUP_HEX_LOWER};
+use crate::lookup::{LookUpTable, LOOKUP_HEX_LOWER, LOOKUP_HEX_UPPER};
 use crate::squeezer::{SqueezeAction, Squeezer};
 use crate::themes::CategoryColors;
 
@@ -95,6 +95,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         border_style: BorderStyle,
         input_format: InputFormat,
         use_squeeze: bool,
+        upper_case: bool,
     ) -> Printer<'a, Writer> {
         Printer {
             index: 1,
@@ -104,7 +105,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             style: PrinterStyle::new(theme, border_style),
             header_was_printed: false,
             squeezer: Squeezer::new(use_squeeze),
-            hex_table: LOOKUP_HEX_LOWER,
+            hex_table:
+                if upper_case {
+                    LOOKUP_HEX_UPPER
+                } else {
+                    LOOKUP_HEX_LOWER
+                },
             display_offset: 0,
             formatter: input_format.get(),
         }
@@ -386,7 +392,7 @@ mod tests {
 
     fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) -> () {
         let mut output = vec![];
-        let mut printer = Printer::new(&mut output, None, BorderStyle::Unicode, InputFormat::Ascii, true);
+        let mut printer = Printer::new(&mut output, None, BorderStyle::Unicode, InputFormat::Ascii, true, false);
 
         printer.print_all(input).unwrap();
 
@@ -431,7 +437,7 @@ mod tests {
 
         let mut output = vec![];
         let mut printer: Printer<Vec<u8>> =
-            Printer::new(&mut output, None, BorderStyle::Unicode, InputFormat::Ascii, true);
+            Printer::new(&mut output, None, BorderStyle::Unicode, InputFormat::Ascii, true, false);
         printer.display_offset(0xdeadbeef);
 
         printer.print_all(input).unwrap();

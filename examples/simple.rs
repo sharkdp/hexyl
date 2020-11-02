@@ -9,13 +9,13 @@ fn main() {
     ];
 
     let stdout = io::stdout();
-    let mut handle = stdout.lock();
-
+    let mut handle = stdin.lock();
     let theme = Some(themes::Hexylamine);
-    let use_squeezing = false;
     let border_style = BorderStyle::Unicode;
-    let input_format  = InputFormat::Ascii;
+    let input_format = InputFormat::Ascii;
+    let use_squeezing = false;
+    let upper_case = false;
 
-    let mut printer = Printer::new(&mut handle, theme, border_style, input_format, use_squeezing);
+    let mut printer = Printer::new(&mut handle, theme, border_style, input_format, use_squeezing, upper_case);
     printer.print_all(&input[..]).unwrap();
 }
