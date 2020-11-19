@@ -84,6 +84,14 @@ apt install hexyl
 nix-env -i hexyl
 ```
 
+### Via Guix
+
+```
+guix package -i hexyl
+```
+
+Or add the `hexyl` package in the list of packages to be installed in your system configuration (e.g., `/etc/config.scm`).
+
 ### On other distributions
 
 Check out the [release page](https://github.com/sharkdp/hexyl/releases) for binary builds.
