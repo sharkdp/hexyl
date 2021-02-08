@@ -57,6 +57,16 @@ pacman -S hexyl
 xbps-install hexyl
 ```
 
+### On Gentoo Linux
+
+Available in [dm9pZCAq overlay](https://github.com/gentoo-mirror/dm9pZCAq)
+
+```
+sudo eselect repository enable dm9pZCAq
+sudo emerge --sync dm9pZCAq
+sudo emerge sys-apps/hexyl::dm9pZCAq
+```
+
 ### On macOS
 
 ```
