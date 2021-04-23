@@ -235,13 +235,18 @@ fn main() {
 
     if let Err(err) = result {
         if let Some(clap_err) = err.downcast_ref::<clap::Error>() {
-            eprint!("{}", clap_err); // Clap errors already have newlines
-
             match clap_err.kind {
                 // The exit code should not indicate an error for --help / --version
-                clap::ErrorKind::HelpDisplayed | clap::ErrorKind::VersionDisplayed => {
+                clap::ErrorKind::HelpDisplayed => {
+                    eprint!("{}", clap_err); // Clap errors already have newlines
                     std::process::exit(0)
-                }
+                },
+                clap::ErrorKind::VersionDisplayed => {
+                    // Version output in clap 2.33.1 (dep as of now) doesn't have a newline
+                    // and the fix is not included even in the latest stable release
+                    println!("");
+                    std::process::exit(0)
+                },
                 _ => (),
             }
         } else {
