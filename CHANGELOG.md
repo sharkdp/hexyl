@@ -13,6 +13,7 @@
 - Argument `--length` silently takes precedence over `--bytes`, see #105
 - Print warning on empty content, see #107 and #108
 - Disallow block sizes of zero, see #110
+- Fix newline appearing in `--version` output, see #131 and #133 (@scimas)
 
 ## Other
 
