@@ -69,8 +69,16 @@ sudo emerge sys-apps/hexyl::dm9pZCAq
 
 ### On macOS
 
+Via [Homebrew](https://brew.sh):
+
 ```
 brew install hexyl
+```
+
+...or via [MacPorts](https://www.macports.org):
+
+```
+sudo port install hexyl
 ```
 
 ### On FreeBSD
