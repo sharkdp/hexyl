@@ -50,6 +50,14 @@ fn run() -> Result<(), AnyhowError> {
                 .help("An alias for -n/--length"),
         )
         .arg(
+            Arg::with_name("count")
+                .short("l")
+                .takes_value(true)
+                .value_name("N")
+                .hidden(true)
+                .help("Yet another alias for -n/--length"),
+        )
+        .arg(
             Arg::with_name("skip")
                 .short("s")
                 .long("skip")
@@ -177,6 +185,7 @@ fn run() -> Result<(), AnyhowError> {
     let mut reader = if let Some(length) = matches
         .value_of("length")
         .or_else(|| matches.value_of("bytes"))
+        .or_else(|| matches.value_of("count"))
         .map(|s| {
             parse_byte_count(s).context(anyhow!(
                 "failed to parse `--length` arg {:?} as byte count",
