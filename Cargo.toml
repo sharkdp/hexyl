@@ -24,7 +24,7 @@ features = ["suggestions", "color", "wrap_help"]
 
 [dev-dependencies]
 assert_cmd = "1.0"
-predicates = "1.0"
+predicates = "2.0"
 
 [profile.release]
 lto = true
