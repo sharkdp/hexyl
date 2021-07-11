@@ -7,6 +7,7 @@
 ## Features
 
 - Allow relative and negative byte offsets (e.g. `hexyl --skip=-1block`), see #99 (@ErichDonGubler)
+- Added `-l` as another alias for '-n/--length' (`xxd` compatibility), see #121 and #135 (@TheDoctor314)
 
 ## Bugfixes
 
