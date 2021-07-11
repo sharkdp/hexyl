@@ -250,13 +250,13 @@ fn main() {
                 clap::ErrorKind::HelpDisplayed => {
                     eprint!("{}", clap_err); // Clap errors already have newlines
                     std::process::exit(0)
-                },
+                }
                 clap::ErrorKind::VersionDisplayed => {
                     // Version output in clap 2.33.1 (dep as of now) doesn't have a newline
                     // and the fix is not included even in the latest stable release
                     println!("");
                     std::process::exit(0)
-                },
+                }
                 _ => (),
             }
         } else {
