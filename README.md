@@ -116,8 +116,9 @@ Check out the [release page](https://github.com/sharkdp/hexyl/releases) for bina
 
 ### On Windows
 
-For now, you will have to install from source via `cargo` (see below). Make sure that you
-use a terminal that supports ANSI escape sequences (like ConHost v2 since Windows 10 1703
+Check out the [release page](https://github.com/sharkdp/hexyl/releases) for binary builds.
+Alternatively, install from source via `cargo` (see below).
+Make sure that you use a terminal that supports ANSI escape sequences (like ConHost v2 since Windows 10 1703
 or Windows Terminal since Windows 10 1903).
 
 ### Via cargo
