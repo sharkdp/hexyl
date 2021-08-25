@@ -23,7 +23,7 @@ of bytes (NULL bytes, printable ASCII characters, ASCII whitespace characters, o
 
 *... and other Debian-based Linux distributions.*
 
-If you run Ubuntu 19.10 (Eoan Ermine) or newer, you can install the [officially maintained package](https://packages.ubuntu.com/eoan/hexyl):
+If you run Ubuntu 19.10 (Eoan Ermine) or newer, you can install the [officially maintained package](https://packages.ubuntu.com/search?keywords=hexyl):
 ```bash
 sudo apt install hexyl
 ```
@@ -36,7 +36,7 @@ sudo dpkg -i hexyl_0.9.0_amd64.deb  # adapt version number and architecture
 
 ### On Debian
 
-If you run Debian Buster or newer, you can install the [officially maintained Debian package](https://packages.debian.org/buster/hexyl):
+If you run Debian Buster or newer, you can install the [officially maintained Debian package](https://packages.debian.org/search?searchon=names&keywords=hexyl):
 ```bash
 sudo apt-get install hexyl
 ```
@@ -53,6 +53,7 @@ pacman -S hexyl
 ```
 
 ### On Void Linux
+
 ```
 xbps-install hexyl
 ```
