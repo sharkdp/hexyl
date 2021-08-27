@@ -8,7 +8,7 @@ Thank you for considering to contribute to `hexyl`!
 
 If your contribution changes the behavior of `hexyl` (as opposed to a typo-fix
 in the documentation), please update the [`CHANGELOG.md`](CHANGELOG.md) file
-and describe your changes. This makes the release proess much easier and
+and describe your changes. This makes the release process much easier and
 therefore helps to get your changes into a new `hexyl` release faster.
 
 The top of the `CHANGELOG` contains a *"unreleased"* section with a few

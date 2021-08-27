@@ -109,7 +109,7 @@
 
 ## Features
 
-- Added support for squeezing where reoccuring lines are squashed together and visualized with an asterisk. A new `-v`/`--no-squeezing` option can be used to disable the feature. For details, see #59 (@awidegreen)
+- Added support for squeezing where reoccurring lines are squashed together and visualized with an asterisk. A new `-v`/`--no-squeezing` option can be used to disable the feature. For details, see #59 (@awidegreen)
 - Added a new `--border` option with support for various styles (Unicode, ASCII, None), see #54 (@dmke)
 - The `--length`/`-n` argument can be passed as a hexadecimal number (`hexyl -n 0xff /dev/urandom`), see #45 (@Qyriad)
 - Added `--bytes`/`-c` as an alias for `--length`/`-n`, see #48 (@selfup)
