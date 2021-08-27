@@ -73,7 +73,7 @@
 
 ## Bugfixes
 
-- hexyl can now be closed with `Ctrl-C` when reading input from STDIN, see #84 
+- hexyl can now be closed with `Ctrl-C` when reading input from STDIN, see #84
 
 ## Changes
 

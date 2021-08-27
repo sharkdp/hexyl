@@ -92,7 +92,7 @@ pkg install hexyl
 ```
 pkg install hexyl
 ```
-or 
+or
 ```
 apt install hexyl
 ```
