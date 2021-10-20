@@ -36,9 +36,10 @@ fn run() -> Result<(), AnyhowError> {
                 .value_name("N")
                 .help(
                     "Only read N bytes from the input. The N argument can also include a \
-                     unit with a decimal prefix (kB, MB, ..) or binary prefix (kiB, MiB, ..). \
+                     unit with a decimal prefix (kB, MB, ..) or binary prefix (kiB, MiB, ..), \
+                     or can be specified using a hex number. \
                      The short option '-l' can be used as an alias.\n\
-                     Examples: --length=64, --length=4KiB",
+                     Examples: --length=64, --length=4KiB, --length=0xff",
                 ),
         )
         .arg(
