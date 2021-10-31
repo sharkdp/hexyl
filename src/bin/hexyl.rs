@@ -11,9 +11,13 @@ use atty::Stream;
 
 use anyhow::{anyhow, Context, Error as AnyhowError};
 
+use const_format::formatcp;
+
 use thiserror::Error as ThisError;
 
 use hexyl::{BorderStyle, Input, Printer};
+
+const DEFAULT_BLOCK_SIZE: i64 = 512;
 
 fn run() -> Result<(), AnyhowError> {
     let app = App::new(crate_name!())
@@ -76,10 +80,11 @@ fn run() -> Result<(), AnyhowError> {
                 .long("block-size")
                 .takes_value(true)
                 .value_name("SIZE")
-                .help(
-                    "Sets the size of the `block` unit to SIZE.\n\
+                .help(formatcp!(
+                    "Sets the size of the `block` unit to SIZE (default is {}).\n\
                      Examples: --block-size=1024, --block-size=4kB",
-                ),
+                    DEFAULT_BLOCK_SIZE
+                )),
         )
         .arg(
             Arg::with_name("nosqueezing")
@@ -146,7 +151,7 @@ fn run() -> Result<(), AnyhowError> {
             })
         })
         .transpose()?
-        .unwrap_or_else(|| PositiveI64::new(512).unwrap());
+        .unwrap_or_else(|| PositiveI64::new(DEFAULT_BLOCK_SIZE).unwrap());
 
     let skip_arg = matches
         .value_of("skip")
@@ -473,7 +478,7 @@ fn test_parse_byte_offset() {
 
     macro_rules! success {
         ($input: expr, $expected_kind: ident $expected_value: expr) => {
-            success!($input, $expected_kind $expected_value; block_size: 512)
+            success!($input, $expected_kind $expected_value; block_size: DEFAULT_BLOCK_SIZE)
         };
         ($input: expr, $expected_kind: ident $expected_value: expr; block_size: $block_size: expr) => {
             assert_eq!(
@@ -491,7 +496,7 @@ fn test_parse_byte_offset() {
     macro_rules! error {
         ($input: expr, $expected_err: expr) => {
             assert_eq!(
-                parse_byte_offset($input, PositiveI64::new(512).unwrap()),
+                parse_byte_offset($input, PositiveI64::new(DEFAULT_BLOCK_SIZE).unwrap()),
                 Err($expected_err),
             );
         };
