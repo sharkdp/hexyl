@@ -4,6 +4,7 @@ extern crate clap;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{self, prelude::*, SeekFrom};
+use std::num::NonZeroI64;
 
 use clap::{App, AppSettings, Arg};
 
@@ -320,6 +321,42 @@ impl Into<u64> for PositiveI64 {
     }
 }
 
+enum Unit {
+    Byte,
+    Kilobyte,
+    Megabyte,
+    Gigabyte,
+    Terabyte,
+    Kibibyte,
+    Mebibyte,
+    Gibibyte,
+    Tebibyte,
+    /// a customizable amount of bytes
+    Block {
+        custom_size: Option<NonZeroI64>,
+    },
+}
+
+impl Unit {
+    const fn get_multiplier(self) -> i64 {
+        match self {
+            Self::Byte => 1,
+            Self::Kilobyte => 1000i64.pow(1),
+            Self::Megabyte => 1000i64.pow(2),
+            Self::Gigabyte => 1000i64.pow(3),
+            Self::Terabyte => 1000i64.pow(4),
+            Self::Kibibyte => 1024i64.pow(1),
+            Self::Mebibyte => 1024i64.pow(2),
+            Self::Gibibyte => 1024i64.pow(3),
+            Self::Tebibyte => 1024i64.pow(4),
+            Self::Block {
+                custom_size: Some(size),
+            } => size.get(),
+            Self::Block { custom_size: None } => DEFAULT_BLOCK_SIZE,
+        }
+    }
+}
+
 const HEX_PREFIX: &str = "0x";
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -470,6 +507,20 @@ fn parse_byte_offset(n: &str, block_size: PositiveI64) -> Result<ByteOffset, Byt
         },
         (Err(_), Err(_)) => Err(InvalidNumAndUnit(n.to_owned())),
     }
+}
+
+#[test]
+fn test_units() {
+    use Unit::*;
+    assert_eq!(Kilobyte.get_multiplier(), 1000 * Byte.get_multiplier());
+    assert_eq!(Megabyte.get_multiplier(), 1000 * Kilobyte.get_multiplier());
+    assert_eq!(Gigabyte.get_multiplier(), 1000 * Megabyte.get_multiplier());
+    assert_eq!(Terabyte.get_multiplier(), 1000 * Gigabyte.get_multiplier());
+
+    assert_eq!(Kibibyte.get_multiplier(), 1024 * Byte.get_multiplier());
+    assert_eq!(Mebibyte.get_multiplier(), 1024 * Kibibyte.get_multiplier());
+    assert_eq!(Gibibyte.get_multiplier(), 1024 * Mebibyte.get_multiplier());
+    assert_eq!(Tebibyte.get_multiplier(), 1024 * Gibibyte.get_multiplier());
 }
 
 #[test]
