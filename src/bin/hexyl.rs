@@ -321,6 +321,7 @@ impl Into<u64> for PositiveI64 {
     }
 }
 
+#[derive(Debug, PartialEq)]
 enum Unit {
     Byte,
     Kilobyte,
@@ -509,8 +510,57 @@ fn parse_byte_offset(n: &str, block_size: PositiveI64) -> Result<ByteOffset, Byt
     }
 }
 
+/// Takes a string containing a base-10 number and an optional unit, and returns them with their proper types.
+/// The unit must directly follow the number (e.g. no whitespace is allowed between them).
+/// When no unit is given, [Unit::Byte] is assumed.
+/// When the unit is [Unit::Block], it is returned without custom size.
+/// No normalization is performed, that is "1024" is extracted to (1024, Byte), not (1, Kibibyte).
+fn extract_num_and_unit_from(n: &str) -> Result<(i64, Unit), ByteOffsetParseError> {
+    use ByteOffsetParseError::*;
+    if n.is_empty() {
+        return Err(Empty);
+    }
+    match n.chars().position(|c| !c.is_ascii_digit()) {
+        Some(unit_begin_idx) => {
+            let (n, raw_unit) = n.split_at(unit_begin_idx);
+            let unit = match raw_unit.to_lowercase().as_str() {
+                "" => Unit::Byte, // no "b" => Byte to allow hex nums with units
+                "kb" => Unit::Kilobyte,
+                "mb" => Unit::Megabyte,
+                "gb" => Unit::Gigabyte,
+                "tb" => Unit::Terabyte,
+                "kib" => Unit::Kibibyte,
+                "mib" => Unit::Mebibyte,
+                "gib" => Unit::Gibibyte,
+                "tib" => Unit::Tebibyte,
+                "block" | "blocks" => Unit::Block { custom_size: None },
+                _ => {
+                    return if n.is_empty() {
+                        Err(InvalidNumAndUnit(raw_unit.to_string()))
+                    } else {
+                        Err(InvalidUnit(raw_unit.to_string()))
+                    }
+                }
+            };
+            let num = n.parse::<i64>().map_err(|e| {
+                if n.is_empty() {
+                    EmptyWithUnit(raw_unit.to_owned())
+                } else {
+                    ParseNum(e)
+                }
+            })?;
+            Ok((num, unit))
+        }
+        None => {
+            // no unit part
+            let num = n.parse::<i64>().map_err(ParseNum)?;
+            Ok((num, Unit::Byte))
+        }
+    }
+}
+
 #[test]
-fn test_units() {
+fn unit_multipliers() {
     use Unit::*;
     assert_eq!(Kilobyte.get_multiplier(), 1000 * Byte.get_multiplier());
     assert_eq!(Megabyte.get_multiplier(), 1000 * Kilobyte.get_multiplier());
@@ -521,6 +571,34 @@ fn test_units() {
     assert_eq!(Mebibyte.get_multiplier(), 1024 * Kibibyte.get_multiplier());
     assert_eq!(Gibibyte.get_multiplier(), 1024 * Mebibyte.get_multiplier());
     assert_eq!(Tebibyte.get_multiplier(), 1024 * Gibibyte.get_multiplier());
+}
+
+#[test]
+fn extract_num_and_unit() {
+    use ByteOffsetParseError::*;
+    use Unit::*;
+    // byte is default unit
+    assert_eq!(extract_num_and_unit_from("4"), Ok((4, Byte)));
+    // blocks are returned without customization
+    assert_eq!(
+        extract_num_and_unit_from("2blocks"),
+        Ok((2, Block { custom_size: None }))
+    );
+    // no normalization is performed
+    assert_eq!(extract_num_and_unit_from("1024kb"), Ok((1024, Kilobyte)));
+
+    // unit without number results in error
+    assert_eq!(
+        extract_num_and_unit_from("gib"),
+        Err(EmptyWithUnit("gib".to_string()))
+    );
+    // empty string results in error
+    assert_eq!(extract_num_and_unit_from(""), Err(Empty));
+    // an invalid unit results in an error
+    assert_eq!(
+        extract_num_and_unit_from("25litres"),
+        Err(InvalidUnit("litres".to_string()))
+    );
 }
 
 #[test]
