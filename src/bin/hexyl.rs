@@ -465,49 +465,18 @@ fn parse_byte_offset(n: &str, block_size: PositiveI64) -> Result<ByteOffset, Byt
             .map_err(ParseNum)?;
     }
 
-    let (num, unit) = match n.chars().position(|c| !c.is_ascii_digit()) {
-        Some(unit_begin_idx) => {
-            let (n, raw_unit) = n.split_at(unit_begin_idx);
-            let raw_unit_lower = raw_unit.to_lowercase();
-            let multiplier = [
-                ("b", 1),
-                ("kb", 1000i64.pow(1)),
-                ("mb", 1000i64.pow(2)),
-                ("gb", 1000i64.pow(3)),
-                ("tb", 1000i64.pow(4)),
-                ("kib", 1024i64.pow(1)),
-                ("mib", 1024i64.pow(2)),
-                ("gib", 1024i64.pow(3)),
-                ("tib", 1024i64.pow(4)),
-                ("block", block_size.into_inner()),
-            ]
-            .iter()
-            .cloned()
-            .find_map(|(unit, multiplier)| {
-                if unit == raw_unit_lower {
-                    Some(multiplier)
-                } else {
-                    None
-                }
-            })
-            .ok_or_else(|| InvalidUnit(raw_unit.to_owned()));
-            (n, multiplier.map(|m| (Some(raw_unit), m)))
-        }
-        None => (n, Ok((None, 1))),
-    };
-
-    match (num.parse::<i64>(), unit) {
-        (Ok(num), Ok((_raw_unit, unit_multiplier))) => num
-            .checked_mul(unit_multiplier)
-            .ok_or_else(|| UnitMultiplicationOverflow)
-            .and_then(into_byte_offset),
-        (Ok(_), Err(e)) => Err(e),
-        (Err(e), Ok((raw_unit, _unit_multiplier))) => match raw_unit {
-            Some(raw_unit) if num.is_empty() => Err(EmptyWithUnit(raw_unit.to_owned())),
-            _ => Err(ParseNum(e)),
-        },
-        (Err(_), Err(_)) => Err(InvalidNumAndUnit(n.to_owned())),
+    let (num, mut unit) = extract_num_and_unit_from(n)?;
+    if let Unit::Block { custom_size: None } = unit {
+        unit = Unit::Block {
+            custom_size: Some(
+                NonZeroI64::new(block_size.into_inner()).expect("PositiveI64 was zero"),
+            ),
+        };
     }
+
+    num.checked_mul(unit.get_multiplier())
+        .ok_or_else(|| UnitMultiplicationOverflow)
+        .and_then(into_byte_offset)
 }
 
 /// Takes a string containing a base-10 number and an optional unit, and returns them with their proper types.
