@@ -148,6 +148,11 @@ fn run() -> Result<(), AnyhowError> {
         .value_of("block_size")
         .map(|bs| {
             let (num, unit) = extract_num_and_unit_from(bs)?;
+            if let Unit::Block { custom_size: _ } = unit {
+                return Err(anyhow!(
+                    "can not use 'block(s)' as a unit to specify block size"
+                ));
+            };
             num.checked_mul(unit.get_multiplier())
                 .ok_or_else(|| anyhow!(ByteOffsetParseError::UnitMultiplicationOverflow))
                 .and_then(|x| {
