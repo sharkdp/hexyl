@@ -147,9 +147,13 @@ fn run() -> Result<(), AnyhowError> {
     let block_size = matches
         .value_of("block_size")
         .map(|bs| {
-            bs.parse::<i64>().map_err(|e| anyhow!(e)).and_then(|x| {
-                PositiveI64::new(x).ok_or_else(|| anyhow!("block size argument must be positive"))
-            })
+            let (num, unit) = extract_num_and_unit_from(bs)?;
+            num.checked_mul(unit.get_multiplier())
+                .ok_or_else(|| anyhow!(ByteOffsetParseError::UnitMultiplicationOverflow))
+                .and_then(|x| {
+                    PositiveI64::new(x)
+                        .ok_or_else(|| anyhow!("block size argument must be positive"))
+                })
         })
         .transpose()?
         .unwrap_or_else(|| PositiveI64::new(DEFAULT_BLOCK_SIZE).unwrap());
