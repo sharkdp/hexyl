@@ -147,6 +147,15 @@ fn run() -> Result<(), AnyhowError> {
     let block_size = matches
         .value_of("block_size")
         .map(|bs| {
+            if bs.starts_with(HEX_PREFIX) {
+                let n = &bs[HEX_PREFIX.len()..];
+                return i64::from_str_radix(n, 16)
+                    .map_err(|_| anyhow!("could not parse block size argument as hex number"))
+                    .and_then(|x| {
+                        PositiveI64::new(x)
+                            .ok_or_else(|| anyhow!("block size argument must be positive"))
+                    });
+            }
             let (num, unit) = extract_num_and_unit_from(bs)?;
             if let Unit::Block { custom_size: _ } = unit {
                 return Err(anyhow!(
