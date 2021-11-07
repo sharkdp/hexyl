@@ -4,7 +4,7 @@
 
 
 ## Features
-
+- Allow hex numbers and units for `--block-size` argument, see #111
 
 ## Bugfixes
 
