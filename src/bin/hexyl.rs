@@ -147,14 +147,11 @@ fn run() -> Result<(), AnyhowError> {
     let block_size = matches
         .value_of("block_size")
         .map(|bs| {
-            if bs.starts_with(HEX_PREFIX) {
-                let n = &bs[HEX_PREFIX.len()..];
-                return i64::from_str_radix(n, 16)
-                    .map_err(|_| anyhow!("could not parse block size argument as hex number"))
-                    .and_then(|x| {
-                        PositiveI64::new(x)
-                            .ok_or_else(|| anyhow!("block size argument must be positive"))
-                    });
+            if let Some(hex_number) = try_parse_as_hex_number(bs) {
+                return hex_number.map_err(|e| anyhow!(e)).and_then(|x| {
+                    PositiveI64::new(x)
+                        .ok_or_else(|| anyhow!("block size argument must be positive"))
+                });
             }
             let (num, unit) = extract_num_and_unit_from(bs)?;
             if let Unit::Block { custom_size: _ } = unit {
@@ -446,22 +443,8 @@ fn parse_byte_offset(n: &str, block_size: PositiveI64) -> Result<ByteOffset, Byt
         })
     };
 
-    if n.starts_with(HEX_PREFIX) {
-        let n = &n[HEX_PREFIX.len()..];
-        let mut chars = n.chars();
-        match chars.next() {
-            Some(c @ '+') | Some(c @ '-') => {
-                return if chars.next().is_none() {
-                    Err(EmptyAfterSign)
-                } else {
-                    Err(SignFoundAfterHexPrefix(c))
-                }
-            }
-            _ => (),
-        }
-        return i64::from_str_radix(n, 16)
-            .map(into_byte_offset)
-            .map_err(ParseNum)?;
+    if let Some(hex_number) = try_parse_as_hex_number(n) {
+        return hex_number.map(into_byte_offset)?;
     }
 
     let (num, mut unit) = extract_num_and_unit_from(n)?;
@@ -551,6 +534,26 @@ fn process_sign_of(n: &str) -> Result<(&str, ByteOffsetKind), ByteOffsetParseErr
     }
 }
 
+/// If `n` starts with a hex prefix, its remaining part is returned as some number (if possible),
+/// otherwise None is returned.
+fn try_parse_as_hex_number(n: &str) -> Option<Result<i64, ByteOffsetParseError>> {
+    use ByteOffsetParseError::*;
+    n.strip_prefix(HEX_PREFIX).map(|num| {
+        let mut chars = num.chars();
+        match chars.next() {
+            Some(c @ '+') | Some(c @ '-') => {
+                return if chars.next().is_none() {
+                    Err(EmptyAfterSign)
+                } else {
+                    Err(SignFoundAfterHexPrefix(c))
+                }
+            }
+            _ => (),
+        }
+        i64::from_str_radix(num, 16).map_err(ParseNum)
+    })
+}
+
 #[test]
 fn unit_multipliers() {
     use Unit::*;
@@ -575,6 +578,22 @@ fn test_process_sign() {
     assert_eq!(process_sign_of("-"), Err(EmptyAfterSign));
     assert_eq!(process_sign_of("+"), Err(EmptyAfterSign));
     assert_eq!(process_sign_of(""), Err(Empty));
+}
+
+#[test]
+fn test_parse_as_hex() {
+    assert_eq!(try_parse_as_hex_number("73"), None);
+    assert_eq!(try_parse_as_hex_number("0x1337"), Some(Ok(0x1337)));
+    assert!(if let Some(Err(_)) = try_parse_as_hex_number("0xnope") {
+        true
+    } else {
+        false
+    });
+    assert!(if let Some(Err(_)) = try_parse_as_hex_number("0x-1") {
+        true
+    } else {
+        false
+    });
 }
 
 #[test]
