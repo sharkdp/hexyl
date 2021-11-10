@@ -437,26 +437,7 @@ enum ByteOffsetParseError {
 fn parse_byte_offset(n: &str, block_size: PositiveI64) -> Result<ByteOffset, ByteOffsetParseError> {
     use ByteOffsetParseError::*;
 
-    let (n, kind) = {
-        let mut chars = n.chars();
-        let next_char = chars.next();
-        let check_empty_after_sign = || {
-            if chars.clone().next().is_none() {
-                Err(EmptyAfterSign)
-            } else {
-                Ok(chars.as_str())
-            }
-        };
-        match next_char {
-            Some('+') => (
-                check_empty_after_sign()?,
-                ByteOffsetKind::ForwardFromLastOffset,
-            ),
-            Some('-') => (check_empty_after_sign()?, ByteOffsetKind::BackwardFromEnd),
-            None => return Err(Empty),
-            _ => (n, ByteOffsetKind::ForwardFromBeginning),
-        }
-    };
+    let (n, kind) = process_sign_of(n)?;
 
     let into_byte_offset = |value| {
         Ok(ByteOffset {
@@ -546,6 +527,30 @@ fn extract_num_and_unit_from(n: &str) -> Result<(i64, Unit), ByteOffsetParseErro
     }
 }
 
+/// Extracts a [ByteOffsetKind] based on the sign at the beginning of the given string.
+/// Returns the input string without the sign (or an equal string if there wasn't any sign).
+fn process_sign_of(n: &str) -> Result<(&str, ByteOffsetKind), ByteOffsetParseError> {
+    use ByteOffsetParseError::*;
+    let mut chars = n.chars();
+    let next_char = chars.next();
+    let check_empty_after_sign = || {
+        if chars.clone().next().is_none() {
+            Err(EmptyAfterSign)
+        } else {
+            Ok(chars.as_str())
+        }
+    };
+    match next_char {
+        Some('+') => Ok((
+            check_empty_after_sign()?,
+            ByteOffsetKind::ForwardFromLastOffset,
+        )),
+        Some('-') => Ok((check_empty_after_sign()?, ByteOffsetKind::BackwardFromEnd)),
+        None => Err(Empty),
+        _ => Ok((n, ByteOffsetKind::ForwardFromBeginning)),
+    }
+}
+
 #[test]
 fn unit_multipliers() {
     use Unit::*;
@@ -558,6 +563,18 @@ fn unit_multipliers() {
     assert_eq!(Mebibyte.get_multiplier(), 1024 * Kibibyte.get_multiplier());
     assert_eq!(Gibibyte.get_multiplier(), 1024 * Mebibyte.get_multiplier());
     assert_eq!(Tebibyte.get_multiplier(), 1024 * Gibibyte.get_multiplier());
+}
+
+#[test]
+fn test_process_sign() {
+    use ByteOffsetKind::*;
+    use ByteOffsetParseError::*;
+    assert_eq!(process_sign_of("123"), Ok(("123", ForwardFromBeginning)));
+    assert_eq!(process_sign_of("+123"), Ok(("123", ForwardFromLastOffset)));
+    assert_eq!(process_sign_of("-123"), Ok(("123", BackwardFromEnd)));
+    assert_eq!(process_sign_of("-"), Err(EmptyAfterSign));
+    assert_eq!(process_sign_of("+"), Err(EmptyAfterSign));
+    assert_eq!(process_sign_of(""), Err(Empty));
 }
 
 #[test]
