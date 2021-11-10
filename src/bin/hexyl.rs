@@ -245,8 +245,7 @@ fn run() -> Result<(), AnyhowError> {
             ))
         })
         .transpose()?
-        .unwrap_or(0)
-        .into();
+        .unwrap_or(0);
 
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
@@ -276,7 +275,7 @@ fn main() {
                 clap::ErrorKind::VersionDisplayed => {
                     // Version output in clap 2.33.1 (dep as of now) doesn't have a newline
                     // and the fix is not included even in the latest stable release
-                    println!("");
+                    println!();
                     std::process::exit(0)
                 }
                 _ => (),
@@ -457,7 +456,7 @@ fn parse_byte_offset(n: &str, block_size: PositiveI64) -> Result<ByteOffset, Byt
     }
 
     num.checked_mul(unit.get_multiplier())
-        .ok_or_else(|| UnitMultiplicationOverflow)
+        .ok_or(UnitMultiplicationOverflow)
         .and_then(into_byte_offset)
 }
 
