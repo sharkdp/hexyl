@@ -356,14 +356,14 @@ impl Unit {
     const fn get_multiplier(self) -> i64 {
         match self {
             Self::Byte => 1,
-            Self::Kilobyte => 1000i64.pow(1),
-            Self::Megabyte => 1000i64.pow(2),
-            Self::Gigabyte => 1000i64.pow(3),
-            Self::Terabyte => 1000i64.pow(4),
-            Self::Kibibyte => 1024i64.pow(1),
-            Self::Mebibyte => 1024i64.pow(2),
-            Self::Gibibyte => 1024i64.pow(3),
-            Self::Tebibyte => 1024i64.pow(4),
+            Self::Kilobyte => 1000,
+            Self::Megabyte => 1000_000,
+            Self::Gigabyte => 1000_000_000,
+            Self::Terabyte => 1000_000_000_000,
+            Self::Kibibyte => 1 << 10,
+            Self::Mebibyte => 1 << 20,
+            Self::Gibibyte => 1 << 30,
+            Self::Tebibyte => 1 << 40,
             Self::Block {
                 custom_size: Some(size),
             } => size.get(),
