@@ -275,7 +275,7 @@ jobs:
         Architecture: ${DPKG_ARCH}
         Provides: ${{ env.PROJECT_NAME }}
         Conflicts: ${DPKG_CONFLICTS}
-        Description: command-line tool to generate, analyze, convert and manipulate colors
+        Description: colorized hex viewer for the terminal.
         EOF
 
         DPKG_PATH="${DPKG_STAGING}/${DPKG_NAME}"
