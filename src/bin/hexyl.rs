@@ -240,10 +240,19 @@ fn run() -> Result<(), AnyhowError> {
     let display_offset: u64 = matches
         .value_of("display_offset")
         .map(|s| {
-            parse_byte_count(s).context(anyhow!(
-                "failed to parse `--display-offset` arg {:?} as byte count",
-                s
-            ))
+            if skip_arg.is_some() {
+                parse_byte_offset(s, block_size)?
+                    .checked_add(skip_offset)
+                    .context(anyhow!(
+                        "invalid value when applying `--display-offset` to `--skip`"
+                    ))
+            } else {
+                let display_offset = parse_byte_count(s).context(anyhow!(
+                    "failed to parse `--display-offset` arg {:?} as byte count",
+                    s
+                ))?;
+                Ok(display_offset + skip_offset)
+            }
         })
         .transpose()?
         .unwrap_or(0);
@@ -252,7 +261,7 @@ fn run() -> Result<(), AnyhowError> {
     let mut stdout_lock = stdout.lock();
 
     let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
-    printer.display_offset(skip_offset + display_offset);
+    printer.display_offset(display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
 
     Ok(())
