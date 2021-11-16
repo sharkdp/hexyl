@@ -2,6 +2,7 @@
 extern crate clap;
 
 use std::convert::TryFrom;
+use std::fmt::{self, Display, Formatter};
 use std::fs::File;
 use std::io::{self, prelude::*, SeekFrom};
 use std::num::NonZeroI64;
@@ -393,6 +394,36 @@ struct ByteOffset {
 )]
 struct NegativeOffsetSpecifiedError;
 
+#[derive(Clone, Debug, ThisError)]
+struct OffsetAddError {
+    base: u64,
+    offset: u64,
+    kind: OffsetAddErrorKind,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum OffsetAddErrorKind {
+    Overflow,
+    Underflow,
+}
+
+impl Display for OffsetAddError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let &Self { base, offset, kind } = self;
+
+        match kind {
+            OffsetAddErrorKind::Overflow => write!(
+                f,
+                "base ({}) + offset ({}) exceeds value range representable by `u64`",
+                base, offset,
+            ),
+            OffsetAddErrorKind::Underflow => {
+                write!(f, "base ({}) - offset ({}) < 0", base, offset)
+            }
+        }
+    }
+}
+
 impl ByteOffset {
     fn assume_forward_offset_from_start(
         &self,
@@ -404,6 +435,23 @@ impl ByteOffset {
             }
             ByteOffsetKind::BackwardFromEnd => Err(NegativeOffsetSpecifiedError),
         }
+    }
+
+    fn checked_add(&self, base: u64) -> Result<u64, OffsetAddError> {
+        let &Self {
+            value: offset,
+            kind,
+        } = self;
+        let offset = offset.into();
+        match kind {
+            ByteOffsetKind::ForwardFromBeginning | ByteOffsetKind::ForwardFromLastOffset => {
+                base.checked_add(offset).ok_or(OffsetAddErrorKind::Overflow)
+            }
+            ByteOffsetKind::BackwardFromEnd => base
+                .checked_sub(offset)
+                .ok_or(OffsetAddErrorKind::Underflow),
+        }
+        .map_err(|kind| OffsetAddError { base, offset, kind })
     }
 }
 
