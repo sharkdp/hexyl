@@ -16,7 +16,7 @@ use const_format::formatcp;
 
 use thiserror::Error as ThisError;
 
-use hexyl::{BorderStyle, InnerSeparatorStyle, Input, Printer};
+use hexyl::{BorderType, InnerSeparatorStyle, Input, Printer};
 
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
@@ -110,6 +110,7 @@ fn run() -> Result<(), AnyhowError> {
                      goes to an interactive terminal",
                 ),
         )
+        // TODO: Revisit name, value_name of border, {hex,text}_inner_separator
         .arg(
             Arg::with_name("border")
                 .long("border")
@@ -250,11 +251,13 @@ fn run() -> Result<(), AnyhowError> {
         Some("auto") => atty::is(Stream::Stdout),
         _ => true,
     };
+    
+    // TODO: Revisit name of border_type, {hex,text}_inner_separator_style
 
-    let border_style = match matches.value_of("border") {
-        Some("unicode") => BorderStyle::Unicode,
-        Some("ascii") => BorderStyle::Ascii,
-        _ => BorderStyle::None,
+    let border_type = match matches.value_of("border") {
+        Some("unicode") => BorderType::Unicode,
+        Some("ascii") => BorderType::Ascii,
+        _ => BorderType::None,
     };
     
     let hex_inner_separator_style = match matches.value_of("hex_inner_separator") {
@@ -285,7 +288,7 @@ fn run() -> Result<(), AnyhowError> {
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
 
-    let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, hex_inner_separator_style, text_inner_separator_style, squeeze);
+    let mut printer = Printer::new(&mut stdout_lock, show_color, border_type, hex_inner_separator_style, text_inner_separator_style, squeeze);
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
 

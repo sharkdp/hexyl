@@ -72,76 +72,105 @@ impl Byte {
 }
 
 struct BorderElements {
+    // TODO: Replace with strings (whatever the type of a string literal is)
     left_corner: char,
     horizontal_line: char,
-    column_separator: char,
+    outer_separator: char,
+    hex_inner_separator: char,
+    text_inner_separator: char,
     right_corner: char,
 }
 
-pub enum BorderStyle {
+// TODO: Revisit name of BorderType and InnerSeparatorStyle
+
+pub enum BorderType {
     Unicode,
     Ascii,
     None,
-}
-
-impl BorderStyle {
-    fn header_elems(&self) -> Option<BorderElements> {
-        match self {
-            BorderStyle::Unicode => Some(BorderElements {
-                left_corner: '┌',
-                horizontal_line: '─',
-                column_separator: '┬',
-                right_corner: '┐',
-            }),
-            BorderStyle::Ascii => Some(BorderElements {
-                left_corner: '+',
-                horizontal_line: '-',
-                column_separator: '+',
-                right_corner: '+',
-            }),
-            BorderStyle::None => None,
-        }
-    }
-
-    fn footer_elems(&self) -> Option<BorderElements> {
-        match self {
-            BorderStyle::Unicode => Some(BorderElements {
-                left_corner: '└',
-                horizontal_line: '─',
-                column_separator: '┴',
-                right_corner: '┘',
-            }),
-            BorderStyle::Ascii => Some(BorderElements {
-                left_corner: '+',
-                horizontal_line: '-',
-                column_separator: '+',
-                right_corner: '+',
-            }),
-            BorderStyle::None => None,
-        }
-    }
-
-    fn outer_sep(&self) -> char {
-        match self {
-            BorderStyle::Unicode => '│',
-            BorderStyle::Ascii => '|',
-            BorderStyle::None => ' ',
-        }
-    }
-
-    fn inner_sep(&self) -> char {
-        match self {
-            BorderStyle::Unicode => '┊',
-            BorderStyle::Ascii => '|',
-            BorderStyle::None => ' ',
-        }
-    }
 }
 
 pub enum InnerSeparatorStyle {
     Visible,
     Invisible,
     None,
+}
+
+struct BorderStyle {
+    border_type: BorderType,
+    hex_inner_separator_style: InnerSeparatorStyle,
+    text_inner_separator_style: InnerSeparatorStyle,
+}
+
+impl BorderStyle {
+    // TODO: Deal with the new {hex,text}_inner_separator_style fields
+    
+    fn header_elems(&self) -> Option<BorderElements> {
+        match self.border_type {
+            BorderType::Unicode => Some(BorderElements {
+                left_corner: '┌',
+                horizontal_line: '─',
+                outer_separator: '┬',
+                hex_inner_separator: '┬',
+                text_inner_separator: '┬',
+                right_corner: '┐',
+            }),
+            BorderType::Ascii => Some(BorderElements {
+                left_corner: '+',
+                horizontal_line: '-',
+                outer_separator: '+',
+                hex_inner_separator: '+',
+                text_inner_separator: '+',
+                right_corner: '+',
+            }),
+            BorderType::None => None,
+        }
+    }
+
+    fn footer_elems(&self) -> Option<BorderElements> {
+        match self.border_type {
+            BorderType::Unicode => Some(BorderElements {
+                left_corner: '└',
+                horizontal_line: '─',
+                outer_separator: '┴',
+                hex_inner_separator: '┴',
+                text_inner_separator: '┴',
+                right_corner: '┘',
+            }),
+            BorderType::Ascii => Some(BorderElements {
+                left_corner: '+',
+                horizontal_line: '-',
+                outer_separator: '+',
+                hex_inner_separator: '+',
+                text_inner_separator: '+',
+                right_corner: '+',
+            }),
+            BorderType::None => None,
+        }
+    }
+    
+    fn edge_sep(&self) -> char {
+        match self.border_type {
+            BorderType::Unicode => '│',
+            BorderType::Ascii => '|',
+            BorderType::None => ' ',
+        }
+    }
+
+    fn outer_sep(&self) -> char {
+        match self.border_type {
+            BorderType::Unicode => '│',
+            BorderType::Ascii => '|',
+            BorderType::None => ' ',
+        }
+    }
+
+    fn inner_sep(&self) -> char {
+        match self.border_type {
+            BorderType::Unicode => '┊',
+            BorderType::Ascii => '|',
+            BorderType::None => ' ',
+        }
+    }
 }
 
 pub struct Printer<'a, Writer: Write> {
@@ -153,8 +182,6 @@ pub struct Printer<'a, Writer: Write> {
     writer: &'a mut Writer,
     show_color: bool,
     border_style: BorderStyle,
-    hex_inner_separator_style: InnerSeparatorStyle,
-    text_inner_separator_style: InnerSeparatorStyle,
     header_was_printed: bool,
     byte_hex_table: Vec<String>,
     byte_char_table: Vec<String>,
@@ -166,7 +193,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     pub fn new(
         writer: &'a mut Writer,
         show_color: bool,
-        border_style: BorderStyle,
+        // TODO: Revisit name of border_type, {hex,text}_inner_separator_style
+        border_type: BorderType,
         hex_inner_separator_style: InnerSeparatorStyle,
         text_inner_separator_style: InnerSeparatorStyle,
         use_squeeze: bool,
@@ -177,9 +205,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             buffer_line: vec![],
             writer,
             show_color,
-            border_style,
-            hex_inner_separator_style,
-            text_inner_separator_style,
+            // TODO: Revisit name of border_type, {hex,text}_inner_separator_style
+            border_style: BorderStyle {
+                border_type,
+                hex_inner_separator_style,
+                text_inner_separator_style,
+            },
             header_was_printed: false,
             byte_hex_table: (0u8..=u8::max_value())
                 .map(|i| {
@@ -219,9 +250,11 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
             writeln!(
                 self.writer,
-                "{l}{h8}{c}{h25}{c}{h25}{c}{h8}{c}{h8}{r}",
+                "{l}{h8}{o}{h25}{x}{h25}{o}{h8}{t}{h8}{r}",
                 l = border_elements.left_corner,
-                c = border_elements.column_separator,
+                o = border_elements.outer_separator,
+                x = border_elements.hex_inner_separator,
+                t = border_elements.text_inner_separator,
                 r = border_elements.right_corner,
                 h8 = h8,
                 h25 = h25
@@ -238,9 +271,11 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
             writeln!(
                 self.writer,
-                "{l}{h8}{c}{h25}{c}{h25}{c}{h8}{c}{h8}{r}",
+                "{l}{h8}{o}{h25}{x}{h25}{o}{h8}{t}{h8}{r}",
                 l = border_elements.left_corner,
-                c = border_elements.column_separator,
+                o = border_elements.outer_separator,
+                x = border_elements.hex_inner_separator,
+                t = border_elements.text_inner_separator,
                 r = border_elements.right_corner,
                 h8 = h8,
                 h25 = h25
@@ -464,7 +499,7 @@ mod tests {
 
     fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) -> () {
         let mut output = vec![];
-        let mut printer = Printer::new(&mut output, false, BorderStyle::Unicode, InnerSeparatorStyle::Visible, InnerSeparatorStyle::Visible, true);
+        let mut printer = Printer::new(&mut output, false, BorderType::Unicode, InnerSeparatorStyle::Visible, InnerSeparatorStyle::Visible, true);
 
         printer.print_all(input).unwrap();
 
@@ -509,7 +544,7 @@ mod tests {
 
         let mut output = vec![];
         let mut printer: Printer<Vec<u8>> =
-            Printer::new(&mut output, false, BorderStyle::Unicode, InnerSeparatorStyle::Visible, InnerSeparatorStyle::Visible, true);
+            Printer::new(&mut output, false, BorderType::Unicode, InnerSeparatorStyle::Visible, InnerSeparatorStyle::Visible, true);
         printer.display_offset(0xdeadbeef);
 
         printer.print_all(input).unwrap();
