@@ -71,14 +71,13 @@ impl Byte {
     }
 }
 
-struct BorderElements {
-    // TODO: Lifetime Parameter
-    left_corner: &str,
-    horizontal_line: &str,
-    outer_separator: &str,
-    hex_inner_separator: &str,
-    text_inner_separator: &str,
-    right_corner: &str,
+struct BorderElements<'a> {
+    left_corner: &'a str,
+    horizontal_line: &'a str,
+    outer_separator: &'a str,
+    hex_inner_separator: &'a str,
+    text_inner_separator: &'a str,
+    right_corner: &'a str,
 }
 
 // TODO: Revisit name of BorderType and InnerSeparatorStyle
