@@ -148,7 +148,9 @@ impl BorderStyle {
         }
     }
     
-    fn edge_sep(&self) -> &str {
+    // TODO: Use edge_separator() where appropriate
+    
+    fn edge_separator(&self) -> &str {
         match self.border_type {
             BorderType::Unicode => "│",
             BorderType::Ascii => "|",
@@ -156,7 +158,7 @@ impl BorderStyle {
         }
     }
 
-    fn outer_sep(&self) -> &str {
+    fn outer_separator(&self) -> &str {
         match self.border_type {
             BorderType::Unicode => "│",
             BorderType::Ascii => "|",
@@ -164,7 +166,7 @@ impl BorderStyle {
         }
     }
 
-    fn inner_sep(&self) -> &str {
+    fn inner_separator(&self) -> &str {
         match self.border_type {
             BorderType::Unicode => "┊",
             BorderType::Ascii => "|",
@@ -300,9 +302,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let _ = write!(
             &mut self.buffer_line,
             "{}{}{} ",
-            self.border_style.outer_sep(),
+            self.border_style.outer_separator(),
             formatted_string,
-            self.border_style.outer_sep()
+            self.border_style.outer_separator()
         );
     }
 
@@ -318,7 +320,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         match self.idx % 16 {
             8 => {
-                let _ = write!(&mut self.buffer_line, "{} ", self.border_style.inner_sep());
+                let _ = write!(&mut self.buffer_line, "{} ", self.border_style.inner_separator());
             }
             0 => {
                 self.print_textline()?;
@@ -344,8 +346,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     24,
                     25,
                     8,
-                    self.border_style.inner_sep(),
-                    self.border_style.outer_sep(),
+                    self.border_style.inner_separator(),
+                    self.border_style.outer_separator(),
                 );
                 self.writer.write_all(&self.buffer_line)?;
             }
@@ -362,8 +364,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     "",
                     3 * (8 - len),
                     1 + 3 * 8,
-                    self.border_style.inner_sep(),
-                    self.border_style.outer_sep(),
+                    self.border_style.inner_separator(),
+                    self.border_style.outer_separator(),
                 );
             } else {
                 let _ = write!(
@@ -371,7 +373,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     "{0:1$}{2}",
                     "",
                     3 * (16 - len),
-                    self.border_style.outer_sep()
+                    self.border_style.outer_separator()
                 );
             }
 
@@ -384,7 +386,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 );
 
                 if idx == 8 {
-                    let _ = write!(&mut self.buffer_line, "{}", self.border_style.inner_sep());
+                    let _ = write!(&mut self.buffer_line, "{}", self.border_style.inner_separator());
                 }
 
                 idx += 1;
@@ -397,8 +399,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     "",
                     8 - len,
                     8,
-                    self.border_style.inner_sep(),
-                    self.border_style.outer_sep(),
+                    self.border_style.inner_separator(),
+                    self.border_style.outer_separator(),
                 );
             } else {
                 let _ = writeln!(
@@ -406,7 +408,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     "{0:1$}{2}",
                     "",
                     16 - len,
-                    self.border_style.outer_sep()
+                    self.border_style.outer_separator()
                 );
             }
         }
@@ -428,8 +430,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     7,
                     25,
                     8,
-                    self.border_style.outer_sep(),
-                    self.border_style.inner_sep(),
+                    self.border_style.outer_separator(),
+                    self.border_style.inner_separator(),
                 );
             }
             SqueezeAction::Delete => self.buffer_line.clear(),
