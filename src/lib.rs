@@ -147,7 +147,15 @@ impl BorderStyle {
         }
     }
     
-    fn inner_separator(&self) -> &str {
+    fn hex_inner_separator(&self) -> &str {
+        match self.border_type {
+            BorderType::Unicode => "┊",
+            BorderType::Ascii => "|",
+            BorderType::None => " ",
+        }
+    }
+    
+    fn text_inner_separator(&self) -> &str {
         match self.border_type {
             BorderType::Unicode => "┊",
             BorderType::Ascii => "|",
@@ -304,6 +312,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             self.border_style.outer_separator()
         );
     }
+    
+    // TODO: Replace inner_separator() with appropriate hex or text variant
 
     pub fn print_byte(&mut self, b: u8) -> io::Result<()> {
         if self.idx % 16 == 1 {
