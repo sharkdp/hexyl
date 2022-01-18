@@ -93,10 +93,16 @@ pub enum InnerSeparatorStyle {
     None,
 }
 
+pub enum OuterBorderStyle {
+    Visible,
+    None,
+}
+
 struct BorderStyle {
     border_type: BorderType,
     hex_inner_separator_style: InnerSeparatorStyle,
     text_inner_separator_style: InnerSeparatorStyle,
+    outer_border_style: OuterBorderStyle,
 }
 
 impl BorderStyle {
@@ -203,6 +209,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         border_type: BorderType,
         hex_inner_separator_style: InnerSeparatorStyle,
         text_inner_separator_style: InnerSeparatorStyle,
+        outer_border_style: OuterBorderStyle,
         use_squeeze: bool,
     ) -> Printer<'a, Writer> {
         Printer {
@@ -216,6 +223,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 border_type,
                 hex_inner_separator_style,
                 text_inner_separator_style,
+                outer_border_style,
             },
             header_was_printed: false,
             byte_hex_table: (0u8..=u8::max_value())
@@ -509,7 +517,7 @@ mod tests {
 
     fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) -> () {
         let mut output = vec![];
-        let mut printer = Printer::new(&mut output, false, BorderType::Unicode, InnerSeparatorStyle::Visible, InnerSeparatorStyle::Visible, true);
+        let mut printer = Printer::new(&mut output, false, BorderType::Unicode, InnerSeparatorStyle::Visible, InnerSeparatorStyle::Visible, OuterBorderStyle::Visible, true);
 
         printer.print_all(input).unwrap();
 
@@ -554,7 +562,7 @@ mod tests {
 
         let mut output = vec![];
         let mut printer: Printer<Vec<u8>> =
-            Printer::new(&mut output, false, BorderType::Unicode, InnerSeparatorStyle::Visible, InnerSeparatorStyle::Visible, true);
+            Printer::new(&mut output, false, BorderType::Unicode, InnerSeparatorStyle::Visible, InnerSeparatorStyle::Visible, OuterBorderStyle::Visible, true);
         printer.display_offset(0xdeadbeef);
 
         printer.print_all(input).unwrap();
