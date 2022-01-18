@@ -153,7 +153,8 @@ pub struct Printer<'a, Writer: Write> {
     writer: &'a mut Writer,
     show_color: bool,
     border_style: BorderStyle,
-    inner_separator_style: InnerSeparatorStyle,
+    hex_inner_separator_style: InnerSeparatorStyle,
+    text_inner_separator_style: InnerSeparatorStyle,
     header_was_printed: bool,
     byte_hex_table: Vec<String>,
     byte_char_table: Vec<String>,
@@ -166,7 +167,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         writer: &'a mut Writer,
         show_color: bool,
         border_style: BorderStyle,
-        inner_separator_style: InnerSeparatorStyle,
+        hex_inner_separator_style: InnerSeparatorStyle,
+        text_inner_separator_style: InnerSeparatorStyle,
         use_squeeze: bool,
     ) -> Printer<'a, Writer> {
         Printer {
@@ -176,7 +178,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             writer,
             show_color,
             border_style,
-            inner_separator_style,
+            hex_inner_separator_style,
+            text_inner_separator_style,
             header_was_printed: false,
             byte_hex_table: (0u8..=u8::max_value())
                 .map(|i| {
@@ -461,7 +464,7 @@ mod tests {
 
     fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) -> () {
         let mut output = vec![];
-        let mut printer = Printer::new(&mut output, false, BorderStyle::Unicode, InnerSeparatorStyle::Visible, true);
+        let mut printer = Printer::new(&mut output, false, BorderStyle::Unicode, InnerSeparatorStyle::Visible, InnerSeparatorStyle::Visible, true);
 
         printer.print_all(input).unwrap();
 
@@ -506,7 +509,7 @@ mod tests {
 
         let mut output = vec![];
         let mut printer: Printer<Vec<u8>> =
-            Printer::new(&mut output, false, BorderStyle::Unicode, InnerSeparatorStyle::Visible, true);
+            Printer::new(&mut output, false, BorderStyle::Unicode, InnerSeparatorStyle::Visible, InnerSeparatorStyle::Visible, true);
         printer.display_offset(0xdeadbeef);
 
         printer.print_all(input).unwrap();

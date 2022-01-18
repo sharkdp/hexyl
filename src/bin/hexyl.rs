@@ -123,14 +123,25 @@ fn run() -> Result<(), AnyhowError> {
                 ),
         )
         .arg(
-            Arg::with_name("inner_separator")
-                .long("inner-separator")
+            Arg::with_name("hex_inner_separator")
+                .long("hex-inner-separator")
                 .takes_value(true)
                 .value_name("STYLE")
-                .possible_values(&["visible", "none"])
+                .possible_values(&["visible", "invisible", "none"])
                 .default_value("visible")
                 .help(
-                    "Whether to draw the inner separators visibly, invisibly, or not at all", // TODO: Rephrase this
+                    "Whether to draw the inner separator for the hex display visibly, invisibly, or not at all", // TODO: Rephrase this
+                ),
+        )
+        .arg(
+            Arg::with_name("text_inner_separator")
+                .long("text-inner-separator")
+                .takes_value(true)
+                .value_name("STYLE")
+                .possible_values(&["visible", "invisible", "none"])
+                .default_value("visible")
+                .help(
+                    "Whether to draw the inner separator for the text display visibly, invisibly, or not at all", // TODO: Rephrase this
                 ),
         )
         .arg(
@@ -246,7 +257,13 @@ fn run() -> Result<(), AnyhowError> {
         _ => BorderStyle::None,
     };
     
-    let inner_separator_style = match matches.value_of("inner_separator") {
+    let hex_inner_separator_style = match matches.value_of("hex_inner_separator") {
+        Some("visible") => InnerSeparatorStyle::Visible,
+        Some("invisible") => InnerSeparatorStyle::Invisible,
+        _ => InnerSeparatorStyle::None
+    };
+    
+    let text_inner_separator_style = match matches.value_of("text_inner_separator") {
         Some("visible") => InnerSeparatorStyle::Visible,
         Some("invisible") => InnerSeparatorStyle::Invisible,
         _ => InnerSeparatorStyle::None
@@ -268,7 +285,7 @@ fn run() -> Result<(), AnyhowError> {
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
 
-    let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, inner_separator_style, squeeze);
+    let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, hex_inner_separator_style, text_inner_separator_style, squeeze);
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
 
