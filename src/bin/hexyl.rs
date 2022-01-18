@@ -16,7 +16,7 @@ use const_format::formatcp;
 
 use thiserror::Error as ThisError;
 
-use hexyl::{BorderStyle, Input, Printer};
+use hexyl::{BorderStyle, InnerSeparatorStyle, Input, Printer};
 
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
@@ -120,6 +120,17 @@ fn run() -> Result<(), AnyhowError> {
                 .help(
                     "Whether to draw a border with Unicode characters, ASCII characters, \
                     or none at all",
+                ),
+        )
+        .arg(
+            Arg::with_name("inner_separator")
+                .long("inner-separator")
+                .takes_value(true)
+                .value_name("STYLE")
+                .possible_values(&["visible", "none"])
+                .default_value("visible")
+                .help(
+                    "Whether to draw the inner separators visibly, invisibly, or not at all", // TODO: Rephrase this
                 ),
         )
         .arg(
@@ -234,6 +245,12 @@ fn run() -> Result<(), AnyhowError> {
         Some("ascii") => BorderStyle::Ascii,
         _ => BorderStyle::None,
     };
+    
+    let inner_separator_style = match matches.value_of("inner_separator") {
+        Some("visible") => InnerSeparatorStyle::Visible,
+        Some("invisible") => InnerSeparatorStyle::Invisible,
+        _ => InnerSeparatorStyle::None
+    };
 
     let squeeze = !matches.is_present("nosqueezing");
 
@@ -251,7 +268,7 @@ fn run() -> Result<(), AnyhowError> {
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
 
-    let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
+    let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, inner_separator_style, squeeze);
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
 
