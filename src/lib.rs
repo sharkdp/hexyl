@@ -72,13 +72,13 @@ impl Byte {
 }
 
 struct BorderElements {
-    // TODO: Replace with strings (whatever the type of a string literal is)
-    left_corner: char,
-    horizontal_line: char,
-    outer_separator: char,
-    hex_inner_separator: char,
-    text_inner_separator: char,
-    right_corner: char,
+    // TODO: Lifetime Parameter
+    left_corner: &str,
+    horizontal_line: &str,
+    outer_separator: &str,
+    hex_inner_separator: &str,
+    text_inner_separator: &str,
+    right_corner: &str,
 }
 
 // TODO: Revisit name of BorderType and InnerSeparatorStyle
@@ -107,20 +107,20 @@ impl BorderStyle {
     fn header_elems(&self) -> Option<BorderElements> {
         match self.border_type {
             BorderType::Unicode => Some(BorderElements {
-                left_corner: '┌',
-                horizontal_line: '─',
-                outer_separator: '┬',
-                hex_inner_separator: '┬',
-                text_inner_separator: '┬',
-                right_corner: '┐',
+                left_corner: "┌",
+                horizontal_line: "─",
+                outer_separator: "┬",
+                hex_inner_separator: "┬",
+                text_inner_separator: "┬",
+                right_corner: "┐",
             }),
             BorderType::Ascii => Some(BorderElements {
-                left_corner: '+',
-                horizontal_line: '-',
-                outer_separator: '+',
-                hex_inner_separator: '+',
-                text_inner_separator: '+',
-                right_corner: '+',
+                left_corner: "+",
+                horizontal_line: "-",
+                outer_separator: "+",
+                hex_inner_separator: "+",
+                text_inner_separator: "+",
+                right_corner: "+",
             }),
             BorderType::None => None,
         }
@@ -129,46 +129,46 @@ impl BorderStyle {
     fn footer_elems(&self) -> Option<BorderElements> {
         match self.border_type {
             BorderType::Unicode => Some(BorderElements {
-                left_corner: '└',
-                horizontal_line: '─',
-                outer_separator: '┴',
-                hex_inner_separator: '┴',
-                text_inner_separator: '┴',
-                right_corner: '┘',
+                left_corner: "└",
+                horizontal_line: "─",
+                outer_separator: "┴",
+                hex_inner_separator: "┴",
+                text_inner_separator: "┴",
+                right_corner: "┘",
             }),
             BorderType::Ascii => Some(BorderElements {
-                left_corner: '+',
-                horizontal_line: '-',
-                outer_separator: '+',
-                hex_inner_separator: '+',
-                text_inner_separator: '+',
-                right_corner: '+',
+                left_corner: "+",
+                horizontal_line: "-",
+                outer_separator: "+",
+                hex_inner_separator: "+",
+                text_inner_separator: "+",
+                right_corner: "+",
             }),
             BorderType::None => None,
         }
     }
     
-    fn edge_sep(&self) -> char {
+    fn edge_sep(&self) -> &str {
         match self.border_type {
-            BorderType::Unicode => '│',
-            BorderType::Ascii => '|',
-            BorderType::None => ' ',
+            BorderType::Unicode => "│",
+            BorderType::Ascii => "|",
+            BorderType::None => "",
         }
     }
 
-    fn outer_sep(&self) -> char {
+    fn outer_sep(&self) -> &str {
         match self.border_type {
-            BorderType::Unicode => '│',
-            BorderType::Ascii => '|',
-            BorderType::None => ' ',
+            BorderType::Unicode => "│",
+            BorderType::Ascii => "|",
+            BorderType::None => " ",
         }
     }
 
-    fn inner_sep(&self) -> char {
+    fn inner_sep(&self) -> &str {
         match self.border_type {
-            BorderType::Unicode => '┊',
-            BorderType::Ascii => '|',
-            BorderType::None => ' ',
+            BorderType::Unicode => "┊",
+            BorderType::Ascii => "|",
+            BorderType::None => " ",
         }
     }
 }
