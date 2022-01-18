@@ -128,7 +128,7 @@ fn run() -> Result<(), AnyhowError> {
                 .long("hex-inner-separator")
                 .takes_value(true)
                 .value_name("STYLE")
-                .possible_values(&["visible", "invisible", "none"])
+                .possible_values(&["visible", "none"])
                 .default_value("visible")
                 .help(
                     "Whether to draw the inner separator for the hex display visibly, invisibly, or not at all", // TODO: Rephrase this
@@ -139,7 +139,7 @@ fn run() -> Result<(), AnyhowError> {
                 .long("text-inner-separator")
                 .takes_value(true)
                 .value_name("STYLE")
-                .possible_values(&["visible", "invisible", "none"])
+                .possible_values(&["visible", "none"])
                 .default_value("visible")
                 .help(
                     "Whether to draw the inner separator for the text display visibly, invisibly, or not at all", // TODO: Rephrase this
@@ -262,13 +262,11 @@ fn run() -> Result<(), AnyhowError> {
     
     let hex_inner_separator_style = match matches.value_of("hex_inner_separator") {
         Some("visible") => InnerSeparatorStyle::Visible,
-        Some("invisible") => InnerSeparatorStyle::Invisible,
         _ => InnerSeparatorStyle::None
     };
     
     let text_inner_separator_style = match matches.value_of("text_inner_separator") {
         Some("visible") => InnerSeparatorStyle::Visible,
-        Some("invisible") => InnerSeparatorStyle::Invisible,
         _ => InnerSeparatorStyle::None
     };
 

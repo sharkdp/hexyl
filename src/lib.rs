@@ -90,7 +90,6 @@ pub enum BorderType {
 
 pub enum InnerSeparatorStyle {
     Visible,
-    Invisible,
     None,
 }
 
