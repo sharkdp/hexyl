@@ -106,81 +106,126 @@ struct BorderStyle {
 }
 
 impl BorderStyle {
-    // TODO: Deal with the new {hex,text}_inner_separator_style fields
-    
     fn header_elems(&self) -> Option<BorderElements> {
-        match self.border_type {
-            BorderType::Unicode => Some(BorderElements {
-                left_corner: "┌",
-                horizontal_line: "─",
-                outer_separator: "┬",
-                hex_inner_separator: "┬",
-                text_inner_separator: "┬",
-                right_corner: "┐",
-            }),
-            BorderType::Ascii => Some(BorderElements {
-                left_corner: "+",
-                horizontal_line: "-",
-                outer_separator: "+",
-                hex_inner_separator: "+",
-                text_inner_separator: "+",
-                right_corner: "+",
-            }),
-            BorderType::None => None,
+        match self.outer_border_style {
+            OuterBorderStyle::Visible => match self.border_type {
+                BorderType::Unicode => Some(BorderElements {
+                    left_corner: "┌",
+                    horizontal_line: "─",
+                    outer_separator: "┬",
+                    hex_inner_separator: match self.hex_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "┬",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    text_inner_separator: match self.text_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "┬",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    right_corner: "┐",
+                }),
+                BorderType::Ascii => Some(BorderElements {
+                    left_corner: "+",
+                    horizontal_line: "-",
+                    outer_separator: "+",
+                    hex_inner_separator: match self.hex_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "+",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    text_inner_separator: match self.text_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "+",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    right_corner: "+",
+                }),
+                BorderType::None => None,
+            },
+            OuterBorderStyle::None => None,
         }
     }
 
     fn footer_elems(&self) -> Option<BorderElements> {
-        match self.border_type {
-            BorderType::Unicode => Some(BorderElements {
-                left_corner: "└",
-                horizontal_line: "─",
-                outer_separator: "┴",
-                hex_inner_separator: "┴",
-                text_inner_separator: "┴",
-                right_corner: "┘",
-            }),
-            BorderType::Ascii => Some(BorderElements {
-                left_corner: "+",
-                horizontal_line: "-",
-                outer_separator: "+",
-                hex_inner_separator: "+",
-                text_inner_separator: "+",
-                right_corner: "+",
-            }),
-            BorderType::None => None,
+        match self.outer_border_style {
+            OuterBorderStyle::Visible => match self.border_type {
+                BorderType::Unicode => Some(BorderElements {
+                    left_corner: "└",
+                    horizontal_line: "─",
+                    outer_separator: "┴",
+                    hex_inner_separator: match self.hex_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "┴",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    text_inner_separator: match self.text_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "┴",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    right_corner: "┘",
+                }),
+                BorderType::Ascii => Some(BorderElements {
+                    left_corner: "+",
+                    horizontal_line: "-",
+                    outer_separator: "+",
+                    hex_inner_separator: match self.hex_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "+",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    text_inner_separator: match self.text_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "+",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    right_corner: "+",
+                }),
+                BorderType::None => None,
+            },
+            OuterBorderStyle::None => None,
         }
     }
     
     fn hex_inner_separator(&self) -> &str {
-        match self.border_type {
-            BorderType::Unicode => "┊",
-            BorderType::Ascii => "|",
-            BorderType::None => " ",
+        match self.hex_inner_separator_style {
+            InnerSeparatorStyle::Visible => match self.border_type {
+                BorderType::Unicode => "┊",
+                BorderType::Ascii => "|",
+                BorderType::None => " ",
+            },
+            InnerSeparatorStyle::None => "",
         }
     }
     
     fn text_inner_separator(&self) -> &str {
-        match self.border_type {
-            BorderType::Unicode => "┊",
-            BorderType::Ascii => "|",
-            BorderType::None => " ",
+        match self.text_inner_separator_style {
+            InnerSeparatorStyle::Visible => match self.border_type {
+                BorderType::Unicode => "┊",
+                BorderType::Ascii => "|",
+                BorderType::None => " ",
+            },
+            InnerSeparatorStyle::None => "",
         }
     }
     
     fn outer_separator(&self) -> &str {
-        match self.border_type {
-            BorderType::Unicode => "│",
-            BorderType::Ascii => "|",
-            BorderType::None => " ",
+        match self.outer_border_style {
+            OuterBorderStyle::Visible => match self.border_type {
+                BorderType::Unicode => "│",
+                BorderType::Ascii => "|",
+                BorderType::None => " ",
+            },
+            // TODO: Fix style on hex display
+            OuterBorderStyle::None => match self.border_type {
+                BorderType::Unicode => " │ ",
+                BorderType::Ascii => " | ",
+                BorderType::None => " ",
+            },
         }
     }
     
     fn edge_separator(&self) -> &str {
-        match self.border_type {
-            BorderType::Unicode => "│",
-            BorderType::Ascii => "|",
-            BorderType::None => "",
+        match self.outer_border_style {
+            OuterBorderStyle::Visible => match self.border_type {
+                BorderType::Unicode => "│",
+                BorderType::Ascii => "|",
+                BorderType::None => "",
+            },
+            OuterBorderStyle::None => "",
         }
     }
 }
