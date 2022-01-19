@@ -319,8 +319,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             self.border_style.outer_separator()
         );
     }
-    
-    // TODO: Replace inner_separator() with appropriate hex or text variant
 
     pub fn print_byte(&mut self, b: u8) -> io::Result<()> {
         if self.idx % 16 == 1 {
@@ -334,7 +332,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         match self.idx % 16 {
             8 => {
-                let _ = write!(&mut self.buffer_line, "{} ", self.border_style.inner_separator());
+                let _ = write!(&mut self.buffer_line, "{} ", self.border_style.hex_inner_separator());
             }
             0 => {
                 self.print_textline()?;
@@ -355,12 +353,13 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.print_position_indicator();
                 let _ = writeln!(
                     &mut self.buffer_line,
-                    "{0:1$}{4}{0:2$}{5}{0:3$}{4}{0:3$}{6}",
+                    "{0:1$}{4}{0:2$}{6}{0:3$}{5}{0:3$}{7}",
                     "",
                     24,
                     25,
                     8,
-                    self.border_style.inner_separator(),
+                    self.border_style.hex_inner_separator(),
+                    self.border_style.text_inner_separator(),
                     self.border_style.outer_separator(),
                     self.border_style.edge_separator(),
                 );
@@ -379,7 +378,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     "",
                     3 * (8 - len),
                     1 + 3 * 8,
-                    self.border_style.inner_separator(),
+                    self.border_style.hex_inner_separator(),
                     self.border_style.outer_separator(),
                 );
             } else {
@@ -401,7 +400,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 );
 
                 if idx == 8 {
-                    let _ = write!(&mut self.buffer_line, "{}", self.border_style.inner_separator());
+                    let _ = write!(&mut self.buffer_line, "{}", self.border_style.text_inner_separator());
                 }
 
                 idx += 1;
@@ -414,7 +413,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     "",
                     8 - len,
                     8,
-                    self.border_style.inner_separator(),
+                    self.border_style.text_inner_separator(),
                     self.border_style.edge_separator(),
                 );
             } else {
@@ -439,13 +438,14 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 };
                 let _ = writeln!(
                     &mut self.buffer_line,
-                    "{7}{0}{1:2$}{6}{1:3$}{5}{1:3$}{6}{1:4$}{5}{1:4$}{7}",
+                    "{8}{0}{1:2$}{7}{1:3$}{5}{1:3$}{7}{1:4$}{6}{1:4$}{8}",
                     asterisk,
                     "",
                     7,
                     25,
                     8,
-                    self.border_style.inner_separator(),
+                    self.border_style.hex_inner_separator(),
+                    self.border_style.text_inner_separator(),
                     self.border_style.outer_separator(),
                     self.border_style.edge_separator(),
                 );
