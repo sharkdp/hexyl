@@ -203,22 +203,14 @@ impl BorderStyle {
     }
     
     fn outer_separator(&self) -> &str {
-        match self.outer_border_style {
-            OuterBorderStyle::Visible => match self.border_type {
+        match self.border_type {
                 BorderType::Unicode => "│",
                 BorderType::Ascii => "|",
                 BorderType::None => " ",
-            },
-            // TODO: Fix style on hex display
-            OuterBorderStyle::None => match self.border_type {
-                BorderType::Unicode => " │ ",
-                BorderType::Ascii => " | ",
-                BorderType::None => " ",
-            },
         }
     }
     
-    fn edge_separator(&self) -> &str {
+    fn left_edge_separator(&self) -> &str {
         match self.outer_border_style {
             OuterBorderStyle::Visible => match self.border_type {
                 BorderType::Unicode => "│",
@@ -226,6 +218,14 @@ impl BorderStyle {
                 BorderType::None => "",
             },
             OuterBorderStyle::None => "",
+        }
+    }
+    
+    fn right_edge_separator(&self) -> &str {
+        match self.border_type {
+            BorderType::Unicode => "│",
+            BorderType::Ascii => "|",
+            BorderType::None => "",
         }
     }
 }
@@ -359,7 +359,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let _ = write!(
             &mut self.buffer_line,
             "{}{}{} ",
-            self.border_style.edge_separator(),
+            self.border_style.left_edge_separator(),
             formatted_string,
             self.border_style.outer_separator()
         );
@@ -406,7 +406,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     self.border_style.hex_inner_separator(),
                     self.border_style.text_inner_separator(),
                     self.border_style.outer_separator(),
-                    self.border_style.edge_separator(),
+                    self.border_style.right_edge_separator(),
                 );
                 self.writer.write_all(&self.buffer_line)?;
             }
@@ -459,7 +459,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     8 - len,
                     8,
                     self.border_style.text_inner_separator(),
-                    self.border_style.edge_separator(),
+                    self.border_style.right_edge_separator(),
                 );
             } else {
                 let _ = writeln!(
@@ -467,7 +467,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     "{0:1$}{2}",
                     "",
                     16 - len,
-                    self.border_style.edge_separator()
+                    self.border_style.right_edge_separator()
                 );
             }
         }
@@ -483,7 +483,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 };
                 let _ = writeln!(
                     &mut self.buffer_line,
-                    "{8}{0}{1:2$}{7}{1:3$}{5}{1:3$}{7}{1:4$}{6}{1:4$}{8}",
+                    "{8}{0}{1:2$}{7}{1:3$}{5}{1:3$}{7}{1:4$}{6}{1:4$}{9}",
                     asterisk,
                     "",
                     7,
@@ -492,7 +492,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     self.border_style.hex_inner_separator(),
                     self.border_style.text_inner_separator(),
                     self.border_style.outer_separator(),
-                    self.border_style.edge_separator(),
+                    self.border_style.left_edge_separator(),
+                    self.border_style.right_edge_separator(),
                 );
             }
             SqueezeAction::Delete => self.buffer_line.clear(),
