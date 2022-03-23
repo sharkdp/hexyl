@@ -1,2 +1,5 @@
 /target
 **/*.rs.bk
+
+# Generated files
+hexyl.1

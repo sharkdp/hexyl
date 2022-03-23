@@ -129,6 +129,19 @@ If you have Rust 1.46 or higher, you can install `hexyl` from source via `cargo`
 cargo install hexyl
 ```
 
+Alternatively, you can install `hexyl` directly from the repository by using:
+```
+git clone https://github.com/sharkdp/hexyl
+cargo install --path ./hexyl
+```
+
+Note: To convert the man page, you will need [Pandoc](https://pandoc.org/).
+
+You can convert from Markdown by using (in the project root):
+```
+pandoc -s -f markdown -t man -o ./doc/hexyl.1 ./doc/hexyl.1.md
+```
+
 ### Via snap package
 
 ```
