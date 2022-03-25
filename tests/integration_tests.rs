@@ -85,6 +85,30 @@ mod length {
             .assert()
             .failure();
     }
+
+    #[test]
+    fn fail_if_length_and_count_options_are_used_simultaneously() {
+        hexyl()
+            .arg("hello_world_elf64")
+            .arg("--length=32")
+            .arg("-l=10")
+            .assert()
+            .failure();
+    }
+}
+
+mod bytes {
+    use super::hexyl;
+
+    #[test]
+    fn fail_if_bytes_and_count_options_are_used_simultaneously() {
+        hexyl()
+            .arg("hello_world_elf64")
+            .arg("--bytes=32")
+            .arg("-l=10")
+            .assert()
+            .failure();
+    }
 }
 
 mod skip {
