@@ -61,6 +61,7 @@ fn run() -> Result<(), AnyhowError> {
                 .short("l")
                 .takes_value(true)
                 .value_name("N")
+                .conflicts_with_all(&["length", "bytes"])
                 .hidden(true)
                 .help("Yet another alias for -n/--length"),
         )
