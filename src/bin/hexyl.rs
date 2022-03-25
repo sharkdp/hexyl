@@ -304,9 +304,9 @@ impl NonNegativeI64 {
     }
 }
 
-impl Into<u64> for NonNegativeI64 {
-    fn into(self) -> u64 {
-        u64::try_from(self.0)
+impl From<NonNegativeI64> for u64 {
+    fn from(x: NonNegativeI64) -> u64 {
+        u64::try_from(x.0)
             .expect("invariant broken: NonNegativeI64 should contain a non-negative i64 value")
     }
 }
@@ -328,9 +328,9 @@ impl PositiveI64 {
     }
 }
 
-impl Into<u64> for PositiveI64 {
-    fn into(self) -> u64 {
-        u64::try_from(self.0)
+impl From<PositiveI64> for u64 {
+    fn from(x: PositiveI64) -> u64 {
+        u64::try_from(x.0)
             .expect("invariant broken: PositiveI64 should contain a positive i64 value")
     }
 }
@@ -357,9 +357,9 @@ impl Unit {
         match self {
             Self::Byte => 1,
             Self::Kilobyte => 1000,
-            Self::Megabyte => 1000_000,
-            Self::Gigabyte => 1000_000_000,
-            Self::Terabyte => 1000_000_000_000,
+            Self::Megabyte => 1_000_000,
+            Self::Gigabyte => 1_000_000_000,
+            Self::Terabyte => 1_000_000_000_000,
             Self::Kibibyte => 1 << 10,
             Self::Mebibyte => 1 << 20,
             Self::Gibibyte => 1 << 30,
