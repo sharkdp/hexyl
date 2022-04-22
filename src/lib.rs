@@ -233,15 +233,15 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     }
 
     pub fn header(&mut self) {
-        self.border_style
-            .header_elems()
-            .map(|e| self.write_border(e));
+        if let Some(e) = self.border_style.header_elems() {
+            self.write_border(e)
+        }
     }
 
     pub fn footer(&mut self) {
-        self.border_style
-            .footer_elems()
-            .map(|e| self.write_border(e));
+        if let Some(e) = self.border_style.footer_elems() {
+            self.write_border(e)
+        }
     }
 
     fn print_position_indicator(&mut self) {
@@ -275,7 +275,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         if !self.show_char_table {
             // just write newline if character table is hidden
-            writeln!(&mut self.buffer_line, "").ok();
+            writeln!(&mut self.buffer_line).ok();
             return;
         }
 
@@ -466,7 +466,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             if self.show_char_table {
                 write!(self.writer, "{0:>9}{0:>9}", "│").ok();
             }
-            writeln!(self.writer, "").ok();
+            writeln!(self.writer).ok();
         }
         self.footer();
 
