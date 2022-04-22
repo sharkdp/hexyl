@@ -481,7 +481,7 @@ mod tests {
 
     use super::*;
 
-    fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) -> () {
+    fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) {
         let mut output = vec![];
         let mut printer = Printer::new(&mut output, false, true, true, BorderStyle::Unicode, true);
 
