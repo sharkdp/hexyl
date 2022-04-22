@@ -104,6 +104,7 @@ fn run() -> Result<(), AnyhowError> {
                 .takes_value(true)
                 .value_name("WHEN")
                 .possible_values(&["always", "auto", "never"])
+                .default_value_if("plain", None, "never")
                 .default_value("always")
                 .help(
                     "When to use colors. The auto-mode only displays colors if the output \
@@ -111,16 +112,37 @@ fn run() -> Result<(), AnyhowError> {
                 ),
         )
         .arg(
+            Arg::with_name("plain")
+                .short("p")
+                .long("plain")
+                .help("Display output with --no-chars, --no-position, and --border=none."),
+        )
+        .arg(
             Arg::with_name("border")
                 .long("border")
                 .takes_value(true)
                 .value_name("STYLE")
                 .possible_values(&["unicode", "ascii", "none"])
+                .default_value_if("plain", None, "none")
                 .default_value("unicode")
                 .help(
                     "Whether to draw a border with Unicode characters, ASCII characters, \
                     or none at all",
                 ),
+        )
+        .arg(
+            Arg::with_name("no_chars")
+                .short("C")
+                .long("no-chars")
+                .conflicts_with("plain")
+                .help("Whether to display the character table on the right."),
+        )
+        .arg(
+            Arg::with_name("no_position")
+                .short("P")
+                .long("no-position")
+                .conflicts_with("plain")
+                .help("Whether to display the position indicator on the left."),
         )
         .arg(
             Arg::with_name("display_offset")
@@ -237,6 +259,13 @@ fn run() -> Result<(), AnyhowError> {
 
     let squeeze = !matches.is_present("nosqueezing");
 
+    // -nc true && false
+    // -plain true && false
+    let show_char_table = !matches.is_present("no_chars") && !matches.is_present("plain");
+
+    let show_position_indicator =
+        !matches.is_present("no_position") && !matches.is_present("plain");
+
     let display_offset: u64 = matches
         .value_of("display_offset")
         .map(|s| {
@@ -251,7 +280,14 @@ fn run() -> Result<(), AnyhowError> {
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
 
-    let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
+    let mut printer = Printer::new(
+        &mut stdout_lock,
+        show_color,
+        show_char_table,
+        show_position_indicator,
+        border_style,
+        squeeze,
+    );
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
 
