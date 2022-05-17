@@ -427,7 +427,7 @@ enum ByteOffsetParseError {
     InvalidUnit(String),
     #[error("failed to parse integer part")]
     ParseNum(#[source] std::num::ParseIntError),
-    #[error("count multipled by the unit overflowed a signed 64-bit integer; are you sure it should be that big?")]
+    #[error("count multiplied by the unit overflowed a signed 64-bit integer; are you sure it should be that big?")]
     UnitMultiplicationOverflow,
 }
 
