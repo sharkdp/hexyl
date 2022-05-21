@@ -111,12 +111,9 @@ fn run() -> Result<(), AnyhowError> {
                      goes to an interactive terminal",
                 ),
         )
-        .arg(
-            Arg::with_name("plain")
-                .short("p")
-                .long("plain")
-                .help("Display output with --no-chars, --no-position, and --border=none."),
-        )
+        .arg(Arg::with_name("plain").short("p").long("plain").help(
+            "Display output with --no-character-table, --no-position-table, --border=none, and --color=never.",
+        ))
         .arg(
             Arg::with_name("border")
                 .long("border")
@@ -133,15 +130,13 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::with_name("no_chars")
                 .short("C")
-                .long("no-chars")
-                .conflicts_with("plain")
+                .long("no-charcter-table")
                 .help("Whether to display the character table on the right."),
         )
         .arg(
             Arg::with_name("no_position")
                 .short("P")
-                .long("no-position")
-                .conflicts_with("plain")
+                .long("no-position-table")
                 .help("Whether to display the position indicator on the left."),
         )
         .arg(
@@ -259,8 +254,6 @@ fn run() -> Result<(), AnyhowError> {
 
     let squeeze = !matches.is_present("nosqueezing");
 
-    // -nc true && false
-    // -plain true && false
     let show_char_table = !matches.is_present("no_chars") && !matches.is_present("plain");
 
     let show_position_indicator =

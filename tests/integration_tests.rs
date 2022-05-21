@@ -245,7 +245,7 @@ mod display_settings {
     fn no_chars() {
         hexyl()
             .arg("ascii")
-            .arg("--no-chars")
+            .arg("--no-charcter-table")
             .arg("--color=never")
             .assert()
             .success()
@@ -260,7 +260,7 @@ mod display_settings {
     fn no_position() {
         hexyl()
             .arg("ascii")
-            .arg("--no-position")
+            .arg("--no-position-table")
             .arg("--color=never")
             .assert()
             .success()
