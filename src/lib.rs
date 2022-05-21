@@ -71,69 +71,161 @@ impl Byte {
     }
 }
 
-struct BorderElements {
-    left_corner: char,
-    horizontal_line: char,
-    column_separator: char,
-    right_corner: char,
+struct BorderElements<'a> {
+    left_corner: &'a str,
+    horizontal_line: &'a str,
+    outer_separator: &'a str,
+    hex_inner_separator: &'a str,
+    text_inner_separator: &'a str,
+    right_corner: &'a str,
 }
 
-pub enum BorderStyle {
+// TODO: Revisit name of BorderType and InnerSeparatorStyle
+
+pub enum BorderType {
     Unicode,
     Ascii,
     None,
 }
 
+pub enum InnerSeparatorStyle {
+    Visible,
+    None,
+}
+
+pub enum OuterBorderStyle {
+    Visible,
+    None,
+}
+
+struct BorderStyle {
+    border_type: BorderType,
+    hex_inner_separator_style: InnerSeparatorStyle,
+    text_inner_separator_style: InnerSeparatorStyle,
+    outer_border_style: OuterBorderStyle,
+}
+
 impl BorderStyle {
     fn header_elems(&self) -> Option<BorderElements> {
-        match self {
-            BorderStyle::Unicode => Some(BorderElements {
-                left_corner: '┌',
-                horizontal_line: '─',
-                column_separator: '┬',
-                right_corner: '┐',
-            }),
-            BorderStyle::Ascii => Some(BorderElements {
-                left_corner: '+',
-                horizontal_line: '-',
-                column_separator: '+',
-                right_corner: '+',
-            }),
-            BorderStyle::None => None,
+        match self.outer_border_style {
+            OuterBorderStyle::Visible => match self.border_type {
+                BorderType::Unicode => Some(BorderElements {
+                    left_corner: "┌",
+                    horizontal_line: "─",
+                    outer_separator: "┬",
+                    hex_inner_separator: match self.hex_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "┬",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    text_inner_separator: match self.text_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "┬",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    right_corner: "┐",
+                }),
+                BorderType::Ascii => Some(BorderElements {
+                    left_corner: "+",
+                    horizontal_line: "-",
+                    outer_separator: "+",
+                    hex_inner_separator: match self.hex_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "+",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    text_inner_separator: match self.text_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "+",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    right_corner: "+",
+                }),
+                BorderType::None => None,
+            },
+            OuterBorderStyle::None => None,
         }
     }
 
     fn footer_elems(&self) -> Option<BorderElements> {
-        match self {
-            BorderStyle::Unicode => Some(BorderElements {
-                left_corner: '└',
-                horizontal_line: '─',
-                column_separator: '┴',
-                right_corner: '┘',
-            }),
-            BorderStyle::Ascii => Some(BorderElements {
-                left_corner: '+',
-                horizontal_line: '-',
-                column_separator: '+',
-                right_corner: '+',
-            }),
-            BorderStyle::None => None,
+        match self.outer_border_style {
+            OuterBorderStyle::Visible => match self.border_type {
+                BorderType::Unicode => Some(BorderElements {
+                    left_corner: "└",
+                    horizontal_line: "─",
+                    outer_separator: "┴",
+                    hex_inner_separator: match self.hex_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "┴",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    text_inner_separator: match self.text_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "┴",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    right_corner: "┘",
+                }),
+                BorderType::Ascii => Some(BorderElements {
+                    left_corner: "+",
+                    horizontal_line: "-",
+                    outer_separator: "+",
+                    hex_inner_separator: match self.hex_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "+",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    text_inner_separator: match self.text_inner_separator_style {
+                        InnerSeparatorStyle::Visible => "+",
+                        InnerSeparatorStyle::None => "",
+                    },
+                    right_corner: "+",
+                }),
+                BorderType::None => None,
+            },
+            OuterBorderStyle::None => None,
         }
     }
-
-    fn outer_sep(&self) -> char {
-        match self {
-            BorderStyle::Unicode => '│',
-            BorderStyle::Ascii => '|',
-            BorderStyle::None => ' ',
+    
+    fn hex_inner_separator(&self) -> &str {
+        match self.hex_inner_separator_style {
+            InnerSeparatorStyle::Visible => match self.border_type {
+                BorderType::Unicode => "┊",
+                BorderType::Ascii => "|",
+                BorderType::None => " ",
+            },
+            InnerSeparatorStyle::None => "",
         }
     }
-
-    fn inner_sep(&self) -> char {
-        match self {
-            BorderStyle::Unicode => '┊',
-            BorderStyle::Ascii => '|',
-            BorderStyle::None => ' ',
+    
+    fn text_inner_separator(&self) -> &str {
+        match self.text_inner_separator_style {
+            InnerSeparatorStyle::Visible => match self.border_type {
+                BorderType::Unicode => "┊",
+                BorderType::Ascii => "|",
+                BorderType::None => " ",
+            },
+            InnerSeparatorStyle::None => "",
+        }
+    }
+    
+    fn outer_separator(&self) -> &str {
+        match self.border_type {
+                BorderType::Unicode => "│",
+                BorderType::Ascii => "|",
+                BorderType::None => " ",
+        }
+    }
+    
+    fn left_edge_separator(&self) -> &str {
+        match self.outer_border_style {
+            OuterBorderStyle::Visible => match self.border_type {
+                BorderType::Unicode => "│",
+                BorderType::Ascii => "|",
+                BorderType::None => "",
+            },
+            OuterBorderStyle::None => "",
+        }
+    }
+    
+    fn right_edge_separator(&self) -> &str {
+        match self.border_type {
+            BorderType::Unicode => "│",
+            BorderType::Ascii => "|",
+            BorderType::None => "",
         }
     }
 }
@@ -158,7 +250,11 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     pub fn new(
         writer: &'a mut Writer,
         show_color: bool,
-        border_style: BorderStyle,
+        // TODO: Revisit name of border_type, {hex,text}_inner_separator_style
+        border_type: BorderType,
+        hex_inner_separator_style: InnerSeparatorStyle,
+        text_inner_separator_style: InnerSeparatorStyle,
+        outer_border_style: OuterBorderStyle,
         use_squeeze: bool,
     ) -> Printer<'a, Writer> {
         Printer {
@@ -167,7 +263,13 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             buffer_line: vec![],
             writer,
             show_color,
-            border_style,
+            // TODO: Revisit name of border_type, {hex,text}_inner_separator_style
+            border_style: BorderStyle {
+                border_type,
+                hex_inner_separator_style,
+                text_inner_separator_style,
+                outer_border_style,
+            },
             header_was_printed: false,
             byte_hex_table: (0u8..=u8::max_value())
                 .map(|i| {
@@ -207,9 +309,11 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
             writeln!(
                 self.writer,
-                "{l}{h8}{c}{h25}{c}{h25}{c}{h8}{c}{h8}{r}",
+                "{l}{h8}{o}{h25}{x}{h25}{o}{h8}{t}{h8}{r}",
                 l = border_elements.left_corner,
-                c = border_elements.column_separator,
+                o = border_elements.outer_separator,
+                x = border_elements.hex_inner_separator,
+                t = border_elements.text_inner_separator,
                 r = border_elements.right_corner,
                 h8 = h8,
                 h25 = h25
@@ -226,9 +330,11 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
             writeln!(
                 self.writer,
-                "{l}{h8}{c}{h25}{c}{h25}{c}{h8}{c}{h8}{r}",
+                "{l}{h8}{o}{h25}{x}{h25}{o}{h8}{t}{h8}{r}",
                 l = border_elements.left_corner,
-                c = border_elements.column_separator,
+                o = border_elements.outer_separator,
+                x = border_elements.hex_inner_separator,
+                t = border_elements.text_inner_separator,
                 r = border_elements.right_corner,
                 h8 = h8,
                 h25 = h25
@@ -253,9 +359,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let _ = write!(
             &mut self.buffer_line,
             "{}{}{} ",
-            self.border_style.outer_sep(),
+            self.border_style.left_edge_separator(),
             formatted_string,
-            self.border_style.outer_sep()
+            self.border_style.outer_separator()
         );
     }
 
@@ -271,7 +377,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         match self.idx % 16 {
             8 => {
-                let _ = write!(&mut self.buffer_line, "{} ", self.border_style.inner_sep());
+                let _ = write!(&mut self.buffer_line, "{} ", self.border_style.hex_inner_separator());
             }
             0 => {
                 self.print_textline()?;
@@ -292,13 +398,15 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.print_position_indicator();
                 let _ = writeln!(
                     &mut self.buffer_line,
-                    "{0:1$}{4}{0:2$}{5}{0:3$}{4}{0:3$}{5}",
+                    "{0:1$}{4}{0:2$}{6}{0:3$}{5}{0:3$}{7}",
                     "",
                     24,
                     25,
                     8,
-                    self.border_style.inner_sep(),
-                    self.border_style.outer_sep(),
+                    self.border_style.hex_inner_separator(),
+                    self.border_style.text_inner_separator(),
+                    self.border_style.outer_separator(),
+                    self.border_style.right_edge_separator(),
                 );
                 self.writer.write_all(&self.buffer_line)?;
             }
@@ -315,8 +423,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     "",
                     3 * (8 - len),
                     1 + 3 * 8,
-                    self.border_style.inner_sep(),
-                    self.border_style.outer_sep(),
+                    self.border_style.hex_inner_separator(),
+                    self.border_style.outer_separator(),
                 );
             } else {
                 let _ = write!(
@@ -324,7 +432,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     "{0:1$}{2}",
                     "",
                     3 * (16 - len),
-                    self.border_style.outer_sep()
+                    self.border_style.outer_separator()
                 );
             }
 
@@ -337,7 +445,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 );
 
                 if idx == 8 {
-                    let _ = write!(&mut self.buffer_line, "{}", self.border_style.inner_sep());
+                    let _ = write!(&mut self.buffer_line, "{}", self.border_style.text_inner_separator());
                 }
 
                 idx += 1;
@@ -350,8 +458,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     "",
                     8 - len,
                     8,
-                    self.border_style.inner_sep(),
-                    self.border_style.outer_sep(),
+                    self.border_style.text_inner_separator(),
+                    self.border_style.right_edge_separator(),
                 );
             } else {
                 let _ = writeln!(
@@ -359,7 +467,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     "{0:1$}{2}",
                     "",
                     16 - len,
-                    self.border_style.outer_sep()
+                    self.border_style.right_edge_separator()
                 );
             }
         }
@@ -375,14 +483,17 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 };
                 let _ = writeln!(
                     &mut self.buffer_line,
-                    "{5}{0}{1:2$}{5}{1:3$}{6}{1:3$}{5}{1:4$}{6}{1:4$}{5}",
+                    "{8}{0}{1:2$}{7}{1:3$}{5}{1:3$}{7}{1:4$}{6}{1:4$}{9}",
                     asterisk,
                     "",
                     7,
                     25,
                     8,
-                    self.border_style.outer_sep(),
-                    self.border_style.inner_sep(),
+                    self.border_style.hex_inner_separator(),
+                    self.border_style.text_inner_separator(),
+                    self.border_style.outer_separator(),
+                    self.border_style.left_edge_separator(),
+                    self.border_style.right_edge_separator(),
                 );
             }
             SqueezeAction::Delete => self.buffer_line.clear(),
@@ -452,7 +563,7 @@ mod tests {
 
     fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) -> () {
         let mut output = vec![];
-        let mut printer = Printer::new(&mut output, false, BorderStyle::Unicode, true);
+        let mut printer = Printer::new(&mut output, false, BorderType::Unicode, InnerSeparatorStyle::Visible, InnerSeparatorStyle::Visible, OuterBorderStyle::Visible, true);
 
         printer.print_all(input).unwrap();
 
@@ -497,7 +608,7 @@ mod tests {
 
         let mut output = vec![];
         let mut printer: Printer<Vec<u8>> =
-            Printer::new(&mut output, false, BorderStyle::Unicode, true);
+            Printer::new(&mut output, false, BorderType::Unicode, InnerSeparatorStyle::Visible, InnerSeparatorStyle::Visible, OuterBorderStyle::Visible, true);
         printer.display_offset(0xdeadbeef);
 
         printer.print_all(input).unwrap();

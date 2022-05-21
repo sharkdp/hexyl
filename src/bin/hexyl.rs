@@ -16,7 +16,7 @@ use const_format::formatcp;
 
 use thiserror::Error as ThisError;
 
-use hexyl::{BorderStyle, Input, Printer};
+use hexyl::{BorderType, InnerSeparatorStyle, Input, OuterBorderStyle, Printer};
 
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
@@ -110,6 +110,7 @@ fn run() -> Result<(), AnyhowError> {
                      goes to an interactive terminal",
                 ),
         )
+        // TODO: Revisit name, value_name of border, {hex,text}_inner_separator
         .arg(
             Arg::with_name("border")
                 .long("border")
@@ -120,6 +121,39 @@ fn run() -> Result<(), AnyhowError> {
                 .help(
                     "Whether to draw a border with Unicode characters, ASCII characters, \
                     or none at all",
+                ),
+        )
+        .arg(
+            Arg::with_name("hex_inner_separator")
+                .long("hex-inner-separator")
+                .takes_value(true)
+                .value_name("STYLE")
+                .possible_values(&["visible", "none"])
+                .default_value("visible")
+                .help(
+                    "Whether or not to draw the inner separator for the hex display", // TODO: Rephrase this
+                ),
+        )
+        .arg(
+            Arg::with_name("text_inner_separator")
+                .long("text-inner-separator")
+                .takes_value(true)
+                .value_name("STYLE")
+                .possible_values(&["visible", "none"])
+                .default_value("visible")
+                .help(
+                    "Whether or not to draw the inner separator for the text display", // TODO: Rephrase this
+                ),
+        )
+        .arg(
+            Arg::with_name("outer_border")
+                .long("outer-border")
+                .takes_value(true)
+                .value_name("STYLE")
+                .possible_values(&["visible", "none"])
+                .default_value("visible")
+                .help(
+                    "Whether or not to draw the outer border", // TODO: Rephrase this
                 ),
         )
         .arg(
@@ -228,11 +262,28 @@ fn run() -> Result<(), AnyhowError> {
         Some("auto") => atty::is(Stream::Stdout),
         _ => true,
     };
+    
+    // TODO: Revisit name of border_type, {hex,text}_inner_separator_style
 
-    let border_style = match matches.value_of("border") {
-        Some("unicode") => BorderStyle::Unicode,
-        Some("ascii") => BorderStyle::Ascii,
-        _ => BorderStyle::None,
+    let border_type = match matches.value_of("border") {
+        Some("unicode") => BorderType::Unicode,
+        Some("ascii") => BorderType::Ascii,
+        _ => BorderType::None,
+    };
+    
+    let hex_inner_separator_style = match matches.value_of("hex_inner_separator") {
+        Some("visible") => InnerSeparatorStyle::Visible,
+        _ => InnerSeparatorStyle::None
+    };
+    
+    let text_inner_separator_style = match matches.value_of("text_inner_separator") {
+        Some("visible") => InnerSeparatorStyle::Visible,
+        _ => InnerSeparatorStyle::None
+    };
+    
+    let outer_border_style = match matches.value_of("outer_border") {
+        Some("visible") => OuterBorderStyle::Visible,
+        _ => OuterBorderStyle::None
     };
 
     let squeeze = !matches.is_present("nosqueezing");
@@ -251,7 +302,7 @@ fn run() -> Result<(), AnyhowError> {
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
 
-    let mut printer = Printer::new(&mut stdout_lock, show_color, border_style, squeeze);
+    let mut printer = Printer::new(&mut stdout_lock, show_color, border_type, hex_inner_separator_style, text_inner_separator_style, outer_border_style, squeeze);
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
 
