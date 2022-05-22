@@ -128,9 +128,8 @@ mod tests {
             SqueezeAction::Delete, // delete reoccurring line
         ];
 
-        let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE_USIZE) {
+        for (line, z) in v.chunks(LSIZE_USIZE).enumerate() {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
@@ -138,7 +137,6 @@ mod tests {
             let action = s.action();
             s.advance();
             assert_eq!(action, exp[line]);
-            line += 1;
         }
     }
 
@@ -158,16 +156,14 @@ mod tests {
             SqueezeAction::Ignore, // last line only 12 bytes, print it
         ];
 
-        let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE_USIZE) {
+        for (line, z) in v.chunks(LSIZE_USIZE).enumerate() {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
             }
             assert_eq!(s.action(), exp[line]);
             s.advance();
-            line += 1;
         }
     }
 
@@ -190,9 +186,8 @@ mod tests {
             SqueezeAction::Ignore, // different
         ];
 
-        let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE_USIZE) {
+        for (line, z) in v.chunks(LSIZE_USIZE).enumerate() {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
@@ -200,7 +195,6 @@ mod tests {
             let action = s.action();
             assert_eq!(action, exp[line]);
             s.advance();
-            line += 1;
         }
     }
 
@@ -223,9 +217,8 @@ mod tests {
             SqueezeAction::Ignore, // different lines, print again
         ];
 
-        let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE_USIZE) {
+        for (line, z) in v.chunks(LSIZE_USIZE).enumerate() {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
@@ -233,7 +226,6 @@ mod tests {
             let action = s.action();
             s.advance();
             assert_eq!(action, exp[line]);
-            line += 1;
         }
     }
 
@@ -255,9 +247,8 @@ mod tests {
             SqueezeAction::Ignore, // print squeeze symbol
         ];
 
-        let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE_USIZE) {
+        for (line, z) in v.chunks(LSIZE_USIZE).enumerate() {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
@@ -265,7 +256,6 @@ mod tests {
             let action = s.action();
             s.advance();
             assert_eq!(action, exp[line]);
-            line += 1;
         }
     }
 
@@ -291,9 +281,8 @@ mod tests {
             SqueezeAction::Ignore, // print squeeze symbol
         ];
 
-        let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE_USIZE) {
+        for (line, z) in v.chunks(LSIZE_USIZE).enumerate() {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
@@ -301,7 +290,6 @@ mod tests {
             let action = s.action();
             s.advance();
             assert_eq!(action, exp[line]);
-            line += 1;
         }
     }
 
@@ -341,9 +329,8 @@ mod tests {
             SqueezeAction::Ignore,
         ];
 
-        let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE_USIZE) {
+        for (line, z) in v.chunks(LSIZE_USIZE).enumerate() {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
@@ -351,7 +338,6 @@ mod tests {
             let action = s.action();
             s.advance();
             assert_eq!(action, exp[line]);
-            line += 1;
         }
     }
 
@@ -377,16 +363,14 @@ mod tests {
             SqueezeAction::Print,  // print '*' char
         ];
 
-        let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE_USIZE) {
+        for (line, z) in v.chunks(LSIZE_USIZE).enumerate() {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
             }
             assert_eq!(s.action(), exp[line]);
             s.advance();
-            line += 1;
         }
     }
 
@@ -410,16 +394,14 @@ mod tests {
             SqueezeAction::Ignore, // print as is
         ];
 
-        let mut line = 0;
         let mut idx = 1;
-        for z in v.chunks(LSIZE_USIZE) {
+        for (line, z) in v.chunks(LSIZE_USIZE).enumerate() {
             for i in z {
                 s.process(*i, idx);
                 idx += 1;
             }
             assert_eq!(s.action(), exp[line]);
             s.advance();
-            line += 1;
         }
     }
 }

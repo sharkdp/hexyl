@@ -612,16 +612,8 @@ fn test_process_sign() {
 fn test_parse_as_hex() {
     assert_eq!(try_parse_as_hex_number("73"), None);
     assert_eq!(try_parse_as_hex_number("0x1337"), Some(Ok(0x1337)));
-    assert!(if let Some(Err(_)) = try_parse_as_hex_number("0xnope") {
-        true
-    } else {
-        false
-    });
-    assert!(if let Some(Err(_)) = try_parse_as_hex_number("0x-1") {
-        true
-    } else {
-        false
-    });
+    assert!(matches!(try_parse_as_hex_number("0xnope"), Some(Err(_))));
+    assert!(matches!(try_parse_as_hex_number("0x-1"), Some(Err(_))));
 }
 
 #[test]
