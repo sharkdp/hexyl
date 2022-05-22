@@ -4,12 +4,18 @@
 
 
 ## Features
-- Allow hex numbers and units for `--block-size` argument, see #111
+
+- Added new `--plain`, `--no-characters`, and `--no-position` flags, see #154 (@mkatychev)
+- Allow hex numbers and units for `--block-size` argument, see #111 and #144 (@merkrafter)
 
 ## Bugfixes
 
 
 ## Other
+
+- Added a man page, see #151 (@sorairolake)
+- Mention ability to specify length in hex, see #143 (@merkrafter)
+- `--length` and `--bytes` are now marked as conflicting command-line options, see #152 (@sorairolake)
 
 
 ## Packaging
