@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{self, prelude::*, SeekFrom};
 use std::num::NonZeroI64;
 
-use clap::{App, AppSettings, Arg};
+use clap::{crate_name, crate_version, AppSettings, Arg, ColorChoice, Command};
 
 use atty::Stream;
 
@@ -21,21 +21,19 @@ use hexyl::{BorderStyle, Input, Printer};
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
 fn run() -> Result<(), AnyhowError> {
-    let app = App::new(crate_name!())
-        .setting(AppSettings::ColorAuto)
-        .setting(AppSettings::ColoredHelp)
+    let command = Command::new(crate_name!())
         .setting(AppSettings::DeriveDisplayOrder)
-        .setting(AppSettings::UnifiedHelpMessage)
+        .color(ColorChoice::Auto)
         .max_term_width(90)
         .version(crate_version!())
         .about(crate_description!())
         .arg(
-            Arg::with_name("FILE")
+            Arg::new("FILE")
                 .help("The file to display. If no FILE argument is given, read from STDIN."),
         )
         .arg(
-            Arg::with_name("length")
-                .short("n")
+            Arg::new("length")
+                .short('n')
                 .long("length")
                 .takes_value(true)
                 .value_name("N")
@@ -48,8 +46,8 @@ fn run() -> Result<(), AnyhowError> {
                 ),
         )
         .arg(
-            Arg::with_name("bytes")
-                .short("c")
+            Arg::new("bytes")
+                .short('c')
                 .long("bytes")
                 .takes_value(true)
                 .value_name("N")
@@ -57,17 +55,17 @@ fn run() -> Result<(), AnyhowError> {
                 .help("An alias for -n/--length"),
         )
         .arg(
-            Arg::with_name("count")
-                .short("l")
+            Arg::new("count")
+                .short('l')
                 .takes_value(true)
                 .value_name("N")
                 .conflicts_with_all(&["length", "bytes"])
-                .hidden(true)
+                .hide(true)
                 .help("Yet another alias for -n/--length"),
         )
         .arg(
-            Arg::with_name("skip")
-                .short("s")
+            Arg::new("skip")
+                .short('s')
                 .long("skip")
                 .takes_value(true)
                 .value_name("N")
@@ -78,7 +76,7 @@ fn run() -> Result<(), AnyhowError> {
                 ),
         )
         .arg(
-            Arg::with_name("block_size")
+            Arg::new("block_size")
                 .long("block-size")
                 .takes_value(true)
                 .value_name("SIZE")
@@ -89,8 +87,8 @@ fn run() -> Result<(), AnyhowError> {
                 )),
         )
         .arg(
-            Arg::with_name("nosqueezing")
-                .short("v")
+            Arg::new("nosqueezing")
+                .short('v')
                 .long("no-squeezing")
                 .help(
                     "Displays all input data. Otherwise any number of groups of output \
@@ -99,28 +97,28 @@ fn run() -> Result<(), AnyhowError> {
                 ),
         )
         .arg(
-            Arg::with_name("color")
+            Arg::new("color")
                 .long("color")
                 .takes_value(true)
                 .value_name("WHEN")
                 .possible_values(&["always", "auto", "never"])
-                .default_value_if("plain", None, "never")
+                .default_value_if("plain", None, Some("never"))
                 .default_value("always")
                 .help(
                     "When to use colors. The auto-mode only displays colors if the output \
                      goes to an interactive terminal",
                 ),
         )
-        .arg(Arg::with_name("plain").short("p").long("plain").help(
+        .arg(Arg::new("plain").short('p').long("plain").help(
             "Display output with --no-characters, --no-position, --border=none, and --color=never.",
         ))
         .arg(
-            Arg::with_name("border")
+            Arg::new("border")
                 .long("border")
                 .takes_value(true)
                 .value_name("STYLE")
                 .possible_values(&["unicode", "ascii", "none"])
-                .default_value_if("plain", None, "none")
+                .default_value_if("plain", None, Some("none"))
                 .default_value("unicode")
                 .help(
                     "Whether to draw a border with Unicode characters, ASCII characters, \
@@ -128,20 +126,20 @@ fn run() -> Result<(), AnyhowError> {
                 ),
         )
         .arg(
-            Arg::with_name("no_chars")
-                .short("C")
+            Arg::new("no_chars")
+                .short('C')
                 .long("no-characters")
                 .help("Whether to display the character panel on the right."),
         )
         .arg(
-            Arg::with_name("no_position")
-                .short("P")
+            Arg::new("no_position")
+                .short('P')
                 .long("no-position")
                 .help("Whether to display the position panel on the left."),
         )
         .arg(
-            Arg::with_name("display_offset")
-                .short("o")
+            Arg::new("display_offset")
+                .short('o')
                 .long("display-offset")
                 .takes_value(true)
                 .value_name("N")
@@ -153,7 +151,7 @@ fn run() -> Result<(), AnyhowError> {
                 ),
         );
 
-    let matches = app.get_matches_safe()?;
+    let matches = command.get_matches();
 
     let stdin = io::stdin();
 
@@ -294,24 +292,7 @@ fn main() {
     let result = run();
 
     if let Err(err) = result {
-        if let Some(clap_err) = err.downcast_ref::<clap::Error>() {
-            match clap_err.kind {
-                // The exit code should not indicate an error for --help / --version
-                clap::ErrorKind::HelpDisplayed => {
-                    eprint!("{}", clap_err); // Clap errors already have newlines
-                    std::process::exit(0)
-                }
-                clap::ErrorKind::VersionDisplayed => {
-                    // Version output in clap 2.33.1 (dep as of now) doesn't have a newline
-                    // and the fix is not included even in the latest stable release
-                    println!();
-                    std::process::exit(0)
-                }
-                _ => (),
-            }
-        } else {
-            eprintln!("Error: {:?}", err);
-        }
+        eprintln!("Error: {:?}", err);
         std::process::exit(1);
     }
 }

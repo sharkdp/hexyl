@@ -19,9 +19,9 @@ libc = "0.2"
 thiserror = "1.0"
 
 [dependencies.clap]
-version = "2"
+version = "3"
 default-features = false
-features = ["suggestions", "color", "wrap_help"]
+features = ["std", "suggestions", "color", "wrap_help", "cargo"]
 
 [dev-dependencies]
 assert_cmd = "2.0"
