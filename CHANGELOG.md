@@ -5,22 +5,29 @@
 
 ## Features
 
-- Added new `--plain`, `--no-characters`, and `--no-position` flags, see #154 (@mkatychev)
-- Allow hex numbers and units for `--block-size` argument, see #111 and #144 (@merkrafter)
 
 ## Bugfixes
 
 
 ## Other
 
-- Added a man page, see #151 (@sorairolake)
-- Mention ability to specify length in hex, see #143 (@merkrafter)
-- `--length` and `--bytes` are now marked as conflicting command-line options, see #152 (@sorairolake)
-
 
 ## Packaging
 
 
+
+# v0.10.0
+
+## Features
+
+- Added new `--plain`, `--no-characters`, and `--no-position` flags, see #154 (@mkatychev)
+- Allow hex numbers and units for `--block-size` argument, see #111 and #144 (@merkrafter)
+
+## Other
+
+- Added a man page, see #151 (@sorairolake)
+- Mention ability to specify length in hex, see #143 (@merkrafter)
+- `--length` and `--bytes` are now marked as conflicting command-line options, see #152 (@sorairolake)
 
 
 # v0.9.0
@@ -49,6 +56,7 @@
 
 - `hexyl` is now available on snapstore, see #116 (@purveshpatel511)
 
+
 # v0.8.0
 
 ## Features
@@ -75,6 +83,7 @@
 
 - `hexyl` is now available on Void Linux, see #91 (@notramo)
 
+
 # v0.7.0
 
 ## Bugfixes
@@ -85,6 +94,7 @@
 
 - Breaking change (library): [`Printer::print_all`](https://docs.rs/hexyl/latest/hexyl/struct.Printer.html#method.print_all) does not take a second argument anymore.
 - Added an example on how to use `hexyl` as a library: https://github.com/sharkdp/hexyl/blob/v0.7.0/examples/simple.rs
+
 
 # v0.6.0
 
@@ -103,6 +113,7 @@
 
 - Performance improvements, see #73 and #66
 
+
 # v0.5.1
 
 ## Bugfixes
@@ -110,6 +121,7 @@
 - A bug in the squeezing logic caused a wrong hexdump, see #62 (@awidegreen)
 - Some colors are printed even if they're disabled, see #64 (@awidegreen)
 - Fixed build failure on OpenBSD 6.5, see #61
+
 
 # v0.5.0
 
@@ -142,15 +154,18 @@
 - Proper Ctrl-C handling, see #35
 - Proper handling of broken pipes (`hexyl … | head`)
 
+
 # v0.3.1
 
 - Various (huge) performance improvements, see #23 and #24 (@kballard)
 - Replaced 24-bit truecolor ANSI codes by 8-bit codes to support
   more terminal emulators, fixes #9
 
+
 # v0.3.0
 
 Windows support
+
 
 # v0.2.0
 
