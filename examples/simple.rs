@@ -12,16 +12,16 @@ fn main() {
     let mut handle = stdout.lock();
 
     let show_color = true;
-    let show_char_table = true;
-    let show_position_indicator = true;
+    let show_char_panel = true;
+    let show_position_panel = true;
     let use_squeezing = false;
     let border_style = BorderStyle::Unicode;
 
     let mut printer = Printer::new(
         &mut handle,
         show_color,
-        show_char_table,
-        show_position_indicator,
+        show_char_panel,
+        show_position_panel,
         border_style,
         use_squeezing,
     );
