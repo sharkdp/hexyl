@@ -112,7 +112,7 @@ fn run() -> Result<(), AnyhowError> {
                 ),
         )
         .arg(Arg::with_name("plain").short("p").long("plain").help(
-            "Display output with --no-character-table, --no-position-table, --border=none, and --color=never.",
+            "Display output with --no-characters, --no-position, --border=none, and --color=never.",
         ))
         .arg(
             Arg::with_name("border")
@@ -130,14 +130,14 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::with_name("no_chars")
                 .short("C")
-                .long("no-charcter-table")
-                .help("Whether to display the character table on the right."),
+                .long("no-characters")
+                .help("Whether to display the character panel on the right."),
         )
         .arg(
             Arg::with_name("no_position")
                 .short("P")
-                .long("no-position-table")
-                .help("Whether to display the position indicator on the left."),
+                .long("no-position")
+                .help("Whether to display the position panel on the left."),
         )
         .arg(
             Arg::with_name("display_offset")
@@ -254,10 +254,9 @@ fn run() -> Result<(), AnyhowError> {
 
     let squeeze = !matches.is_present("nosqueezing");
 
-    let show_char_table = !matches.is_present("no_chars") && !matches.is_present("plain");
+    let show_char_panel = !matches.is_present("no_chars") && !matches.is_present("plain");
 
-    let show_position_indicator =
-        !matches.is_present("no_position") && !matches.is_present("plain");
+    let show_position_panel = !matches.is_present("no_position") && !matches.is_present("plain");
 
     let display_offset: u64 = matches
         .value_of("display_offset")
@@ -276,8 +275,8 @@ fn run() -> Result<(), AnyhowError> {
     let mut printer = Printer::new(
         &mut stdout_lock,
         show_color,
-        show_char_table,
-        show_position_indicator,
+        show_char_panel,
+        show_position_panel,
         border_style,
         squeeze,
     );

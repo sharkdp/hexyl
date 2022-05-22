@@ -146,12 +146,12 @@ pub struct Printer<'a, Writer: Write> {
     buffer_line: Vec<u8>,
     writer: &'a mut Writer,
     show_color: bool,
-    show_char_table: bool,
-    show_position_indicator: bool,
+    show_char_panel: bool,
+    show_position_panel: bool,
     border_style: BorderStyle,
     header_was_printed: bool,
-    byte_hex_table: Vec<String>,
-    byte_char_table: Vec<String>,
+    byte_hex_panel: Vec<String>,
+    byte_char_panel: Vec<String>,
     squeezer: Squeezer,
     display_offset: u64,
 }
@@ -160,8 +160,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     pub fn new(
         writer: &'a mut Writer,
         show_color: bool,
-        show_char_table: bool,
-        show_position_indicator: bool,
+        show_char_panel: bool,
+        show_position_panel: bool,
         border_style: BorderStyle,
         use_squeeze: bool,
     ) -> Printer<'a, Writer> {
@@ -171,11 +171,11 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             buffer_line: vec![],
             writer,
             show_color,
-            show_char_table,
-            show_position_indicator,
+            show_char_panel,
+            show_position_panel,
             border_style,
             header_was_printed: false,
-            byte_hex_table: (0u8..=u8::max_value())
+            byte_hex_panel: (0u8..=u8::max_value())
                 .map(|i| {
                     let byte_hex = format!("{:02x} ", i);
                     if show_color {
@@ -185,7 +185,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     }
                 })
                 .collect(),
-            byte_char_table: show_char_table
+            byte_char_panel: show_char_panel
                 .then(|| {
                     (0u8..=u8::max_value())
                         .map(|i| {
@@ -217,7 +217,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let h8 = h.to_string().repeat(8);
         let h25 = h.to_string().repeat(25);
 
-        if self.show_position_indicator {
+        if self.show_position_panel {
             write!(self.writer, "{l}{h8}{c}", l = l, c = c, h8 = h8).ok();
         } else {
             write!(self.writer, "{}", l).ok();
@@ -225,31 +225,31 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         write!(self.writer, "{h25}{c}{h25}", c = c, h25 = h25).ok();
 
-        if self.show_char_table {
+        if self.show_char_panel {
             writeln!(self.writer, "{c}{h8}{c}{h8}{r}", c = c, h8 = h8, r = r).ok();
         } else {
             writeln!(self.writer, "{r}", r = r).ok();
         }
     }
 
-    pub fn header(&mut self) {
+    pub fn print_header(&mut self) {
+        if self.header_was_printed {
+            return;
+        }
         if let Some(e) = self.border_style.header_elems() {
             self.write_border(e)
         }
+        self.header_was_printed = true;
     }
 
-    pub fn footer(&mut self) {
+    pub fn print_footer(&mut self) {
         if let Some(e) = self.border_style.footer_elems() {
             self.write_border(e)
         }
     }
 
-    fn print_position_indicator(&mut self) {
-        if !self.header_was_printed {
-            self.header();
-            self.header_was_printed = true;
-        }
-        if !self.show_position_indicator {
+    fn print_position_panel(&mut self) {
+        if !self.show_position_panel {
             write!(&mut self.buffer_line, "{} ", self.border_style.outer_sep()).ok();
             return;
         }
@@ -270,21 +270,21 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         );
     }
 
-    pub fn print_char_table(&mut self) {
-        let len = self.raw_line.len();
-
-        if !self.show_char_table {
-            // just write newline if character table is hidden
+    pub fn print_char_panel(&mut self) {
+        if !self.show_char_panel {
+            // just write newline if character panel is hidden
             writeln!(&mut self.buffer_line).ok();
             return;
         }
+
+        let len = self.raw_line.len();
 
         let mut idx = 1;
         for &b in self.raw_line.iter() {
             let _ = write!(
                 &mut self.buffer_line,
                 "{}",
-                self.byte_char_table[b as usize]
+                self.byte_char_panel[b as usize]
             );
 
             if idx == 8 {
@@ -317,10 +317,11 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
     pub fn print_byte(&mut self, b: u8) -> io::Result<()> {
         if self.idx % 16 == 1 {
-            self.print_position_indicator();
+            self.print_header();
+            self.print_position_panel();
         }
 
-        write!(&mut self.buffer_line, "{}", self.byte_hex_table[b as usize])?;
+        write!(&mut self.buffer_line, "{}", self.byte_hex_panel[b as usize])?;
         self.raw_line.push(b);
 
         self.squeezer.process(b, self.idx);
@@ -345,7 +346,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         if len == 0 {
             if self.squeezer.active() {
-                self.print_position_indicator();
+                self.print_position_panel();
                 let _ = writeln!(
                     &mut self.buffer_line,
                     "{0:1$}{4}{0:2$}{5}{0:3$}{4}{0:3$}{5}",
@@ -385,7 +386,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
         }
 
-        self.print_char_table();
+        self.print_char_panel();
 
         match squeeze_action {
             SqueezeAction::Print => {
@@ -453,8 +454,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         self.print_textline().ok();
 
         if !self.header_was_printed() {
-            self.header();
-            if self.show_position_indicator {
+            self.print_header();
+            if self.show_position_panel {
                 write!(self.writer, "{0:9}", "│").ok();
             }
             write!(
@@ -463,12 +464,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 "│", "No content to print"
             )
             .ok();
-            if self.show_char_table {
+            if self.show_char_panel {
                 write!(self.writer, "{0:>9}{0:>9}", "│").ok();
             }
             writeln!(self.writer).ok();
         }
-        self.footer();
+        self.print_footer();
 
         Ok(())
     }
