@@ -121,6 +121,9 @@ Source repository:
 Print a given file:
 :   $ **hexyl small.png**
 
+Print and view a given file in the terminal pager:
+:   $ **hexyl big.png | less -r**
+
 Print the first 256 bytes of a given special file:
 :   $ **hexyl -n 256 /dev/urandom**
 
