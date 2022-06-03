@@ -92,7 +92,8 @@ _FILE_
 **\--color-mode** _MODE_
 :   The set of colors to use.
     The auto-mode currently is equivalent to 8-bit, but this may change in the
-    future.
+    future. This can also be set with the HEXYL_COLOR_MODE environment
+    variable.
 
     Possible values:
 

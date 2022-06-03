@@ -116,6 +116,7 @@ fn run() -> Result<(), AnyhowError> {
                 .value_name("MODE")
                 .possible_values(&["auto", "16", "8-bit"])
                 .default_value("auto")
+                .env("HEXYL_COLOR_MODE")
                 .help(
                     "The set of colors to use. The auto-mode currently is equivalent to 8-bit, \
                      but this may change in the future",

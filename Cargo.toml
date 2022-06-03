@@ -22,7 +22,7 @@ thiserror = "1.0"
 [dependencies.clap]
 version = "3"
 default-features = false
-features = ["std", "suggestions", "color", "wrap_help", "cargo"]
+features = ["std", "suggestions", "color", "env", "wrap_help", "cargo"]
 
 [dev-dependencies]
 assert_cmd = "2.0"
