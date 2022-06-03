@@ -89,6 +89,17 @@ _FILE_
         - **auto**
         - **never**
 
+**\--color-mode** _MODE_
+:   The set of colors to use.
+    The auto-mode currently is equivalent to 8-bit, but this may change in the
+    future.
+
+    Possible values:
+
+    :   - **auto** (default)
+        - **16**
+        - **8-bit**
+
 **\--border** _STYLE_
 :   Whether to draw a border with Unicode characters, ASCII characters, or none
     at all.

@@ -12,6 +12,7 @@ fn main() {
     let mut handle = stdout.lock();
 
     let show_color = true;
+    let use_8_bit_color = true;
     let show_char_panel = true;
     let show_position_panel = true;
     let use_squeezing = false;
@@ -20,6 +21,7 @@ fn main() {
     let mut printer = Printer::new(
         &mut handle,
         show_color,
+        use_8_bit_color,
         show_char_panel,
         show_position_panel,
         border_style,

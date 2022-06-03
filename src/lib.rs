@@ -5,19 +5,25 @@ pub use input::*;
 
 use std::io::{self, Read, Write};
 
-use ansi_term::Color;
 use ansi_term::Color::Fixed;
+use ansi_term::{Color, Style};
 
 use crate::squeezer::{SqueezeAction, Squeezer};
 
 const BUFFER_SIZE: usize = 256;
 
-const COLOR_NULL: Color = Fixed(242); // grey
-const COLOR_OFFSET: Color = Fixed(242); // grey
-const COLOR_ASCII_PRINTABLE: Color = Color::Cyan;
-const COLOR_ASCII_WHITESPACE: Color = Color::Green;
-const COLOR_ASCII_OTHER: Color = Color::Purple;
-const COLOR_NONASCII: Color = Color::Yellow;
+lazy_static::lazy_static! {
+    static ref STYLE_NULL_16: Style = Color::Black.bold(); // grey
+    static ref STYLE_OFFSET_16: Style = Color::Black.bold(); // grey
+
+    static ref STYLE_NULL_8BIT: Style = Fixed(242).normal(); // grey
+    static ref STYLE_OFFSET_8BIT: Style = Fixed(242).normal(); // grey
+
+    static ref STYLE_ASCII_PRINTABLE: Style = Color::Cyan.normal();
+    static ref STYLE_ASCII_WHITESPACE: Style = Color::Green.normal();
+    static ref STYLE_ASCII_OTHER: Style = Color::Purple.normal();
+    static ref STYLE_NONASCII: Style = Color::Yellow.normal();
+}
 
 pub enum ByteCategory {
     Null,
@@ -45,15 +51,21 @@ impl Byte {
         }
     }
 
-    fn color(self) -> &'static Color {
+    fn style(self, use_8_bit_color: bool) -> &'static Style {
         use crate::ByteCategory::*;
 
         match self.category() {
-            Null => &COLOR_NULL,
-            AsciiPrintable => &COLOR_ASCII_PRINTABLE,
-            AsciiWhitespace => &COLOR_ASCII_WHITESPACE,
-            AsciiOther => &COLOR_ASCII_OTHER,
-            NonAscii => &COLOR_NONASCII,
+            Null => {
+                if use_8_bit_color {
+                    &STYLE_NULL_8BIT
+                } else {
+                    &STYLE_NULL_16
+                }
+            }
+            AsciiPrintable => &STYLE_ASCII_PRINTABLE,
+            AsciiWhitespace => &STYLE_ASCII_WHITESPACE,
+            AsciiOther => &STYLE_ASCII_OTHER,
+            NonAscii => &STYLE_NONASCII,
         }
     }
 
@@ -146,6 +158,7 @@ pub struct Printer<'a, Writer: Write> {
     buffer_line: Vec<u8>,
     writer: &'a mut Writer,
     show_color: bool,
+    use_8_bit_color: bool,
     show_char_panel: bool,
     show_position_panel: bool,
     border_style: BorderStyle,
@@ -160,6 +173,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     pub fn new(
         writer: &'a mut Writer,
         show_color: bool,
+        use_8_bit_color: bool,
         show_char_panel: bool,
         show_position_panel: bool,
         border_style: BorderStyle,
@@ -171,6 +185,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             buffer_line: vec![],
             writer,
             show_color,
+            use_8_bit_color,
             show_char_panel,
             show_position_panel,
             border_style,
@@ -179,7 +194,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 .map(|i| {
                     let byte_hex = format!("{:02x} ", i);
                     if show_color {
-                        Byte(i).color().paint(byte_hex).to_string()
+                        Byte(i).style(use_8_bit_color).paint(byte_hex).to_string()
                     } else {
                         byte_hex
                     }
@@ -191,7 +206,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                         .map(|i| {
                             let byte_char = format!("{}", Byte(i).as_char());
                             if show_color {
-                                Byte(i).color().paint(byte_char).to_string()
+                                Byte(i).style(use_8_bit_color).paint(byte_char).to_string()
                             } else {
                                 byte_char
                             }
@@ -248,13 +263,21 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
     }
 
+    fn get_offset_style(&self) -> Style {
+        if self.use_8_bit_color {
+            *STYLE_OFFSET_8BIT
+        } else {
+            *STYLE_OFFSET_16
+        }
+    }
+
     fn print_position_panel(&mut self) {
         if !self.show_position_panel {
             write!(&mut self.buffer_line, "{} ", self.border_style.outer_sep()).ok();
             return;
         }
 
-        let style = COLOR_OFFSET.normal();
+        let style = self.get_offset_style();
         let byte_index = format!("{:08x}", self.idx - 1 + self.display_offset);
         let formatted_string = if self.show_color {
             format!("{}", style.paint(byte_index))
@@ -391,7 +414,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         match squeeze_action {
             SqueezeAction::Print => {
                 self.buffer_line.clear();
-                let style = COLOR_OFFSET.normal();
+                let style = self.get_offset_style();
                 let asterisk = if self.show_color {
                     format!("{}", style.paint("*"))
                 } else {
@@ -484,7 +507,15 @@ mod tests {
 
     fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) {
         let mut output = vec![];
-        let mut printer = Printer::new(&mut output, false, true, true, BorderStyle::Unicode, true);
+        let mut printer = Printer::new(
+            &mut output,
+            false,
+            true,
+            true,
+            true,
+            BorderStyle::Unicode,
+            true,
+        );
 
         printer.print_all(input).unwrap();
 
@@ -528,8 +559,15 @@ mod tests {
         .to_owned();
 
         let mut output = vec![];
-        let mut printer: Printer<Vec<u8>> =
-            Printer::new(&mut output, false, true, true, BorderStyle::Unicode, true);
+        let mut printer: Printer<Vec<u8>> = Printer::new(
+            &mut output,
+            false,
+            true,
+            true,
+            true,
+            BorderStyle::Unicode,
+            true,
+        );
         printer.display_offset(0xdeadbeef);
 
         printer.print_all(input).unwrap();

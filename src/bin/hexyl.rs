@@ -109,6 +109,18 @@ fn run() -> Result<(), AnyhowError> {
                      goes to an interactive terminal",
                 ),
         )
+        .arg(
+            Arg::new("color-mode")
+                .long("color-mode")
+                .takes_value(true)
+                .value_name("MODE")
+                .possible_values(&["auto", "16", "8-bit"])
+                .default_value("auto")
+                .help(
+                    "The set of colors to use. The auto-mode currently is equivalent to 8-bit, \
+                     but this may change in the future",
+                ),
+        )
         .arg(Arg::new("plain").short('p').long("plain").help(
             "Display output with --no-characters, --no-position, --border=none, and --color=never.",
         ))
@@ -244,6 +256,11 @@ fn run() -> Result<(), AnyhowError> {
         _ => true,
     };
 
+    let use_8_bit_color = match matches.value_of("color-mode") {
+        Some("16") => false,
+        _ => true,
+    };
+
     let border_style = match matches.value_of("border") {
         Some("unicode") => BorderStyle::Unicode,
         Some("ascii") => BorderStyle::Ascii,
@@ -273,6 +290,7 @@ fn run() -> Result<(), AnyhowError> {
     let mut printer = Printer::new(
         &mut stdout_lock,
         show_color,
+        use_8_bit_color,
         show_char_panel,
         show_position_panel,
         border_style,

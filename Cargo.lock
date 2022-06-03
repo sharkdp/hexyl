@@ -172,6 +172,7 @@ dependencies = [
  "atty",
  "clap",
  "const_format",
+ "lazy_static",
  "libc",
  "predicates",
  "thiserror",
