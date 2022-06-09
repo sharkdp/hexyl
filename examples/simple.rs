@@ -1,6 +1,6 @@
 use std::io;
 
-use hexyl::{BorderStyle, Printer};
+use hexyl::{BorderStyle, ColorMode, Printer};
 
 fn main() {
     let input = vec![
@@ -11,8 +11,7 @@ fn main() {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
 
-    let show_color = true;
-    let use_8_bit_color = true;
+    let color_mode = Some(ColorMode::Color8Bit);
     let show_char_panel = true;
     let show_position_panel = true;
     let use_squeezing = false;
@@ -20,8 +19,7 @@ fn main() {
 
     let mut printer = Printer::new(
         &mut handle,
-        show_color,
-        use_8_bit_color,
+        color_mode,
         show_char_panel,
         show_position_panel,
         border_style,

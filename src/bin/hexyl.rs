@@ -16,7 +16,7 @@ use const_format::formatcp;
 
 use thiserror::Error as ThisError;
 
-use hexyl::{BorderStyle, Input, Printer};
+use hexyl::{BorderStyle, ColorMode, Input, Printer};
 
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
@@ -257,9 +257,13 @@ fn run() -> Result<(), AnyhowError> {
         _ => true,
     };
 
-    let use_8_bit_color = match matches.value_of("color-mode") {
-        Some("16") => false,
-        _ => true,
+    let color_mode = if show_color {
+        match matches.value_of("color-mode") {
+            Some("16") => Some(ColorMode::Color16),
+            _ => Some(ColorMode::Color8Bit),
+        }
+    } else {
+        None
     };
 
     let border_style = match matches.value_of("border") {
@@ -290,8 +294,7 @@ fn run() -> Result<(), AnyhowError> {
 
     let mut printer = Printer::new(
         &mut stdout_lock,
-        show_color,
-        use_8_bit_color,
+        color_mode,
         show_char_panel,
         show_position_panel,
         border_style,
