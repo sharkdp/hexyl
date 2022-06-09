@@ -15,8 +15,8 @@ ansi_term = "0.12"
 anyhow = "1.0"
 atty = "0.2"
 const_format = "0.2"
-lazy_static = "1.4"
 libc = "0.2"
+once_cell = "1.12"
 thiserror = "1.0"
 
 [dependencies.clap]

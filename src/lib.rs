@@ -7,23 +7,22 @@ use std::io::{self, Read, Write};
 
 use ansi_term::Color::Fixed;
 use ansi_term::{Color, Style};
+use once_cell::sync::Lazy;
 
 use crate::squeezer::{SqueezeAction, Squeezer};
 
 const BUFFER_SIZE: usize = 256;
 
-lazy_static::lazy_static! {
-    static ref STYLE_NULL_16: Style = Color::Black.bold(); // grey
-    static ref STYLE_OFFSET_16: Style = Color::Black.bold(); // grey
+static STYLE_NULL_16: Lazy<Style> = Lazy::new(|| Color::Black.bold()); // grey
+static STYLE_OFFSET_16: Lazy<Style> = Lazy::new(|| Color::Black.bold()); // grey
 
-    static ref STYLE_NULL_8BIT: Style = Fixed(242).normal(); // grey
-    static ref STYLE_OFFSET_8BIT: Style = Fixed(242).normal(); // grey
+static STYLE_NULL_8BIT: Lazy<Style> = Lazy::new(|| Fixed(242).normal()); // grey
+static STYLE_OFFSET_8BIT: Lazy<Style> = Lazy::new(|| Fixed(242).normal()); // grey
 
-    static ref STYLE_ASCII_PRINTABLE: Style = Color::Cyan.normal();
-    static ref STYLE_ASCII_WHITESPACE: Style = Color::Green.normal();
-    static ref STYLE_ASCII_OTHER: Style = Color::Purple.normal();
-    static ref STYLE_NONASCII: Style = Color::Yellow.normal();
-}
+static STYLE_ASCII_PRINTABLE: Lazy<Style> = Lazy::new(|| Color::Cyan.normal());
+static STYLE_ASCII_WHITESPACE: Lazy<Style> = Lazy::new(|| Color::Green.normal());
+static STYLE_ASCII_OTHER: Lazy<Style> = Lazy::new(|| Color::Purple.normal());
+static STYLE_NONASCII: Lazy<Style> = Lazy::new(|| Color::Yellow.normal());
 
 pub enum ByteCategory {
     Null,

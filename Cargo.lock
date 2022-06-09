@@ -172,8 +172,8 @@ dependencies = [
  "atty",
  "clap",
  "const_format",
- "lazy_static",
  "libc",
+ "once_cell",
  "predicates",
  "thiserror",
 ]
@@ -229,6 +229,12 @@ checksum = "578ede34cf02f8924ab9447f50c28075b4d3e5b269972345e7e0372b38c6cdcd"
 dependencies = [
  "autocfg",
 ]
+
+[[package]]
+name = "once_cell"
+version = "1.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7709cef83f0c1f58f666e746a08b21e0085f7440fa6a29cc194d68aac97a4225"
 
 [[package]]
 name = "os_str_bytes"
