@@ -44,6 +44,14 @@ sudo apt-get install hexyl
 If you run an older version of Debian, see above for instructions on how to
 manually install `hexyl`.
 
+### On Fedora
+
+If you run Fedora 35 or newer, you can install the [officially maintained Fedora package](https://packages.fedoraproject.org/pkgs/rust-hexyl/hexyl):
+
+```bash
+sudo dnf install hexyl
+```
+
 ### On Arch Linux
 
 You can install `hexyl` from [the official package repository](https://www.archlinux.org/packages/community/x86_64/hexyl/):
