@@ -4,7 +4,7 @@ extern crate clap;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{self, prelude::*, SeekFrom};
-use std::num::NonZeroI64;
+use std::num::{NonZeroI64, NonZeroU8};
 
 use clap::{crate_name, crate_version, AppSettings, Arg, ColorChoice, Command};
 
@@ -149,6 +149,17 @@ fn run() -> Result<(), AnyhowError> {
                     A negative value is valid and calculates an offset relative to the \
                     end of the file.",
                 ),
+        )
+        .arg(
+            Arg::new("columns")
+                .short('w')
+                .long("columns")
+                .takes_value(true)
+                .value_name("N")
+                .help(
+                    "Sets the number of hex data columns to be displayed. \
+                    Cannot be used with other width-setting options.",
+                ),
         );
 
     let matches = command.get_matches();
@@ -267,6 +278,17 @@ fn run() -> Result<(), AnyhowError> {
         .transpose()?
         .unwrap_or(0);
 
+    let columns = matches
+        .value_of("columns")
+        .map(|s| {
+            s.parse::<NonZeroU8>().map(u8::from).context(anyhow!(
+                "failed to parse `--columns` arg {:?} as unsigned nonzero integer",
+                s
+            ))
+        })
+        .transpose()?
+        .unwrap_or(2);
+
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
 
@@ -277,6 +299,7 @@ fn run() -> Result<(), AnyhowError> {
         show_position_panel,
         border_style,
         squeeze,
+        columns,
     );
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;

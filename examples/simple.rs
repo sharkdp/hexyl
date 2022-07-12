@@ -16,6 +16,7 @@ fn main() {
     let show_position_panel = true;
     let use_squeezing = false;
     let border_style = BorderStyle::Unicode;
+    let columns = 2;
 
     let mut printer = Printer::new(
         &mut handle,
@@ -24,6 +25,7 @@ fn main() {
         show_position_panel,
         border_style,
         use_squeezing,
+        columns,
     );
     printer.print_all(&input[..]).unwrap();
 }
