@@ -154,6 +154,8 @@ pub struct Printer<'a, Writer: Write> {
     byte_char_panel: Vec<String>,
     squeezer: Squeezer,
     display_offset: u64,
+    /// The number of panels to draw.
+    columns: u8,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -164,6 +166,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         show_position_panel: bool,
         border_style: BorderStyle,
         use_squeeze: bool,
+        columns: u8,
     ) -> Printer<'a, Writer> {
         Printer {
             idx: 1,
@@ -175,7 +178,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             show_position_panel,
             border_style,
             header_was_printed: false,
-            byte_hex_panel: (0u8..=u8::max_value())
+            byte_hex_panel: (0u8..=u8::MAX)
                 .map(|i| {
                     let byte_hex = format!("{:02x} ", i);
                     if show_color {
@@ -187,7 +190,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 .collect(),
             byte_char_panel: show_char_panel
                 .then(|| {
-                    (0u8..=u8::max_value())
+                    (0u8..=u8::MAX)
                         .map(|i| {
                             let byte_char = format!("{}", Byte(i).as_char());
                             if show_color {
@@ -199,8 +202,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                         .collect()
                 })
                 .unwrap_or_default(),
-            squeezer: Squeezer::new(use_squeeze),
+            squeezer: Squeezer::new(use_squeeze, 8 * columns as u64),
             display_offset: 0,
+            columns,
         }
     }
 
@@ -223,10 +227,20 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             write!(self.writer, "{}", l).ok();
         }
 
-        write!(self.writer, "{h25}{c}{h25}", c = c, h25 = h25).ok();
+        for _ in 0..self.columns - 1 {
+            write!(self.writer, "{h25}{c}", h25 = h25, c = c).ok();
+        }
+        if self.show_char_panel {
+            write!(self.writer, "{h25}{c}", h25 = h25, c = c).ok();
+        } else {
+            write!(self.writer, "{h25}", h25 = h25).ok();
+        }
 
         if self.show_char_panel {
-            writeln!(self.writer, "{c}{h8}{c}{h8}{r}", c = c, h8 = h8, r = r).ok();
+            for _ in 0..self.columns - 1 {
+                write!(self.writer, "{h8}{c}", h8 = h8, c = c).ok();
+            }
+            writeln!(self.writer, "{h8}{r}", h8 = h8, r = r).ok();
         } else {
             writeln!(self.writer, "{r}", r = r).ok();
         }
@@ -287,36 +301,25 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.byte_char_panel[b as usize]
             );
 
-            if idx == 8 {
+            if idx % 8 == 0 && idx % (u64::from(self.columns * 8)) != 0 {
                 let _ = write!(&mut self.buffer_line, "{}", self.border_style.inner_sep());
             }
 
             idx += 1;
         }
 
-        if len < 8 {
-            let _ = writeln!(
-                &mut self.buffer_line,
-                "{0:1$}{3}{0:2$}{4}",
-                "",
-                8 - len,
-                8,
-                self.border_style.inner_sep(),
-                self.border_style.outer_sep(),
-            );
-        } else {
-            let _ = writeln!(
-                &mut self.buffer_line,
-                "{0:1$}{2}",
-                "",
-                16 - len,
-                self.border_style.outer_sep()
-            );
+        if len < usize::from(8 * self.columns) {
+            let _ = write!(&mut self.buffer_line, "{0:1$}", "", 8 - len % 8);
+            for _ in 0..(usize::from(8 * self.columns) - (len + (8 - len % 8))) / 8 {
+                let _ = write!(&mut self.buffer_line, "{2}{0:1$}", "", 8, self.border_style.inner_sep());
+            }
         }
+        let _ = writeln!(&mut self.buffer_line, "{}", self.border_style.outer_sep());
+
     }
 
     pub fn print_byte(&mut self, b: u8) -> io::Result<()> {
-        if self.idx % 16 == 1 {
+        if self.idx % u64::from(self.columns * 8) == 1 {
             self.print_header();
             self.print_position_panel();
         }
@@ -326,14 +329,10 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         self.squeezer.process(b, self.idx);
 
-        match self.idx % 16 {
-            8 => {
-                let _ = write!(&mut self.buffer_line, "{} ", self.border_style.inner_sep());
-            }
-            0 => {
-                self.print_textline()?;
-            }
-            _ => {}
+        if self.idx % u64::from(self.columns * 8) == 0 {
+            self.print_textline()?;
+        } else if self.idx % 8 == 0 {
+            let _ = write!(&mut self.buffer_line, "{} ", self.border_style.inner_sep());
         }
 
         self.idx += 1;
@@ -347,16 +346,15 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         if len == 0 {
             if self.squeezer.active() {
                 self.print_position_panel();
-                let _ = writeln!(
-                    &mut self.buffer_line,
-                    "{0:1$}{4}{0:2$}{5}{0:3$}{4}{0:3$}{5}",
-                    "",
-                    24,
-                    25,
-                    8,
-                    self.border_style.inner_sep(),
-                    self.border_style.outer_sep(),
-                );
+                write!(&mut self.buffer_line, "{0:1$}", "", 24)?;
+                for _ in 0..self.columns - 1 {
+                    write!(&mut self.buffer_line, "{2}{0:1$}", "", 25, self.border_style.inner_sep())?;
+                }
+                write!(&mut self.buffer_line, "{2}{0:1$}", "", 8, self.border_style.outer_sep())?;
+                for _ in 0..self.columns - 1 {
+                    write!(&mut self.buffer_line, "{2}{0:1$}", "", 8, self.border_style.inner_sep())?;
+                }
+                writeln!(&mut self.buffer_line, "{}", self.border_style.outer_sep())?;
                 self.writer.write_all(&self.buffer_line)?;
             }
             return Ok(());
@@ -364,28 +362,17 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         let squeeze_action = self.squeezer.action();
 
+        // print empty space on last line
         if squeeze_action != SqueezeAction::Delete {
-            if len < 8 {
-                let _ = write!(
-                    &mut self.buffer_line,
-                    "{0:1$}{3}{0:2$}{4}",
-                    "",
-                    3 * (8 - len),
-                    1 + 3 * 8,
-                    self.border_style.inner_sep(),
-                    self.border_style.outer_sep(),
-                );
-            } else {
-                let _ = write!(
-                    &mut self.buffer_line,
-                    "{0:1$}{2}",
-                    "",
-                    3 * (16 - len),
-                    self.border_style.outer_sep()
-                );
+            if len < usize::from(8 * self.columns) {
+                write!(&mut self.buffer_line, "{0:1$}", "", 3 * (8 - len % 8))?;
+                // dbg!(usize::from(8 * self.columns) - (len + (8 - len % 8)));
+                for _ in 0..(usize::from(8 * self.columns) - (len + (8 - len % 8))) / 8 {
+                    write!(&mut self.buffer_line, "{2}{0:1$}", "", 1 + 3 * 8, self.border_style.inner_sep())?;
+                }
             }
+            write!(&mut self.buffer_line, "{}", self.border_style.outer_sep())?;
         }
-
         self.print_char_panel();
 
         match squeeze_action {
@@ -397,17 +384,26 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 } else {
                     String::from("*")
                 };
-                let _ = writeln!(
-                    &mut self.buffer_line,
-                    "{5}{0}{1:2$}{5}{1:3$}{6}{1:3$}{5}{1:4$}{6}{1:4$}{5}",
-                    asterisk,
-                    "",
-                    7,
-                    25,
-                    8,
-                    self.border_style.outer_sep(),
-                    self.border_style.inner_sep(),
-                );
+
+                write!(&mut self.buffer_line, "{3}{0}{1:2$}{3}", asterisk, "", 7, self.border_style.outer_sep())?;
+
+                for i in 0..self.columns {
+                    write!(&mut self.buffer_line, "{0:1$}", "", 25)?;
+                    if i != self.columns - 1 {
+                        write!(&mut self.buffer_line, "{}", self.border_style.inner_sep())?;
+                    } else {
+                        write!(&mut self.buffer_line, "{}", self.border_style.outer_sep())?;
+                    }
+                }
+
+                for i in 0..self.columns {
+                    write!(&mut self.buffer_line, "{0:1$}", "", 8)?;
+                    if i != self.columns - 1 {
+                        write!(&mut self.buffer_line, "{}", self.border_style.inner_sep())?;
+                    } else {
+                        writeln!(&mut self.buffer_line, "{}", self.border_style.outer_sep())?;
+                    }
+                }
             }
             SqueezeAction::Delete => self.buffer_line.clear(),
             SqueezeAction::Ignore => (),
@@ -484,7 +480,7 @@ mod tests {
 
     fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) {
         let mut output = vec![];
-        let mut printer = Printer::new(&mut output, false, true, true, BorderStyle::Unicode, true);
+        let mut printer = Printer::new(&mut output, false, true, true, BorderStyle::Unicode, true, 2);
 
         printer.print_all(input).unwrap();
 
@@ -529,7 +525,7 @@ mod tests {
 
         let mut output = vec![];
         let mut printer: Printer<Vec<u8>> =
-            Printer::new(&mut output, false, true, true, BorderStyle::Unicode, true);
+            Printer::new(&mut output, false, true, true, BorderStyle::Unicode, true, 2);
         printer.display_offset(0xdeadbeef);
 
         printer.print_all(input).unwrap();

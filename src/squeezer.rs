@@ -22,6 +22,7 @@ enum SqueezeState {
 pub struct Squeezer {
     state: SqueezeState,
     byte: u8,
+    lsize: u64,
 }
 
 #[derive(Debug, PartialEq)]
@@ -31,11 +32,8 @@ pub enum SqueezeAction {
     Delete,
 }
 
-/// line size
-const LSIZE: u64 = 16;
-
 impl Squeezer {
-    pub fn new(enabled: bool) -> Squeezer {
+    pub fn new(enabled: bool, lsize: u64) -> Squeezer {
         Squeezer {
             state: if enabled {
                 SqueezeState::Probe
@@ -43,6 +41,7 @@ impl Squeezer {
                 SqueezeState::Disabled
             },
             byte: 0,
+            lsize,
         }
     }
 
@@ -53,7 +52,7 @@ impl Squeezer {
         }
         let eq = b == self.byte;
 
-        if i % LSIZE == 0 {
+        if i % self.lsize == 0 {
             if !eq {
                 self.state = Probe;
             } else {
@@ -68,9 +67,9 @@ impl Squeezer {
                 };
             }
         } else if !eq {
-            if i % LSIZE == 1 {
+            if i % self.lsize == 1 {
                 self.state = Probe;
-            } else if i % LSIZE != 1 {
+            } else if i % self.lsize != 1 {
                 self.state = NoSqueeze;
             }
         }
@@ -111,13 +110,14 @@ impl Squeezer {
 mod tests {
     use super::*;
 
-    const LSIZE_USIZE: usize = LSIZE as usize;
+    const LSIZE: u64 = 16;
+    const LSIZE_USIZE: usize = 16;
 
     #[test]
     fn three_same_lines() {
         const LINES: usize = 3;
         let v = vec![0u8; LINES * LSIZE_USIZE];
-        let mut s = Squeezer::new(true);
+        let mut s = Squeezer::new(true, LSIZE);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
         s.advance();
@@ -144,7 +144,7 @@ mod tests {
     fn incomplete_while_squeeze() {
         // fourth line only has 12 bytes and should be printed
         let v = vec![0u8; 3 * LSIZE_USIZE + 12];
-        let mut s = Squeezer::new(true);
+        let mut s = Squeezer::new(true, LSIZE);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
         s.advance();
@@ -175,7 +175,7 @@ mod tests {
         v.extend(vec![1u8; 16]);
         v.extend(vec![2u8; 16]);
 
-        let mut s = Squeezer::new(true);
+        let mut s = Squeezer::new(true, LSIZE);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
         s.advance();
@@ -206,7 +206,7 @@ mod tests {
         let mut v = vec![0u8; (LINES - 1) * LSIZE_USIZE];
         v.extend(vec![1u8; 16]);
 
-        let mut s = Squeezer::new(true);
+        let mut s = Squeezer::new(true, LSIZE);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
         s.advance();
@@ -237,7 +237,7 @@ mod tests {
         v.extend(vec![0u8; 8]);
         v.extend(vec![1u8; 8]);
 
-        let mut s = Squeezer::new(true);
+        let mut s = Squeezer::new(true, LSIZE);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
         s.advance();
@@ -270,7 +270,7 @@ mod tests {
         v.extend(vec![0u8; 8]);
         v.extend(vec![1u8; 8]);
 
-        let mut s = Squeezer::new(true);
+        let mut s = Squeezer::new(true, LSIZE);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
         s.advance();
@@ -309,7 +309,7 @@ mod tests {
         v.extend(vec![20u8; 16]); // print
         v.extend(vec![0u8; 12]); // print, only 12 bytes
 
-        let mut s = Squeezer::new(true);
+        let mut s = Squeezer::new(true, LSIZE);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
         s.advance();
@@ -351,7 +351,7 @@ mod tests {
         v.extend(vec![20u8; 16]);
         v.extend(vec![20u8; 16]);
 
-        let mut s = Squeezer::new(true);
+        let mut s = Squeezer::new(true, LSIZE);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
         s.advance();
@@ -383,7 +383,7 @@ mod tests {
         v.extend(vec![20u8; 15]);
         v.extend(vec![20u8; 16]);
 
-        let mut s = Squeezer::new(true);
+        let mut s = Squeezer::new(true, LSIZE);
         // just initialized
         assert_eq!(s.action(), SqueezeAction::Ignore);
         s.advance();
