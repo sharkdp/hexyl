@@ -311,11 +311,16 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         if len < usize::from(8 * self.columns) {
             let _ = write!(&mut self.buffer_line, "{0:1$}", "", 8 - len % 8);
             for _ in 0..(usize::from(8 * self.columns) - (len + (8 - len % 8))) / 8 {
-                let _ = write!(&mut self.buffer_line, "{2}{0:1$}", "", 8, self.border_style.inner_sep());
+                let _ = write!(
+                    &mut self.buffer_line,
+                    "{2}{0:1$}",
+                    "",
+                    8,
+                    self.border_style.inner_sep()
+                );
             }
         }
         let _ = writeln!(&mut self.buffer_line, "{}", self.border_style.outer_sep());
-
     }
 
     pub fn print_byte(&mut self, b: u8) -> io::Result<()> {
@@ -348,11 +353,29 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.print_position_panel();
                 write!(&mut self.buffer_line, "{0:1$}", "", 24)?;
                 for _ in 0..self.columns - 1 {
-                    write!(&mut self.buffer_line, "{2}{0:1$}", "", 25, self.border_style.inner_sep())?;
+                    write!(
+                        &mut self.buffer_line,
+                        "{2}{0:1$}",
+                        "",
+                        25,
+                        self.border_style.inner_sep()
+                    )?;
                 }
-                write!(&mut self.buffer_line, "{2}{0:1$}", "", 8, self.border_style.outer_sep())?;
+                write!(
+                    &mut self.buffer_line,
+                    "{2}{0:1$}",
+                    "",
+                    8,
+                    self.border_style.outer_sep()
+                )?;
                 for _ in 0..self.columns - 1 {
-                    write!(&mut self.buffer_line, "{2}{0:1$}", "", 8, self.border_style.inner_sep())?;
+                    write!(
+                        &mut self.buffer_line,
+                        "{2}{0:1$}",
+                        "",
+                        8,
+                        self.border_style.inner_sep()
+                    )?;
                 }
                 writeln!(&mut self.buffer_line, "{}", self.border_style.outer_sep())?;
                 self.writer.write_all(&self.buffer_line)?;
@@ -368,7 +391,13 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 write!(&mut self.buffer_line, "{0:1$}", "", 3 * (8 - len % 8))?;
                 // dbg!(usize::from(8 * self.columns) - (len + (8 - len % 8)));
                 for _ in 0..(usize::from(8 * self.columns) - (len + (8 - len % 8))) / 8 {
-                    write!(&mut self.buffer_line, "{2}{0:1$}", "", 1 + 3 * 8, self.border_style.inner_sep())?;
+                    write!(
+                        &mut self.buffer_line,
+                        "{2}{0:1$}",
+                        "",
+                        1 + 3 * 8,
+                        self.border_style.inner_sep()
+                    )?;
                 }
             }
             write!(&mut self.buffer_line, "{}", self.border_style.outer_sep())?;
@@ -385,7 +414,14 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     String::from("*")
                 };
 
-                write!(&mut self.buffer_line, "{3}{0}{1:2$}{3}", asterisk, "", 7, self.border_style.outer_sep())?;
+                write!(
+                    &mut self.buffer_line,
+                    "{3}{0}{1:2$}{3}",
+                    asterisk,
+                    "",
+                    7,
+                    self.border_style.outer_sep()
+                )?;
 
                 for i in 0..self.columns {
                     write!(&mut self.buffer_line, "{0:1$}", "", 25)?;
@@ -480,7 +516,15 @@ mod tests {
 
     fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) {
         let mut output = vec![];
-        let mut printer = Printer::new(&mut output, false, true, true, BorderStyle::Unicode, true, 2);
+        let mut printer = Printer::new(
+            &mut output,
+            false,
+            true,
+            true,
+            BorderStyle::Unicode,
+            true,
+            2,
+        );
 
         printer.print_all(input).unwrap();
 
@@ -524,8 +568,15 @@ mod tests {
         .to_owned();
 
         let mut output = vec![];
-        let mut printer: Printer<Vec<u8>> =
-            Printer::new(&mut output, false, true, true, BorderStyle::Unicode, true, 2);
+        let mut printer: Printer<Vec<u8>> = Printer::new(
+            &mut output,
+            false,
+            true,
+            true,
+            BorderStyle::Unicode,
+            true,
+            2,
+        );
         printer.display_offset(0xdeadbeef);
 
         printer.print_all(input).unwrap();
