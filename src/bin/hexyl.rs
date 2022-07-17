@@ -4,7 +4,7 @@ extern crate clap;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{self, prelude::*, SeekFrom};
-use std::num::{NonZeroI64, NonZeroU16, NonZeroU8};
+use std::num::{NonZeroI64, NonZeroU16};
 
 use clap::{crate_name, crate_version, AppSettings, Arg, ColorChoice, Command};
 
@@ -308,7 +308,7 @@ fn run() -> Result<(), AnyhowError> {
     let columns = if let Some(columns) = matches
         .value_of("columns")
         .map(|s| {
-            s.parse::<NonZeroU8>().map(u8::from).context(anyhow!(
+            s.parse::<NonZeroU16>().map(u16::from).context(anyhow!(
                 "failed to parse `--columns` arg {:?} as unsigned nonzero integer",
                 s
             ))
@@ -340,9 +340,7 @@ fn run() -> Result<(), AnyhowError> {
             if (terminal_width - offset) / col_width < 1 {
                 1
             } else {
-                ((terminal_width - offset) / col_width)
-                    .try_into()
-                    .expect("there is a maximum of 255 columns")
+                (terminal_width - offset) / col_width
             }
         } else {
             2
