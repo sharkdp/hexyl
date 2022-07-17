@@ -4,7 +4,7 @@ extern crate clap;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{self, prelude::*, SeekFrom};
-use std::num::{NonZeroI64, NonZeroU8};
+use std::num::{NonZeroI64, NonZeroU16, NonZeroU8};
 
 use clap::{crate_name, crate_version, AppSettings, Arg, ColorChoice, Command};
 
@@ -15,6 +15,8 @@ use anyhow::{anyhow, Context, Error as AnyhowError};
 use const_format::formatcp;
 
 use thiserror::Error as ThisError;
+
+use terminal_size::terminal_size;
 
 use hexyl::{BorderStyle, Input, Printer};
 
@@ -160,6 +162,31 @@ fn run() -> Result<(), AnyhowError> {
                     "Sets the number of hex data columns to be displayed. \
                     Cannot be used with other width-setting options.",
                 ),
+        )
+        .arg(
+            Arg::new("terminal_width")
+                .short('t')
+                .long("terminal-width")
+                .takes_value(true)
+                .value_name("N")
+                .conflicts_with("columns")
+                .help(
+                    "Sets the number of terminal columns to be displayed.\nSince the terminal \
+                    width may not be an evenly divisible by the width per hex data column, this \
+                    will use the greatest number of hex data columns that can fit in the requested \
+                    width but still leave some space to the right.\nCannot be used with other \
+                    width-setting options.",
+                ),
+        )
+        .arg(
+            Arg::new("auto_width")
+                .short('a')
+                .long("auto-width")
+                .conflicts_with_all(&["columns", "terminal_width"])
+                .help(
+                    "Sets the number of hex data columns to be adjusted according to the \
+                    detected terminal width.\nCannot be used with other width-setting options.",
+                ),
         );
 
     let matches = command.get_matches();
@@ -278,7 +305,7 @@ fn run() -> Result<(), AnyhowError> {
         .transpose()?
         .unwrap_or(0);
 
-    let columns = matches
+    let columns = if let Some(columns) = matches
         .value_of("columns")
         .map(|s| {
             s.parse::<NonZeroU8>().map(u8::from).context(anyhow!(
@@ -287,7 +314,40 @@ fn run() -> Result<(), AnyhowError> {
             ))
         })
         .transpose()?
-        .unwrap_or(2);
+    {
+        columns
+    } else {
+        let terminal_width = if let Some(terminal_width) = matches
+            .value_of("terminal_width")
+            .map(|s| {
+                s.parse::<NonZeroU16>().map(u16::from).context(anyhow!(
+                    "failed to parse `--columns` arg {:?} as unsigned nonzero integer",
+                    s
+                ))
+            })
+            .transpose()?
+        {
+            Some(terminal_width)
+        } else if matches.is_present("auto_width") {
+            Some(terminal_size().expect("not a tty").0 .0)
+        } else {
+            None
+        };
+
+        if let Some(terminal_width) = terminal_width {
+            let offset = if show_position_panel { 10 } else { 1 };
+            let col_width = if show_char_panel { 35 } else { 26 };
+            if (terminal_width - offset) / col_width < 1 {
+                1
+            } else {
+                ((terminal_width - offset) / col_width)
+                    .try_into()
+                    .expect("there is a maximum of 255 columns")
+            }
+        } else {
+            2
+        }
+    };
 
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
