@@ -329,7 +329,7 @@ fn run() -> Result<(), AnyhowError> {
         {
             Some(terminal_width)
         } else if matches.is_present("auto_width") {
-            Some(terminal_size().expect("not a tty").0 .0)
+            Some(terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0)
         } else {
             None
         };
