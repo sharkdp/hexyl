@@ -111,7 +111,7 @@ mod tests {
     use super::*;
 
     const LSIZE: u64 = 16;
-    const LSIZE_USIZE: usize = 16;
+    const LSIZE_USIZE: usize = LSIZE as usize;
 
     #[test]
     fn three_same_lines() {
