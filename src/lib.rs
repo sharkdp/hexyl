@@ -301,7 +301,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.byte_char_panel[b as usize]
             );
 
-            if idx % 8 == 0 && idx % (u64::from(self.columns * 8)) != 0 {
+            if idx % 8 == 0 && idx % (u64::from(self.columns) * 8) != 0 {
                 let _ = write!(&mut self.buffer_line, "{}", self.border_style.inner_sep());
             }
 
@@ -324,7 +324,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     }
 
     pub fn print_byte(&mut self, b: u8) -> io::Result<()> {
-        if self.idx % u64::from(self.columns * 8) == 1 {
+        if self.idx % (u64::from(self.columns) * 8) == 1 {
             self.print_header();
             self.print_position_panel();
         }
@@ -334,7 +334,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         self.squeezer.process(b, self.idx);
 
-        if self.idx % u64::from(self.columns * 8) == 0 {
+        if self.idx % (u64::from(self.columns) * 8) == 0 {
             self.print_textline()?;
         } else if self.idx % 8 == 0 {
             let _ = write!(&mut self.buffer_line, "{} ", self.border_style.inner_sep());
