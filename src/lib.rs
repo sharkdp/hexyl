@@ -155,7 +155,7 @@ pub struct Printer<'a, Writer: Write> {
     squeezer: Squeezer,
     display_offset: u64,
     /// The number of panels to draw.
-    columns: u8,
+    columns: u16,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -166,7 +166,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         show_position_panel: bool,
         border_style: BorderStyle,
         use_squeeze: bool,
-        columns: u8,
+        columns: u16,
     ) -> Printer<'a, Writer> {
         Printer {
             idx: 1,
@@ -389,7 +389,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         if squeeze_action != SqueezeAction::Delete {
             if len < usize::from(8 * self.columns) {
                 write!(&mut self.buffer_line, "{0:1$}", "", 3 * (8 - len % 8))?;
-                // dbg!(usize::from(8 * self.columns) - (len + (8 - len % 8)));
                 for _ in 0..(usize::from(8 * self.columns) - (len + (8 - len % 8))) / 8 {
                     write!(
                         &mut self.buffer_line,
