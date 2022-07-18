@@ -160,7 +160,8 @@ fn run() -> Result<(), AnyhowError> {
                 .value_name("N")
                 .help(
                     "Sets the number of hex data columns to be displayed. \
-                    Cannot be used with other width-setting options.",
+                    `--columns=auto` will display the maximum number of hex data columns \
+                    based on the current terminal width",
                 ),
         )
         .arg(
@@ -176,16 +177,6 @@ fn run() -> Result<(), AnyhowError> {
                     will use the greatest number of hex data columns that can fit in the requested \
                     width but still leave some space to the right.\nCannot be used with other \
                     width-setting options.",
-                ),
-        )
-        .arg(
-            Arg::new("auto_width")
-                .short('a')
-                .long("auto-width")
-                .conflicts_with_all(&["columns", "terminal_width"])
-                .help(
-                    "Sets the number of hex data columns to be adjusted according to the \
-                    detected terminal width.\nCannot be used with other width-setting options.",
                 ),
         );
 
@@ -305,7 +296,19 @@ fn run() -> Result<(), AnyhowError> {
         .transpose()?
         .unwrap_or(0);
 
-    let columns = if let Some(columns) = matches
+    let max_columns_fn = |terminal_width: u16| {
+        let offset = if show_position_panel { 10 } else { 1 };
+        let col_width = if show_char_panel { 35 } else { 26 };
+        if (terminal_width - offset) / col_width < 1 {
+            1
+        } else {
+            (terminal_width - offset) / col_width
+        }
+    };
+
+    let columns = if matches.value_of("columns") == Some("auto") {
+        max_columns_fn(terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0)
+    } else if let Some(columns) = matches
         .value_of("columns")
         .map(|s| {
             s.parse::<NonZeroU16>().map(u16::from).context(anyhow!(
@@ -316,8 +319,7 @@ fn run() -> Result<(), AnyhowError> {
         .transpose()?
     {
         columns
-    } else {
-        let terminal_width = if let Some(terminal_width) = matches
+    } else if let Some(terminal_width) = matches
             .value_of("terminal_width")
             .map(|s| {
                 s.parse::<NonZeroU16>().map(u16::from).context(anyhow!(
@@ -327,24 +329,9 @@ fn run() -> Result<(), AnyhowError> {
             })
             .transpose()?
         {
-            Some(terminal_width)
-        } else if matches.is_present("auto_width") {
-            Some(terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0)
-        } else {
-            None
-        };
-
-        if let Some(terminal_width) = terminal_width {
-            let offset = if show_position_panel { 10 } else { 1 };
-            let col_width = if show_char_panel { 35 } else { 26 };
-            if (terminal_width - offset) / col_width < 1 {
-                1
-            } else {
-                (terminal_width - offset) / col_width
-            }
+        max_columns_fn(terminal_width)
         } else {
             2
-        }
     };
 
     let stdout = io::stdout();
