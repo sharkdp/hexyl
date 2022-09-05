@@ -153,14 +153,14 @@ fn run() -> Result<(), AnyhowError> {
                 ),
         )
         .arg(
-            Arg::new("columns")
-                .short('w')
-                .long("columns")
+            Arg::new("panels")
+                .short('p')
+                .long("panels")
                 .takes_value(true)
                 .value_name("N")
                 .help(
-                    "Sets the number of hex data columns to be displayed. \
-                    `--columns=auto` will display the maximum number of hex data columns \
+                    "Sets the number of hex data panels to be displayed. \
+                    `--panels=auto` will display the maximum number of hex data panels \
                     based on the current terminal width",
                 ),
         )
@@ -170,11 +170,11 @@ fn run() -> Result<(), AnyhowError> {
                 .long("terminal-width")
                 .takes_value(true)
                 .value_name("N")
-                .conflicts_with("columns")
+                .conflicts_with("panels")
                 .help(
                     "Sets the number of terminal columns to be displayed.\nSince the terminal \
                     width may not be an evenly divisible by the width per hex data column, this \
-                    will use the greatest number of hex data columns that can fit in the requested \
+                    will use the greatest number of hex data panels that can fit in the requested \
                     width but still leave some space to the right.\nCannot be used with other \
                     width-setting options.",
                 ),
@@ -296,7 +296,7 @@ fn run() -> Result<(), AnyhowError> {
         .transpose()?
         .unwrap_or(0);
 
-    let max_columns_fn = |terminal_width: u16| {
+    let max_panels_fn = |terminal_width: u16| {
         let offset = if show_position_panel { 10 } else { 1 };
         let col_width = if show_char_panel { 35 } else { 26 };
         if (terminal_width - offset) / col_width < 1 {
@@ -306,32 +306,32 @@ fn run() -> Result<(), AnyhowError> {
         }
     };
 
-    let columns = if matches.value_of("columns") == Some("auto") {
-        max_columns_fn(terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0)
-    } else if let Some(columns) = matches
-        .value_of("columns")
+    let panels = if matches.value_of("panels") == Some("auto") {
+        max_panels_fn(terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0)
+    } else if let Some(panels) = matches
+        .value_of("panels")
         .map(|s| {
             s.parse::<NonZeroU16>().map(u16::from).context(anyhow!(
-                "failed to parse `--columns` arg {:?} as unsigned nonzero integer",
+                "failed to parse `--panels` arg {:?} as unsigned nonzero integer",
                 s
             ))
         })
         .transpose()?
     {
-        columns
+        panels
     } else if let Some(terminal_width) = matches
-            .value_of("terminal_width")
-            .map(|s| {
-                s.parse::<NonZeroU16>().map(u16::from).context(anyhow!(
+        .value_of("terminal_width")
+        .map(|s| {
+            s.parse::<NonZeroU16>().map(u16::from).context(anyhow!(
                 "failed to parse `--terminal-width` arg {:?} as unsigned nonzero integer",
-                    s
-                ))
-            })
-            .transpose()?
-        {
-        max_columns_fn(terminal_width)
-        } else {
-            2
+                s
+            ))
+        })
+        .transpose()?
+    {
+        max_panels_fn(terminal_width)
+    } else {
+        2
     };
 
     let stdout = io::stdout();
@@ -344,7 +344,7 @@ fn run() -> Result<(), AnyhowError> {
         show_position_panel,
         border_style,
         squeeze,
-        columns,
+        panels,
     );
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
