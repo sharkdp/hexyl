@@ -155,7 +155,7 @@ pub struct Printer<'a, Writer: Write> {
     squeezer: Squeezer,
     display_offset: u64,
     /// The number of panels to draw.
-    columns: u16,
+    panels: u16,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -166,7 +166,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         show_position_panel: bool,
         border_style: BorderStyle,
         use_squeeze: bool,
-        columns: u16,
+        panels: u16,
     ) -> Printer<'a, Writer> {
         Printer {
             idx: 1,
@@ -202,9 +202,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                         .collect()
                 })
                 .unwrap_or_default(),
-            squeezer: Squeezer::new(use_squeeze, 8 * columns as u64),
+            squeezer: Squeezer::new(use_squeeze, 8 * panels as u64),
             display_offset: 0,
-            columns,
+            panels,
         }
     }
 
@@ -227,7 +227,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             write!(self.writer, "{}", l).ok();
         }
 
-        for _ in 0..self.columns - 1 {
+        for _ in 0..self.panels - 1 {
             write!(self.writer, "{h25}{c}", h25 = h25, c = c).ok();
         }
         if self.show_char_panel {
@@ -237,7 +237,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
 
         if self.show_char_panel {
-            for _ in 0..self.columns - 1 {
+            for _ in 0..self.panels - 1 {
                 write!(self.writer, "{h8}{c}", h8 = h8, c = c).ok();
             }
             writeln!(self.writer, "{h8}{r}", h8 = h8, r = r).ok();
@@ -301,16 +301,16 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.byte_char_panel[b as usize]
             );
 
-            if idx % 8 == 0 && idx % (u64::from(self.columns) * 8) != 0 {
+            if idx % 8 == 0 && idx % (u64::from(self.panels) * 8) != 0 {
                 let _ = write!(&mut self.buffer_line, "{}", self.border_style.inner_sep());
             }
 
             idx += 1;
         }
 
-        if len < usize::from(8 * self.columns) {
+        if len < usize::from(8 * self.panels) {
             let _ = write!(&mut self.buffer_line, "{0:1$}", "", 8 - len % 8);
-            for _ in 0..(usize::from(8 * self.columns) - (len + (8 - len % 8))) / 8 {
+            for _ in 0..(usize::from(8 * self.panels) - (len + (8 - len % 8))) / 8 {
                 let _ = write!(
                     &mut self.buffer_line,
                     "{2}{0:1$}",
@@ -324,7 +324,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     }
 
     pub fn print_byte(&mut self, b: u8) -> io::Result<()> {
-        if self.idx % (u64::from(self.columns) * 8) == 1 {
+        if self.idx % (u64::from(self.panels) * 8) == 1 {
             self.print_header();
             self.print_position_panel();
         }
@@ -334,7 +334,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         self.squeezer.process(b, self.idx);
 
-        if self.idx % (u64::from(self.columns) * 8) == 0 {
+        if self.idx % (u64::from(self.panels) * 8) == 0 {
             self.print_textline()?;
         } else if self.idx % 8 == 0 {
             let _ = write!(&mut self.buffer_line, "{} ", self.border_style.inner_sep());
@@ -352,7 +352,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             if self.squeezer.active() {
                 self.print_position_panel();
                 write!(&mut self.buffer_line, "{0:1$}", "", 24)?;
-                for _ in 0..self.columns - 1 {
+                for _ in 0..self.panels - 1 {
                     write!(
                         &mut self.buffer_line,
                         "{2}{0:1$}",
@@ -368,7 +368,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     8,
                     self.border_style.outer_sep()
                 )?;
-                for _ in 0..self.columns - 1 {
+                for _ in 0..self.panels - 1 {
                     write!(
                         &mut self.buffer_line,
                         "{2}{0:1$}",
@@ -387,9 +387,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         // print empty space on last line
         if squeeze_action != SqueezeAction::Delete {
-            if len < usize::from(8 * self.columns) {
+            if len < usize::from(8 * self.panels) {
                 write!(&mut self.buffer_line, "{0:1$}", "", 3 * (8 - len % 8))?;
-                for _ in 0..(usize::from(8 * self.columns) - (len + (8 - len % 8))) / 8 {
+                for _ in 0..(usize::from(8 * self.panels) - (len + (8 - len % 8))) / 8 {
                     write!(
                         &mut self.buffer_line,
                         "{2}{0:1$}",
@@ -422,18 +422,18 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     self.border_style.outer_sep()
                 )?;
 
-                for i in 0..self.columns {
+                for i in 0..self.panels {
                     write!(&mut self.buffer_line, "{0:1$}", "", 25)?;
-                    if i != self.columns - 1 {
+                    if i != self.panels - 1 {
                         write!(&mut self.buffer_line, "{}", self.border_style.inner_sep())?;
                     } else {
                         write!(&mut self.buffer_line, "{}", self.border_style.outer_sep())?;
                     }
                 }
 
-                for i in 0..self.columns {
+                for i in 0..self.panels {
                     write!(&mut self.buffer_line, "{0:1$}", "", 8)?;
-                    if i != self.columns - 1 {
+                    if i != self.panels - 1 {
                         write!(&mut self.buffer_line, "{}", self.border_style.inner_sep())?;
                     } else {
                         writeln!(&mut self.buffer_line, "{}", self.border_style.outer_sep())?;
@@ -585,7 +585,7 @@ mod tests {
     }
 
     #[test]
-    fn multiple_columns() {
+    fn multiple_panels() {
         let input = io::Cursor::new(b"supercalifragilisticexpialidocioussupercalifragilisticexpialidocioussupercalifragilisticexpialidocious");
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬────────┬────────┬────────┬────────┐
