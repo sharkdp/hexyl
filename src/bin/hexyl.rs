@@ -154,7 +154,7 @@ fn run() -> Result<(), AnyhowError> {
         )
         .arg(
             Arg::new("panels")
-                .short('p')
+                .short('w')
                 .long("panels")
                 .takes_value(true)
                 .value_name("N")
