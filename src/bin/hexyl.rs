@@ -323,7 +323,7 @@ fn run() -> Result<(), AnyhowError> {
             .value_of("terminal_width")
             .map(|s| {
                 s.parse::<NonZeroU16>().map(u16::from).context(anyhow!(
-                    "failed to parse `--columns` arg {:?} as unsigned nonzero integer",
+                "failed to parse `--terminal-width` arg {:?} as unsigned nonzero integer",
                     s
                 ))
             })
