@@ -154,7 +154,6 @@ fn run() -> Result<(), AnyhowError> {
         )
         .arg(
             Arg::new("panels")
-                .short('w')
                 .long("panels")
                 .takes_value(true)
                 .value_name("N")
@@ -166,7 +165,6 @@ fn run() -> Result<(), AnyhowError> {
         )
         .arg(
             Arg::new("terminal_width")
-                .short('t')
                 .long("terminal-width")
                 .takes_value(true)
                 .value_name("N")
