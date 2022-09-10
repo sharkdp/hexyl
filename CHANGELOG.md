@@ -5,6 +5,7 @@
 
 ## Features
 
+- Added variable panels through the `--panels` and `--terminal-width` flags, see [#13](https://github.com/sharkdp/hexyl/issues/13) and [#164](https://github.com/sharkdp/hexyl/pull/164) (@sharifhsn)
 
 ## Bugfixes
 
