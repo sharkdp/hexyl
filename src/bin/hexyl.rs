@@ -18,7 +18,7 @@ use thiserror::Error as ThisError;
 
 use terminal_size::terminal_size;
 
-use hexyl::{BorderStyle, Input, Printer};
+use hexyl::{BorderStyle, Input, PrinterBuilder};
 
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
@@ -335,15 +335,14 @@ fn run() -> Result<(), AnyhowError> {
     let stdout = io::stdout();
     let mut stdout_lock = stdout.lock();
 
-    let mut printer = Printer::new(
-        &mut stdout_lock,
-        show_color,
-        show_char_panel,
-        show_position_panel,
-        border_style,
-        squeeze,
-        panels,
-    );
+    let mut printer = PrinterBuilder::new(&mut stdout_lock)
+        .show_color(show_color)
+        .show_char_panel(show_char_panel)
+        .show_position_panel(show_position_panel)
+        .with_border_style(border_style)
+        .with_squeeze(squeeze)
+        .with_panels(panels)
+        .build();
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
 
