@@ -1,6 +1,6 @@
 use std::io;
 
-use hexyl::{BorderStyle, Printer};
+use hexyl::{BorderStyle, PrinterBuilder};
 
 fn main() {
     let input = vec![
@@ -16,16 +16,15 @@ fn main() {
     let show_position_panel = true;
     let use_squeezing = false;
     let border_style = BorderStyle::Unicode;
-    let columns = 2;
+    let panels = 2;
 
-    let mut printer = Printer::new(
-        &mut handle,
-        show_color,
-        show_char_panel,
-        show_position_panel,
-        border_style,
-        use_squeezing,
-        columns,
-    );
+    let mut printer = PrinterBuilder::new(&mut handle)
+        .show_color(show_color)
+        .show_char_panel(show_char_panel)
+        .show_position_panel(show_position_panel)
+        .with_border_style(border_style)
+        .with_squeeze(use_squeezing)
+        .with_panels(panels)
+        .build();
     printer.print_all(&input[..]).unwrap();
 }

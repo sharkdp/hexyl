@@ -78,6 +78,7 @@ struct BorderElements {
     right_corner: char,
 }
 
+#[derive(Clone, Copy)]
 pub enum BorderStyle {
     Unicode,
     Ascii,
@@ -138,6 +139,77 @@ impl BorderStyle {
     }
 }
 
+pub struct PrinterBuilder<'a, Writer: Write> {
+    writer: &'a mut Writer,
+    show_color: bool,
+    show_char_panel: bool,
+    show_position_panel: bool,
+    border_style: BorderStyle,
+    use_squeeze: bool,
+    panels: u16,
+}
+
+impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
+    pub fn new(writer: &'a mut Writer) -> Self {
+        PrinterBuilder {
+            writer,
+            show_color: true,
+            show_char_panel: true,
+            show_position_panel: true,
+            border_style: BorderStyle::Unicode,
+            use_squeeze: true,
+            panels: 2,
+        }
+    }
+
+    pub fn with_writer(mut self, writer: &'a mut Writer) -> PrinterBuilder<'a, Writer> {
+        self.writer = writer;
+        self
+    }
+
+    pub fn show_color(mut self, show_color: bool) -> Self {
+        self.show_color = show_color;
+        self
+    }
+
+    pub fn show_char_panel(mut self, show_char_panel: bool) -> Self {
+        self.show_char_panel = show_char_panel;
+        self
+    }
+
+    pub fn show_position_panel(mut self, show_position_panel: bool) -> Self {
+        self.show_position_panel = show_position_panel;
+        self
+    }
+
+    pub fn with_border_style(mut self, border_style: BorderStyle) -> Self {
+        self.border_style = border_style;
+        self
+    }
+
+    pub fn with_squeeze(mut self, use_squeeze: bool) -> Self {
+        self.use_squeeze = use_squeeze;
+        self
+    }
+
+    pub fn with_panels(mut self, panels: u16) -> Self {
+        self.panels = panels;
+        self
+    }
+
+    pub fn build(self) -> Printer<'a, Writer> {
+        Printer::new(
+            self.writer,
+            self.show_color,
+            self.show_char_panel,
+            self.show_position_panel,
+            self.border_style,
+            self.use_squeeze,
+            self.panels,
+        )
+    }
+}
+
 pub struct Printer<'a, Writer: Write> {
     idx: u64,
     /// The raw bytes used as input for the current line.
@@ -159,7 +231,7 @@ pub struct Printer<'a, Writer: Write> {
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
-    pub fn new(
+    fn new(
         writer: &'a mut Writer,
         show_color: bool,
         show_char_panel: bool,
