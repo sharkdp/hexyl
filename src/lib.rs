@@ -61,7 +61,7 @@ impl Byte {
         use crate::ByteCategory::*;
 
         match self.category() {
-            Null => '0',
+            Null => '•',
             AsciiPrintable => self.0 as char,
             AsciiWhitespace if self.0 == 0x20 => ' ',
             AsciiWhitespace => '_',
