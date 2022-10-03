@@ -18,6 +18,7 @@ fn main() {
         .with_border_style(BorderStyle::Unicode)
         .enable_squeezing(false)
         .num_panels(2)
+        .num_group_bytes(1)
         .build();
     printer.print_all(&input[..]).unwrap();
 }
