@@ -4,7 +4,7 @@ extern crate clap;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{self, prelude::*, BufWriter, SeekFrom};
-use std::num::{NonZeroI64, NonZeroU64};
+use std::num::{NonZeroI64, NonZeroU64, NonZeroU8};
 
 use clap::{crate_name, crate_version, AppSettings, Arg, ColorChoice, Command};
 
@@ -161,6 +161,17 @@ fn run() -> Result<(), AnyhowError> {
                     "Sets the number of hex data panels to be displayed. \
                     `--panels=auto` will display the maximum number of hex data panels \
                     based on the current terminal width",
+                ),
+        )
+        .arg(
+            Arg::new("group_bytes")
+                .short('g')
+                .takes_value(true)
+                .value_name("N")
+                .help(
+                    "Sets the number of octets per group to be displayed. \
+                    The possible option will be 1, 2, 4, 8, otherwise it will be set \
+                    to 1 by default.",
                 ),
         )
         .arg(
@@ -332,6 +343,25 @@ fn run() -> Result<(), AnyhowError> {
         2
     };
 
+    let group_bytes = if let Some(group_bytes) = matches
+        .value_of("group_bytes")
+        .map(|s| {
+            s.parse::<NonZeroU8>().map(u8::from).context(anyhow!(
+                "failed to parse `-g` arg {:?} as unsigned nonzero integer",
+                s
+            ))
+        })
+        .transpose()?
+    {
+        if (group_bytes <= 8) && ((group_bytes & (group_bytes - 1)) == 0) {
+            group_bytes
+        } else {
+            1
+        }
+    } else {
+        1
+    };
+
     let stdout = io::stdout();
     let mut stdout_lock = BufWriter::new(stdout.lock());
 
@@ -342,6 +372,7 @@ fn run() -> Result<(), AnyhowError> {
         .with_border_style(border_style)
         .enable_squeezing(squeeze)
         .num_panels(panels)
+        .num_group_bytes(group_bytes)
         .build();
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;

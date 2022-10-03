@@ -150,6 +150,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     border_style: BorderStyle,
     use_squeeze: bool,
     panels: u64,
+    group_bytes: u8,
 }
 
 impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
@@ -162,6 +163,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             border_style: BorderStyle::Unicode,
             use_squeeze: true,
             panels: 2,
+            group_bytes: 1,
         }
     }
 
@@ -195,6 +197,11 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
+    pub fn num_group_bytes(mut self, num: u8) -> Self {
+        self.group_bytes = num;
+        self
+    }
+
     pub fn build(self) -> Printer<'a, Writer> {
         Printer::new(
             self.writer,
@@ -204,6 +211,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             self.border_style,
             self.use_squeeze,
             self.panels,
+            self.group_bytes,
         )
     }
 }
@@ -226,6 +234,8 @@ pub struct Printer<'a, Writer: Write> {
     /// The number of panels to draw.
     panels: u64,
     squeeze_byte: usize,
+    /// The number of octets per group.
+    group_bytes: u8,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -237,6 +247,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         border_style: BorderStyle,
         use_squeeze: bool,
         panels: u64,
+        group_bytes: u8,
     ) -> Printer<'a, Writer> {
         Printer {
             idx: 0,
@@ -295,6 +306,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             display_offset: 0,
             panels,
             squeeze_byte: 0x00,
+            group_bytes,
         }
     }
 
@@ -303,13 +315,21 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         self
     }
 
+    fn panel_sz(&self) -> usize {
+        // add one to include the trailing space of a group
+        let group_sz = 2 * self.group_bytes as usize + 1;
+        let group_per_panel = 8 / self.group_bytes as usize;
+        // add one to include the leading space
+        1 + group_sz * group_per_panel
+    }
+
     fn write_border(&mut self, border_elements: BorderElements) -> io::Result<()> {
         let h = border_elements.horizontal_line;
         let c = border_elements.column_separator;
         let l = border_elements.left_corner;
         let r = border_elements.right_corner;
         let h8 = h.to_string().repeat(8);
-        let h25 = h.to_string().repeat(25);
+        let h_repeat = h.to_string().repeat(self.panel_sz());
 
         if self.show_position_panel {
             write!(self.writer, "{l}{h8}{c}", l = l, c = c, h8 = h8).ok();
@@ -318,12 +338,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
 
         for _ in 0..self.panels - 1 {
-            write!(self.writer, "{h25}{c}", h25 = h25, c = c).ok();
+            write!(self.writer, "{h_repeat}{c}", h_repeat = h_repeat, c = c).ok();
         }
         if self.show_char_panel {
-            write!(self.writer, "{h25}{c}", h25 = h25, c = c).ok();
+            write!(self.writer, "{h_repeat}{c}", h_repeat = h_repeat, c = c).ok();
         } else {
-            write!(self.writer, "{h25}", h25 = h25).ok();
+            write!(self.writer, "{h_repeat}", h_repeat = h_repeat).ok();
         }
 
         if self.show_char_panel {
@@ -433,13 +453,17 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     self.writer
                         .write_all(self.byte_char_panel_g[b'*' as usize].as_bytes())?;
                 } else {
-                    self.writer.write_all(b" ")?;
+                    if i % (self.group_bytes as usize) == 0 {
+                        self.writer.write_all(b" ")?;
+                    }
                 }
                 self.writer.write_all(b"  ")?;
             }
             Squeezer::Delete => self.writer.write_all(b"   ")?,
             Squeezer::Ignore | Squeezer::Disabled => {
-                self.writer.write_all(b" ")?;
+                if i % (self.group_bytes as usize) == 0 {
+                    self.writer.write_all(b" ")?;
+                }
                 self.writer
                     .write_all(self.byte_hex_panel[b as usize].as_bytes())?;
             }
@@ -562,8 +586,11 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
             write!(
                 self.writer,
-                "{0:2}{1:24}{0}{0:>26}",
-                "│", "No content to print"
+                "{0:2}{1:2$}{0}{0:>3$}",
+                "│",
+                "No content",
+                self.panel_sz() - 1,
+                self.panel_sz() + 1,
             )?;
             if self.show_char_panel {
                 write!(self.writer, "{0:>9}{0:>9}", "│")?;
@@ -614,6 +641,7 @@ mod tests {
             BorderStyle::Unicode,
             true,
             2,
+            1,
         );
 
         printer.print_all(input).unwrap();
@@ -627,7 +655,7 @@ mod tests {
         let input = io::empty();
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
-│        │ No content to print     │                         │        │        │
+│        │ No content              │                         │        │        │
 └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
 "
         .to_owned();
@@ -666,6 +694,7 @@ mod tests {
             BorderStyle::Unicode,
             true,
             2,
+            1,
         );
         printer.display_offset(0xdeadbeef);
 
@@ -697,6 +726,7 @@ mod tests {
             BorderStyle::Unicode,
             true,
             4,
+            1,
         );
 
         printer.print_all(input).unwrap();
@@ -754,6 +784,7 @@ mod tests {
             BorderStyle::Unicode,
             true,
             3,
+            1,
         );
 
         printer.print_all(input).unwrap();
