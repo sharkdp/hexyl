@@ -169,12 +169,12 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::new("group_bytes")
                 .short('g')
+                .long("group-bytes")
                 .num_args(1)
                 .value_name("N")
                 .help(
                     "Sets the number of octets per group to be displayed. \
-                    The possible option will be 1, 2, 4, 8, otherwise it will be set \
-                    to 1 by default.",
+                    The possible options are 1, 2, 4, 8. The default is 1",
                 ),
         )
         .arg(
@@ -352,7 +352,7 @@ fn run() -> Result<(), AnyhowError> {
         .get_one::<String>("group_bytes")
         .map(|s| {
             s.parse::<NonZeroU8>().map(u8::from).context(anyhow!(
-                "failed to parse `-g` arg {:?} as unsigned nonzero integer",
+                "failed to parse `--group-bytes` arg {:?} as unsigned nonzero integer",
                 s
             ))
         })
@@ -361,7 +361,9 @@ fn run() -> Result<(), AnyhowError> {
         if (group_bytes <= 8) && ((group_bytes & (group_bytes - 1)) == 0) {
             group_bytes
         } else {
-            1
+            return Err(anyhow!(
+                "the possible options of group_bytes could only be 1, 2, 4 or 8. "
+            ));
         }
     } else {
         1
