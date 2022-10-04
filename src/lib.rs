@@ -162,11 +162,6 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         }
     }
 
-    pub fn with_writer(mut self, writer: &'a mut Writer) -> PrinterBuilder<'a, Writer> {
-        self.writer = writer;
-        self
-    }
-
     pub fn show_color(mut self, show_color: bool) -> Self {
         self.show_color = show_color;
         self
