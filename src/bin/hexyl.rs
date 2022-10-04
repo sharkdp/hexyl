@@ -340,7 +340,7 @@ fn run() -> Result<(), AnyhowError> {
         .show_char_panel(show_char_panel)
         .show_position_panel(show_position_panel)
         .with_border_style(border_style)
-        .with_squeeze(squeeze)
+        .enable_squeezing(squeeze)
         .with_panels(panels)
         .build();
     printer.display_offset(skip_offset + display_offset);

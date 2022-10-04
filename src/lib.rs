@@ -182,8 +182,8 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
-    pub fn with_squeeze(mut self, use_squeeze: bool) -> Self {
-        self.use_squeeze = use_squeeze;
+    pub fn enable_squeezing(mut self, enable: bool) -> Self {
+        self.use_squeeze = enable;
         self
     }
 
