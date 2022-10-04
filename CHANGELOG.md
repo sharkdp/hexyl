@@ -5,6 +5,8 @@
 
 ## Features
 
+- Breaking change (library): `Printer::new` is deprecated as a part of the public API. Alternatively, you can now construct a `Printer` using the `PrinterBuilder` builder API, see [#168](https://github.com/sharkdp/hexyl/pull/168). (@sharifhsn)
+
 - Added variable panels through the `--panels` and `--terminal-width` flags, see [#13](https://github.com/sharkdp/hexyl/issues/13) and [#164](https://github.com/sharkdp/hexyl/pull/164) (@sharifhsn)
 
 ## Bugfixes
