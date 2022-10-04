@@ -11,20 +11,13 @@ fn main() {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
 
-    let show_color = true;
-    let show_char_panel = true;
-    let show_position_panel = true;
-    let use_squeezing = false;
-    let border_style = BorderStyle::Unicode;
-    let panels = 2;
-
     let mut printer = PrinterBuilder::new(&mut handle)
-        .show_color(show_color)
-        .show_char_panel(show_char_panel)
-        .show_position_panel(show_position_panel)
-        .with_border_style(border_style)
-        .with_squeeze(use_squeezing)
-        .with_panels(panels)
+        .show_color(true)
+        .show_char_panel(true)
+        .show_position_panel(true)
+        .with_border_style(BorderStyle::Unicode)
+        .with_squeeze(false)
+        .with_panels(2)
         .build();
     printer.print_all(&input[..]).unwrap();
 }
