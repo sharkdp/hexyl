@@ -341,7 +341,7 @@ fn run() -> Result<(), AnyhowError> {
         .show_position_panel(show_position_panel)
         .with_border_style(border_style)
         .enable_squeezing(squeeze)
-        .with_panels(panels)
+        .num_panels(panels)
         .build();
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;

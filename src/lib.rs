@@ -187,8 +187,8 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
-    pub fn with_panels(mut self, panels: u16) -> Self {
-        self.panels = panels;
+    pub fn num_panels(mut self, num: u16) -> Self {
+        self.panels = num;
         self
     }
 
