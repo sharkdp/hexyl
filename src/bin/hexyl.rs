@@ -3,7 +3,7 @@ extern crate clap;
 
 use std::convert::TryFrom;
 use std::fs::File;
-use std::io::{self, prelude::*, SeekFrom};
+use std::io::{self, prelude::*, BufWriter, SeekFrom};
 use std::num::{NonZeroI64, NonZeroU16};
 
 use clap::{crate_name, crate_version, AppSettings, Arg, ColorChoice, Command};
@@ -333,7 +333,7 @@ fn run() -> Result<(), AnyhowError> {
     };
 
     let stdout = io::stdout();
-    let mut stdout_lock = stdout.lock();
+    let mut stdout_lock = BufWriter::new(stdout.lock());
 
     let mut printer = PrinterBuilder::new(&mut stdout_lock)
         .show_color(show_color)

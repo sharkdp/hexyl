@@ -25,7 +25,7 @@ pub struct Squeezer {
     lsize: u64,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum SqueezeAction {
     Ignore,
     Print,
