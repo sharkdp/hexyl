@@ -3,14 +3,12 @@ pub mod squeezer;
 
 pub use input::*;
 
-use std::io::{self, Read, Write};
+use std::io::{self, BufReader, Read, Write};
 
 use ansi_term::Color;
 use ansi_term::Color::Fixed;
 
 use crate::squeezer::{SqueezeAction, Squeezer};
-
-const BUFFER_SIZE: usize = 256;
 
 const COLOR_NULL: Color = Fixed(242); // grey
 const COLOR_OFFSET: Color = Fixed(242); // grey
@@ -207,16 +205,13 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
 
 pub struct Printer<'a, Writer: Write> {
     idx: u64,
-    /// The raw bytes used as input for the current line.
-    raw_line: Vec<u8>,
-    /// The buffered line built with each byte, ready to print to writer.
-    buffer_line: Vec<u8>,
+    /// the buffer containing all the bytes in a line for character printing
+    line_buf: Vec<u8>,
     writer: &'a mut Writer,
     show_color: bool,
     show_char_panel: bool,
     show_position_panel: bool,
     border_style: BorderStyle,
-    header_was_printed: bool,
     byte_hex_panel: Vec<String>,
     byte_char_panel: Vec<String>,
     squeezer: Squeezer,
@@ -236,18 +231,16 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         panels: u16,
     ) -> Printer<'a, Writer> {
         Printer {
-            idx: 1,
-            raw_line: vec![],
-            buffer_line: vec![],
+            idx: 0,
+            line_buf: vec![],
             writer,
             show_color,
             show_char_panel,
             show_position_panel,
             border_style,
-            header_was_printed: false,
             byte_hex_panel: (0u8..=u8::MAX)
                 .map(|i| {
-                    let byte_hex = format!("{:02x} ", i);
+                    let byte_hex = format!(" {:02x}", i);
                     if show_color {
                         Byte(i).color().paint(byte_hex).to_string()
                     } else {
@@ -314,13 +307,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     }
 
     pub fn print_header(&mut self) {
-        if self.header_was_printed {
-            return;
-        }
         if let Some(e) = self.border_style.header_elems() {
             self.write_border(e)
         }
-        self.header_was_printed = true;
     }
 
     pub fn print_footer(&mut self) {
@@ -329,232 +318,170 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
     }
 
-    fn print_position_panel(&mut self) {
-        if !self.show_position_panel {
-            write!(&mut self.buffer_line, "{} ", self.border_style.outer_sep()).ok();
-            return;
-        }
-
-        let style = COLOR_OFFSET.normal();
-        let byte_index = format!("{:08x}", self.idx - 1 + self.display_offset);
-        let formatted_string = if self.show_color {
-            format!("{}", style.paint(byte_index))
-        } else {
-            byte_index
-        };
-        let _ = write!(
-            &mut self.buffer_line,
-            "{}{}{} ",
-            self.border_style.outer_sep(),
-            formatted_string,
-            self.border_style.outer_sep()
-        );
-    }
-
-    pub fn print_char_panel(&mut self) {
-        if !self.show_char_panel {
-            // just write newline if character panel is hidden
-            writeln!(&mut self.buffer_line).ok();
-            return;
-        }
-
-        let len = self.raw_line.len();
-
-        let mut idx = 1;
-        for &b in self.raw_line.iter() {
-            let _ = write!(
-                &mut self.buffer_line,
-                "{}",
-                self.byte_char_panel[b as usize]
-            );
-
-            if idx % 8 == 0 && idx % (u64::from(self.panels) * 8) != 0 {
-                let _ = write!(&mut self.buffer_line, "{}", self.border_style.inner_sep());
-            }
-
-            idx += 1;
-        }
-
-        if len < usize::from(8 * self.panels) {
-            let _ = write!(&mut self.buffer_line, "{0:1$}", "", 8 - len % 8);
-            for _ in 0..(usize::from(8 * self.panels) - (len + (8 - len % 8))) / 8 {
-                let _ = write!(
-                    &mut self.buffer_line,
-                    "{2}{0:1$}",
-                    "",
-                    8,
-                    self.border_style.inner_sep()
-                );
-            }
-        }
-        let _ = writeln!(&mut self.buffer_line, "{}", self.border_style.outer_sep());
-    }
-
-    pub fn print_byte(&mut self, b: u8) -> io::Result<()> {
-        if self.idx % (u64::from(self.panels) * 8) == 1 {
-            self.print_header();
-            self.print_position_panel();
-        }
-
-        write!(&mut self.buffer_line, "{}", self.byte_hex_panel[b as usize])?;
-        self.raw_line.push(b);
-
-        self.squeezer.process(b, self.idx);
-
-        if self.idx % (u64::from(self.panels) * 8) == 0 {
-            self.print_textline()?;
-        } else if self.idx % 8 == 0 {
-            let _ = write!(&mut self.buffer_line, "{} ", self.border_style.inner_sep());
-        }
-
-        self.idx += 1;
-
-        Ok(())
-    }
-
-    pub fn print_textline(&mut self) -> io::Result<()> {
-        let len = self.raw_line.len();
-
-        if len == 0 {
-            if self.squeezer.active() {
-                self.print_position_panel();
-                write!(&mut self.buffer_line, "{0:1$}", "", 24)?;
-                for _ in 0..self.panels - 1 {
-                    write!(
-                        &mut self.buffer_line,
-                        "{2}{0:1$}",
-                        "",
-                        25,
-                        self.border_style.inner_sep()
-                    )?;
-                }
-                write!(
-                    &mut self.buffer_line,
-                    "{2}{0:1$}",
-                    "",
-                    8,
-                    self.border_style.outer_sep()
-                )?;
-                for _ in 0..self.panels - 1 {
-                    write!(
-                        &mut self.buffer_line,
-                        "{2}{0:1$}",
-                        "",
-                        8,
-                        self.border_style.inner_sep()
-                    )?;
-                }
-                writeln!(&mut self.buffer_line, "{}", self.border_style.outer_sep())?;
-                self.writer.write_all(&self.buffer_line)?;
-            }
-            return Ok(());
-        }
-
-        let squeeze_action = self.squeezer.action();
-
-        // print empty space on last line
-        if squeeze_action != SqueezeAction::Delete {
-            if len < usize::from(8 * self.panels) {
-                write!(&mut self.buffer_line, "{0:1$}", "", 3 * (8 - len % 8))?;
-                for _ in 0..(usize::from(8 * self.panels) - (len + (8 - len % 8))) / 8 {
-                    write!(
-                        &mut self.buffer_line,
-                        "{2}{0:1$}",
-                        "",
-                        1 + 3 * 8,
-                        self.border_style.inner_sep()
-                    )?;
-                }
-            }
-            write!(&mut self.buffer_line, "{}", self.border_style.outer_sep())?;
-        }
-        self.print_char_panel();
-
-        match squeeze_action {
+    fn print_position_panel(&mut self) -> io::Result<()> {
+        match self.squeezer.action() {
             SqueezeAction::Print => {
-                self.buffer_line.clear();
                 let style = COLOR_OFFSET.normal();
                 let asterisk = if self.show_color {
                     format!("{}", style.paint("*"))
                 } else {
                     String::from("*")
                 };
-
                 write!(
-                    &mut self.buffer_line,
-                    "{3}{0}{1:2$}{3}",
+                    self.writer,
+                    "{}       {}",
                     asterisk,
-                    "",
-                    7,
                     self.border_style.outer_sep()
                 )?;
+                Ok(())
+            }
+            SqueezeAction::Ignore => {
+                let style = COLOR_OFFSET.normal();
+                let byte_index = format!("{:08x}", self.idx + self.display_offset);
+                let formatted_string = if self.show_color {
+                    format!("{}", style.paint(byte_index))
+                } else {
+                    byte_index
+                };
+                write!(
+                    self.writer,
+                    "{}{}",
+                    formatted_string,
+                    self.border_style.outer_sep()
+                )?;
+                Ok(())
+            }
+            _ => unreachable!(),
+        }
+    }
 
+    pub fn print_char_panel(&mut self) -> io::Result<()> {
+        match self.squeezer.action() {
+            SqueezeAction::Print => {
                 for i in 0..self.panels {
-                    write!(&mut self.buffer_line, "{0:1$}", "", 25)?;
-                    if i != self.panels - 1 {
-                        write!(&mut self.buffer_line, "{}", self.border_style.inner_sep())?;
+                    write!(self.writer, "        ")?;
+                    if i == self.panels - 1 {
+                        writeln!(self.writer, "{}", self.border_style.outer_sep())?;
                     } else {
-                        write!(&mut self.buffer_line, "{}", self.border_style.outer_sep())?;
-                    }
-                }
-
-                for i in 0..self.panels {
-                    write!(&mut self.buffer_line, "{0:1$}", "", 8)?;
-                    if i != self.panels - 1 {
-                        write!(&mut self.buffer_line, "{}", self.border_style.inner_sep())?;
-                    } else {
-                        writeln!(&mut self.buffer_line, "{}", self.border_style.outer_sep())?;
+                        write!(self.writer, "{}", self.border_style.inner_sep())?;
                     }
                 }
             }
-            SqueezeAction::Delete => self.buffer_line.clear(),
-            SqueezeAction::Ignore => (),
+            SqueezeAction::Ignore => {
+                let mut idx = 0;
+                for &b in self.line_buf.iter() {
+                    write!(self.writer, "{}", self.byte_char_panel[b as usize])?;
+                    if idx == 8 * self.panels - 1 {
+                        writeln!(self.writer, "{}", self.border_style.outer_sep())?;
+                    } else if idx % 8 == 7 {
+                        write!(self.writer, "{}", self.border_style.inner_sep())?;
+                    }
+                    idx += 1;
+                }
+
+                // there is space left over at the end
+                if idx < 8 * self.panels - 1 {
+                    for i in idx..8 * self.panels {
+                        write!(self.writer, " ")?;
+                        if i == 8 * self.panels - 1 {
+                            writeln!(self.writer, "{}", self.border_style.outer_sep())?;
+                        } else if i % 8 == 7 {
+                            write!(self.writer, "{}", self.border_style.inner_sep())?;
+                        }
+                    }
+                }
+            }
+            _ => unreachable!(),
         }
+        self.line_buf.clear();
+        Ok(())
+    }
 
-        self.writer.write_all(&self.buffer_line)?;
-
-        self.raw_line.clear();
-        self.buffer_line.clear();
-
-        self.squeezer.advance();
+    pub fn print_byte(&mut self, b: u8) -> io::Result<()> {
+        match self.squeezer.action() {
+            SqueezeAction::Print => {
+                write!(self.writer, "   ")?;
+            }
+            SqueezeAction::Ignore => {
+                // print the byte
+                write!(self.writer, "{}", self.byte_hex_panel[b as usize])?;
+                self.line_buf.push(b);
+            }
+            _ => unreachable!(),
+        }
+        // byte is last in panel
+        if self.idx % 8 == 7 {
+            // byte is last in last panel
+            if self.idx % (8 * self.panels as u64) == 8 * self.panels as u64 - 1 {
+                write!(self.writer, " {}", self.border_style.outer_sep())?;
+            } else {
+                write!(self.writer, " {}", self.border_style.inner_sep())?;
+            }
+        }
 
         Ok(())
     }
 
-    pub fn header_was_printed(&self) -> bool {
-        self.header_was_printed
-    }
+    pub fn print_line(&mut self, b: u8) -> io::Result<()> {
+        self.squeezer.process(b, self.idx);
 
-    /// Loop through the given `Reader`, printing until the `Reader` buffer
-    /// is exhausted.
-    pub fn print_all<Reader: Read>(
-        &mut self,
-        mut reader: Reader,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut buffer = [0; BUFFER_SIZE];
-        'mainloop: loop {
-            let size = reader.read(&mut buffer)?;
-            if size == 0 {
-                break;
+        // write!(self.writer, "{:?}", self.squeezer.action())?;
+
+        if !self.squeezer.active() || self.squeezer.action() == SqueezeAction::Print {
+            // the header should be the first thing printed
+            if self.idx == 0 {
+                self.print_header();
             }
 
-            for b in &buffer[..size] {
-                let res = self.print_byte(*b);
+            // print the left border and position panel if there's a new line
+            if self.idx % (8 * self.panels as u64) == 0 {
+                write!(self.writer, "{}", self.border_style.outer_sep())?;
+                if self.show_position_panel {
+                    self.print_position_panel()?;
+                }
+            }
 
-                if res.is_err() {
-                    // Broken pipe
-                    break 'mainloop;
+            self.print_byte(b)?;
+
+            if self.idx % (8 * self.panels as u64) == 8 * self.panels as u64 - 1 {
+                if self.show_char_panel {
+                    self.print_char_panel()?;
+                } else {
+                    writeln!(self.writer)?;
                 }
             }
         }
 
-        // Finish last line
-        self.print_textline().ok();
+        self.idx += 1;
+        if self.idx % (8 * self.panels as u64) == 0 {
+            self.squeezer.advance();
+        }
 
-        if !self.header_was_printed() {
+        Ok(())
+    }
+
+    /// Loop through the given `Reader`, printing until the `Reader` buffer
+    /// is exhausted.
+    pub fn print_all<Reader: Read>(&mut self, reader: Reader) -> io::Result<()> {
+        let mut is_empty = true;
+
+        let buf = BufReader::new(reader);
+
+        for b in buf.bytes() {
+            if is_empty {
+                is_empty = false;
+            }
+            if self.print_line(b?).is_err() {
+                break;
+            }
+        }
+
+        // special ending
+
+        if is_empty {
             self.print_header();
             if self.show_position_panel {
-                write!(self.writer, "{0:9}", "│").ok();
+                write!(self.writer, "{0:9}", "│")?;
             }
             write!(
                 self.writer,
@@ -563,11 +490,54 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             )
             .ok();
             if self.show_char_panel {
-                write!(self.writer, "{0:>9}{0:>9}", "│").ok();
+                write!(self.writer, "{0:>9}{0:>9}", "│")?;
             }
-            writeln!(self.writer).ok();
+            writeln!(self.writer)?;
+        } else if self.squeezer.active() {
+            // input was squeezed at the end
+            write!(self.writer, "{}", self.border_style.outer_sep())?;
+            self.print_position_panel()?;
+            
+            // print empty bytes
+            for i in 0..8 * self.panels {
+                write!(self.writer, "   ")?;
+                if i % 8 == 7 {
+                    if i % (8 * self.panels) == 8 * self.panels - 1 {
+                        write!(self.writer, " {}", self.border_style.outer_sep())?;
+                    } else {
+                        write!(self.writer, " {}", self.border_style.inner_sep())?;
+                    }
+                }
+            }
+
+            // print empty char panel
+            for i in 0..self.panels {
+                write!(self.writer, "        ")?;
+                if i == self.panels - 1 {
+                    writeln!(self.writer, "{}", self.border_style.outer_sep())?;
+                } else {
+                    write!(self.writer, "{}", self.border_style.inner_sep())?;
+                }
+            }
+        } else {
+            // finish unfinished last line
+            if self.idx % (8 * self.panels as u64) != 0 {
+                for i in self.idx % (8 * self.panels as u64)..8 * self.panels as u64 {
+                    // print empty byte space
+                    write!(self.writer, "   ")?;
+                    if i == (8 * self.panels - 1) as u64 {
+                        write!(self.writer, " {}", self.border_style.outer_sep())?;
+                    } else if i % 8 == 7 {
+                        write!(self.writer, " {}", self.border_style.inner_sep())?;
+                    }
+                }
+                self.print_char_panel()?;
+            }
         }
+
         self.print_footer();
+
+        self.writer.flush()?;
 
         Ok(())
     }
