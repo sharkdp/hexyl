@@ -208,12 +208,13 @@ pub struct Printer<'a, Writer: Write> {
     /// the buffer containing all the bytes in a line for character printing
     line_buf: Vec<u8>,
     writer: &'a mut Writer,
-    show_color: bool,
     show_char_panel: bool,
     show_position_panel: bool,
     border_style: BorderStyle,
     byte_hex_panel: Vec<String>,
     byte_char_panel: Vec<String>,
+    byte_hex_panel_g: Vec<String>,
+    byte_char_panel_g: Vec<String>,
     squeezer: Squeezer,
     display_offset: u64,
     /// The number of panels to draw.
@@ -234,7 +235,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             idx: 0,
             line_buf: vec![],
             writer,
-            show_color,
             show_char_panel,
             show_position_panel,
             border_style,
@@ -255,6 +255,32 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                             let byte_char = format!("{}", Byte(i).as_char());
                             if show_color {
                                 Byte(i).color().paint(byte_char).to_string()
+                            } else {
+                                byte_char
+                            }
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
+            byte_hex_panel_g: (0u8..=u8::MAX)
+                .map(|i| {
+                    let byte_hex = format!("{:02x}", i);
+                    let style = COLOR_OFFSET.normal();
+                    if show_color {
+                        style.paint(byte_hex).to_string()
+                    } else {
+                        byte_hex
+                    }
+                })
+                .collect(),
+            byte_char_panel_g: show_char_panel
+                .then(|| {
+                    (0u8..=u8::MAX)
+                        .map(|i| {
+                            let byte_char = format!("{}", Byte(i).as_char());
+                            let style = COLOR_OFFSET.normal();
+                            if show_color {
+                                style.paint(byte_char).to_string()
                             } else {
                                 byte_char
                             }
@@ -321,32 +347,26 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     fn print_position_panel(&mut self) -> io::Result<()> {
         match self.squeezer.action() {
             SqueezeAction::Print => {
-                let style = COLOR_OFFSET.normal();
-                let asterisk = if self.show_color {
-                    format!("{}", style.paint("*"))
-                } else {
-                    String::from("*")
-                };
                 write!(
                     self.writer,
                     "{}       {}",
-                    asterisk,
+                    self.byte_char_panel_g[b'*' as usize],
                     self.border_style.outer_sep()
                 )?;
                 Ok(())
             }
             SqueezeAction::Ignore => {
-                let style = COLOR_OFFSET.normal();
-                let byte_index = format!("{:08x}", self.idx + self.display_offset);
-                let formatted_string = if self.show_color {
-                    format!("{}", style.paint(byte_index))
-                } else {
-                    byte_index
-                };
+                let byte_index: [u8; 8] = (self.idx + self.display_offset).to_be_bytes();
+                let mut i = 0;
+                while byte_index[i] == 0x0 && i < 4 {
+                    i += 1;
+                }
+                for &byte in byte_index.iter().skip(i) {
+                    write!(self.writer, "{}", self.byte_hex_panel_g[byte as usize])?;
+                }
                 write!(
                     self.writer,
-                    "{}{}",
-                    formatted_string,
+                    "{}",
                     self.border_style.outer_sep()
                 )?;
                 Ok(())
