@@ -299,7 +299,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         self
     }
 
-    fn write_border(&mut self, border_elements: BorderElements) {
+    fn write_border(&mut self, border_elements: BorderElements) -> io::Result<()> {
         let h = border_elements.horizontal_line;
         let c = border_elements.column_separator;
         let l = border_elements.left_corner;
@@ -330,28 +330,35 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         } else {
             writeln!(self.writer, "{r}", r = r).ok();
         }
+
+        Ok(())
     }
 
-    pub fn print_header(&mut self) {
+    pub fn print_header(&mut self) -> io::Result<()> {
         if let Some(e) = self.border_style.header_elems() {
-            self.write_border(e)
+            self.write_border(e)?
         }
+        Ok(())
     }
 
-    pub fn print_footer(&mut self) {
+    pub fn print_footer(&mut self) -> io::Result<()> {
         if let Some(e) = self.border_style.footer_elems() {
-            self.write_border(e)
+            self.write_border(e)?
         }
+        Ok(())
     }
 
     fn print_position_panel(&mut self) -> io::Result<()> {
         match self.squeezer.action() {
             SqueezeAction::Print => {
-                write!(
-                    self.writer,
-                    "{}       {}",
-                    self.byte_char_panel_g[b'*' as usize],
-                    self.border_style.outer_sep()
+                self.writer
+                    .write_all(self.byte_char_panel_g[b'*' as usize].as_bytes())?;
+                self.writer.write_all(b"       ")?;
+                self.writer.write_all(
+                    self.border_style
+                        .outer_sep()
+                        .encode_utf8(&mut [0; 4])
+                        .as_bytes(),
                 )?;
                 Ok(())
             }
@@ -362,12 +369,14 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     i += 1;
                 }
                 for &byte in byte_index.iter().skip(i) {
-                    write!(self.writer, "{}", self.byte_hex_panel_g[byte as usize])?;
+                    self.writer
+                        .write_all(self.byte_hex_panel_g[byte as usize].as_bytes())?;
                 }
-                write!(
-                    self.writer,
-                    "{}",
-                    self.border_style.outer_sep()
+                self.writer.write_all(
+                    self.border_style
+                        .outer_sep()
+                        .encode_utf8(&mut [0; 4])
+                        .as_bytes(),
                 )?;
                 Ok(())
             }
@@ -379,22 +388,45 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         match self.squeezer.action() {
             SqueezeAction::Print => {
                 for i in 0..self.panels {
-                    write!(self.writer, "        ")?;
+                    self.writer.write_all(b"        ")?;
                     if i == self.panels - 1 {
-                        writeln!(self.writer, "{}", self.border_style.outer_sep())?;
+                        self.writer.write_all(
+                            self.border_style
+                                .outer_sep()
+                                .encode_utf8(&mut [0; 4])
+                                .as_bytes(),
+                        )?;
+                        self.writer.write_all(b"\n")?;
                     } else {
-                        write!(self.writer, "{}", self.border_style.inner_sep())?;
+                        self.writer.write_all(
+                            self.border_style
+                                .inner_sep()
+                                .encode_utf8(&mut [0; 4])
+                                .as_bytes(),
+                        )?;
                     }
                 }
             }
             SqueezeAction::Ignore => {
                 let mut idx = 0;
                 for &b in self.line_buf.iter() {
-                    write!(self.writer, "{}", self.byte_char_panel[b as usize])?;
+                    self.writer
+                        .write_all(self.byte_char_panel[b as usize].as_bytes())?;
                     if idx == 8 * self.panels - 1 {
-                        writeln!(self.writer, "{}", self.border_style.outer_sep())?;
+                        self.writer.write_all(
+                            self.border_style
+                                .outer_sep()
+                                .encode_utf8(&mut [0; 4])
+                                .as_bytes(),
+                        )?;
+                        self.writer.write_all(b"\n")?;
                     } else if idx % 8 == 7 {
-                        write!(self.writer, "{}", self.border_style.inner_sep())?;
+                        self.writer.write_all(
+                            self.border_style
+                                .inner_sep()
+                                .encode_utf8(&mut [0; 4])
+                                .as_bytes(),
+                        )?;
                     }
                     idx += 1;
                 }
@@ -402,11 +434,22 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 // there is space left over at the end
                 if idx < 8 * self.panels - 1 {
                     for i in idx..8 * self.panels {
-                        write!(self.writer, " ")?;
+                        self.writer.write_all(b" ")?;
                         if i == 8 * self.panels - 1 {
-                            writeln!(self.writer, "{}", self.border_style.outer_sep())?;
+                            self.writer.write_all(
+                                self.border_style
+                                    .outer_sep()
+                                    .encode_utf8(&mut [0; 4])
+                                    .as_bytes(),
+                            )?;
+                            self.writer.write_all(b"\n")?;
                         } else if i % 8 == 7 {
-                            write!(self.writer, "{}", self.border_style.inner_sep())?;
+                            self.writer.write_all(
+                                self.border_style
+                                    .inner_sep()
+                                    .encode_utf8(&mut [0; 4])
+                                    .as_bytes(),
+                            )?;
                         }
                     }
                 }
@@ -420,11 +463,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     pub fn print_byte(&mut self, b: u8) -> io::Result<()> {
         match self.squeezer.action() {
             SqueezeAction::Print => {
-                write!(self.writer, "   ")?;
+                self.writer.write_all(b"   ")?;
             }
             SqueezeAction::Ignore => {
                 // print the byte
-                write!(self.writer, "{}", self.byte_hex_panel[b as usize])?;
+                self.writer
+                    .write_all(self.byte_hex_panel[b as usize].as_bytes())?;
                 self.line_buf.push(b);
             }
             _ => unreachable!(),
@@ -433,9 +477,21 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         if self.idx % 8 == 7 {
             // byte is last in last panel
             if self.idx % (8 * self.panels as u64) == 8 * self.panels as u64 - 1 {
-                write!(self.writer, " {}", self.border_style.outer_sep())?;
+                self.writer.write_all(b" ")?;
+                self.writer.write_all(
+                    self.border_style
+                        .outer_sep()
+                        .encode_utf8(&mut [0; 4])
+                        .as_bytes(),
+                )?;
             } else {
-                write!(self.writer, " {}", self.border_style.inner_sep())?;
+                self.writer.write_all(b" ")?;
+                self.writer.write_all(
+                    self.border_style
+                        .inner_sep()
+                        .encode_utf8(&mut [0; 4])
+                        .as_bytes(),
+                )?;
             }
         }
 
@@ -445,17 +501,21 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     pub fn print_line(&mut self, b: u8) -> io::Result<()> {
         self.squeezer.process(b, self.idx);
 
-        // write!(self.writer, "{:?}", self.squeezer.action())?;
+        // the header should be the first thing printed
+        if self.idx == 0 {
+            self.print_header()?;
+        }
 
         if !self.squeezer.active() || self.squeezer.action() == SqueezeAction::Print {
-            // the header should be the first thing printed
-            if self.idx == 0 {
-                self.print_header();
-            }
 
             // print the left border and position panel if there's a new line
             if self.idx % (8 * self.panels as u64) == 0 {
-                write!(self.writer, "{}", self.border_style.outer_sep())?;
+                self.writer.write_all(
+                    self.border_style
+                        .outer_sep()
+                        .encode_utf8(&mut [0; 4])
+                        .as_bytes(),
+                )?;
                 if self.show_position_panel {
                     self.print_position_panel()?;
                 }
@@ -467,7 +527,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 if self.show_char_panel {
                     self.print_char_panel()?;
                 } else {
-                    writeln!(self.writer)?;
+                    self.writer.write_all(b"\n")?;
                 }
             }
         }
@@ -499,7 +559,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         // special ending
 
         if is_empty {
-            self.print_header();
+            self.print_header()?;
             if self.show_position_panel {
                 write!(self.writer, "{0:9}", "│")?;
             }
@@ -555,7 +615,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
         }
 
-        self.print_footer();
+        self.print_footer()?;
 
         self.writer.flush()?;
 

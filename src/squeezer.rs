@@ -81,7 +81,7 @@ impl Squeezer {
         use self::SqueezeState::*;
         matches!(
             self.state,
-            Squeeze | SqueezeActive | SqueezeFirstLine | SqueezeActiveFirstLine
+            Squeeze | SqueezeActive
         )
     }
 
