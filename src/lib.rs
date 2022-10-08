@@ -448,7 +448,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
             _ => unreachable!(),
         }
-        self.line_buf.clear();
         Ok(())
     }
 
@@ -461,7 +460,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 // print the byte
                 self.writer
                     .write_all(self.byte_hex_panel[b as usize].as_bytes())?;
-                self.line_buf.push(b);
             }
             _ => unreachable!(),
         }
@@ -491,12 +489,33 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     }
 
     pub fn print_line(&mut self, b: u8) -> io::Result<()> {
+        let old_action = self.squeezer.action();
         self.squeezer.process(b, self.idx);
 
         // the header should be the first thing printed
         if self.idx == 0 {
             self.print_header()?;
         }
+
+        // flush the rest of the line buffer before continuing to write
+        if old_action == SqueezeAction::Delete && self.squeezer.action() == SqueezeAction::Ignore {
+            self.writer.write_all(
+                self.border_style
+                    .outer_sep()
+                    .encode_utf8(&mut [0; 4])
+                    .as_bytes(),
+            )?;
+            self.print_position_panel()?;
+            let old_idx = self.idx;
+            self.idx -= self.line_buf.len() as u64;
+            for b in self.line_buf.clone() {
+                self.print_byte(b)?;
+                self.idx += 1;
+            }
+            self.idx = old_idx
+        }
+
+        self.line_buf.push(b);
 
         if !self.squeezer.active() || self.squeezer.action() == SqueezeAction::Print {
             // print the left border and position panel if there's a new line
@@ -519,6 +538,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     self.print_char_panel()?;
                 } else {
                     self.writer.write_all(b"\n")?;
+                    self.line_buf.clear();
                 }
             }
         }
@@ -604,6 +624,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 }
                 if self.show_char_panel {
                     self.print_char_panel()?;
+                } else {
+                    writeln!(self.writer)?;
                 }
             }
         }
