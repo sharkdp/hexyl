@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq, Eq)]
-enum SqueezeState {
+pub enum SqueezeState {
     /// not enabled
     Disabled,
     /// Will be set from all states if equal condition can't be hold up.
@@ -20,7 +20,7 @@ enum SqueezeState {
 }
 
 pub struct Squeezer {
-    state: SqueezeState,
+    pub state: SqueezeState,
     byte: u8,
     lsize: u64,
 }
@@ -40,7 +40,7 @@ impl Squeezer {
             } else {
                 SqueezeState::Disabled
             },
-            byte: 0,
+            byte: 1,
             lsize,
         }
     }
