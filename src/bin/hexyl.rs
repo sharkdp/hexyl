@@ -103,7 +103,7 @@ fn run() -> Result<(), AnyhowError> {
                 .long("color")
                 .takes_value(true)
                 .value_name("WHEN")
-                .possible_values(&["always", "auto", "never"])
+                .possible_values(["always", "auto", "never"])
                 .default_value_if("plain", None, Some("never"))
                 .default_value("always")
                 .help(
@@ -119,7 +119,7 @@ fn run() -> Result<(), AnyhowError> {
                 .long("border")
                 .takes_value(true)
                 .value_name("STYLE")
-                .possible_values(&["unicode", "ascii", "none"])
+                .possible_values(["unicode", "ascii", "none"])
                 .default_value_if("plain", None, Some("none"))
                 .default_value("unicode")
                 .help(

@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 enum SqueezeState {
     /// not enabled
     Disabled,
