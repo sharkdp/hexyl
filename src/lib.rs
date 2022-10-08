@@ -508,7 +508,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             )?;
             let old_idx = self.idx;
             self.idx -= self.line_buf.len() as u64;
-            self.print_position_panel()?;
+            if self.show_position_panel {
+                self.print_position_panel()?;
+            }
             for b in self.line_buf.clone() {
                 self.print_byte(b)?;
                 self.idx += 1;
@@ -592,7 +594,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         } else if self.squeezer.active() {
             // input was squeezed at the end
             write!(self.writer, "{}", self.border_style.outer_sep())?;
-            self.print_position_panel()?;
+            if self.show_position_panel {
+                self.print_position_panel()?;
+            }
 
             // print empty bytes
             for i in 0..8 * self.panels {
@@ -605,14 +609,15 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     }
                 }
             }
-
-            // print empty char panel
-            for i in 0..self.panels {
-                write!(self.writer, "        ")?;
-                if i == self.panels - 1 {
-                    writeln!(self.writer, "{}", self.border_style.outer_sep())?;
-                } else {
-                    write!(self.writer, "{}", self.border_style.inner_sep())?;
+            if self.show_char_panel {
+                // print empty char panel
+                for i in 0..self.panels {
+                    write!(self.writer, "        ")?;
+                    if i == self.panels - 1 {
+                        writeln!(self.writer, "{}", self.border_style.outer_sep())?;
+                    } else {
+                        write!(self.writer, "{}", self.border_style.inner_sep())?;
+                    }
                 }
             }
         } else {
