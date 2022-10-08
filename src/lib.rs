@@ -545,8 +545,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 }
                 self.line_buf.clear();
             }
-        } else {
-            self.writer.write_all(&self.line_buf)?;
         }
 
         self.idx += 1;
