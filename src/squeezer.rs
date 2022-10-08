@@ -79,7 +79,10 @@ impl Squeezer {
 
     pub fn active(&self) -> bool {
         use self::SqueezeState::*;
-        matches!(self.state, Squeeze | SqueezeActive)
+        matches!(
+            self.state,
+            Squeeze | SqueezeActive | SqueezeFirstLine | SqueezeActiveFirstLine
+        )
     }
 
     pub fn action(&self) -> SqueezeAction {

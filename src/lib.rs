@@ -489,7 +489,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     }
 
     pub fn print_line(&mut self, b: u8) -> io::Result<()> {
-        let old_action = self.squeezer.action();
+        let mut is_flushed = false;
+        let old_active = self.squeezer.active();
         self.squeezer.process(b, self.idx);
 
         // the header should be the first thing printed
@@ -498,28 +499,29 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
 
         // flush the rest of the line buffer before continuing to write
-        if old_action == SqueezeAction::Delete && self.squeezer.action() == SqueezeAction::Ignore {
+        if old_active && !self.squeezer.active() {
             self.writer.write_all(
                 self.border_style
                     .outer_sep()
                     .encode_utf8(&mut [0; 4])
                     .as_bytes(),
             )?;
-            self.print_position_panel()?;
             let old_idx = self.idx;
             self.idx -= self.line_buf.len() as u64;
+            self.print_position_panel()?;
             for b in self.line_buf.clone() {
                 self.print_byte(b)?;
                 self.idx += 1;
             }
-            self.idx = old_idx
+            self.idx = old_idx;
+            is_flushed = true;
         }
 
         self.line_buf.push(b);
 
         if !self.squeezer.active() || self.squeezer.action() == SqueezeAction::Print {
             // print the left border and position panel if there's a new line
-            if self.idx % (8 * self.panels as u64) == 0 {
+            if self.idx % (8 * self.panels as u64) == 0 && !is_flushed {
                 self.writer.write_all(
                     self.border_style
                         .outer_sep()
@@ -538,13 +540,16 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     self.print_char_panel()?;
                 } else {
                     self.writer.write_all(b"\n")?;
-                    self.line_buf.clear();
                 }
+                self.line_buf.clear();
             }
+        } else {
+            self.writer.write_all(&self.line_buf)?;
         }
 
         self.idx += 1;
         if self.idx % (8 * self.panels as u64) == 0 {
+            self.line_buf.clear();
             self.squeezer.advance();
         }
 
