@@ -507,7 +507,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
 
         if !self.squeezer.active() || self.squeezer.action() == SqueezeAction::Print {
-
             // print the left border and position panel if there's a new line
             if self.idx % (8 * self.panels as u64) == 0 {
                 self.writer.write_all(
@@ -577,7 +576,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             // input was squeezed at the end
             write!(self.writer, "{}", self.border_style.outer_sep())?;
             self.print_position_panel()?;
-            
+
             // print empty bytes
             for i in 0..8 * self.panels {
                 write!(self.writer, "   ")?;
