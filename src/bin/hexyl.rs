@@ -332,8 +332,7 @@ fn run() -> Result<(), AnyhowError> {
         2
     };
 
-    let stdout = io::stdout();
-    let mut stdout_lock = BufWriter::new(stdout.lock());
+    let mut stdout_lock = BufWriter::new(io::stdout().lock());
 
     let mut printer = PrinterBuilder::new(&mut stdout_lock)
         .show_color(show_color)
