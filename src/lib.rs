@@ -602,7 +602,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                         write!(self.writer, " {}", self.border_style.inner_sep())?;
                     }
                 }
-                self.print_char_panel()?;
+                if self.show_char_panel {
+                    self.print_char_panel()?;
+                }
             }
         }
 
