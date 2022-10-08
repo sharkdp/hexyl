@@ -248,20 +248,16 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     }
                 })
                 .collect(),
-            byte_char_panel: show_char_panel
-                .then(|| {
-                    (0u8..=u8::MAX)
-                        .map(|i| {
-                            let byte_char = format!("{}", Byte(i).as_char());
-                            if show_color {
-                                Byte(i).color().paint(byte_char).to_string()
-                            } else {
-                                byte_char
-                            }
-                        })
-                        .collect()
+            byte_char_panel: (0u8..=u8::MAX)
+                .map(|i| {
+                    let byte_char = format!("{}", Byte(i).as_char());
+                    if show_color {
+                        Byte(i).color().paint(byte_char).to_string()
+                    } else {
+                        byte_char
+                    }
                 })
-                .unwrap_or_default(),
+                .collect(),
             byte_hex_panel_g: (0u8..=u8::MAX)
                 .map(|i| {
                     let byte_hex = format!("{:02x}", i);
@@ -273,21 +269,17 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     }
                 })
                 .collect(),
-            byte_char_panel_g: show_char_panel
-                .then(|| {
-                    (0u8..=u8::MAX)
-                        .map(|i| {
-                            let byte_char = format!("{}", Byte(i).as_char());
-                            let style = COLOR_OFFSET.normal();
-                            if show_color {
-                                style.paint(byte_char).to_string()
-                            } else {
-                                byte_char
-                            }
-                        })
-                        .collect()
+            byte_char_panel_g: (0u8..=u8::MAX)
+                .map(|i| {
+                    let byte_char = format!("{}", Byte(i).as_char());
+                    let style = COLOR_OFFSET.normal();
+                    if show_color {
+                        style.paint(byte_char).to_string()
+                    } else {
+                        byte_char
+                    }
                 })
-                .unwrap_or_default(),
+                .collect(),
             squeezer: Squeezer::new(use_squeeze, 8 * panels as u64),
             display_offset: 0,
             panels,
