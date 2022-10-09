@@ -219,6 +219,7 @@ pub struct Printer<'a, Writer: Write> {
     display_offset: u64,
     /// The number of panels to draw.
     panels: u16,
+    squeeze_byte: u8,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -283,6 +284,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             squeezer: Squeezer::new(use_squeeze, 8 * panels as u64),
             display_offset: 0,
             panels,
+            squeeze_byte: 0xFF,
         }
     }
 
@@ -507,22 +509,20 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     .as_bytes(),
             )?;
             let old_idx = self.idx;
-            self.idx -= self.line_buf.len() as u64;
+            self.idx -= self.idx % (8 * self.panels as u64);
             if self.show_position_panel {
                 self.print_position_panel()?;
             }
-            for b in self.line_buf.clone() {
-                self.print_byte(b)?;
+            while self.idx < old_idx {
+                self.print_byte(self.squeeze_byte)?;
                 self.idx += 1;
             }
-            self.idx = old_idx;
             is_flushed = true;
         }
 
-        self.line_buf.push(b);
-
         if !self.squeezer.active() || self.squeezer.action() == SqueezeAction::Print {
             // print the left border and position panel if there's a new line
+            self.line_buf.push(b);
             if self.idx % (8 * self.panels as u64) == 0 && !is_flushed {
                 self.writer.write_all(
                     self.border_style
