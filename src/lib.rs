@@ -284,7 +284,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             squeezer: Squeezer::new(use_squeeze, 8 * panels as u64),
             display_offset: 0,
             panels,
-            squeeze_byte: 0xFF,
+            squeeze_byte: 0x00,
         }
     }
 
@@ -495,6 +495,10 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let old_active = self.squeezer.active();
         self.squeezer.process(b, self.idx);
         let new_active = self.squeezer.active();
+
+        if new_active {
+            self.squeeze_byte = b;
+        }
 
         // the header should be the first thing printed
         if self.idx == 0 {
