@@ -494,6 +494,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let mut is_flushed = false;
         let old_active = self.squeezer.active();
         self.squeezer.process(b, self.idx);
+        let new_active = self.squeezer.active();
 
         // the header should be the first thing printed
         if self.idx == 0 {
@@ -501,7 +502,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
 
         // flush the rest of the line buffer before continuing to write
-        if old_active && !self.squeezer.active() {
+        if old_active && !new_active {
             self.writer.write_all(
                 self.border_style
                     .outer_sep()
@@ -520,7 +521,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             is_flushed = true;
         }
 
-        if !self.squeezer.active() || self.squeezer.action() == SqueezeAction::Print {
+        if !new_active || self.squeezer.action() == SqueezeAction::Print {
             // print the left border and position panel if there's a new line
             self.line_buf.push(b);
             if self.idx % (8 * self.panels as u64) == 0 && !is_flushed {
