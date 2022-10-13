@@ -385,27 +385,64 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         Ok(())
     }
 
-    pub fn print_char_panel(&mut self) -> io::Result<()> {
-        for i in 0..8 * self.panels {
-            match self.squeezer {
-                Squeezer::Print | Squeezer::Delete => self.writer.write_all(b" ")?,
-                Squeezer::Ignore | Squeezer::Disabled => {
-                    if let Some(&b) = self.line_buf.get(i as usize) {
-                        self.writer
-                            .write_all(self.byte_char_panel[b as usize].as_bytes())?;
-                    } else {
-                        self.squeezer = Squeezer::Print;
-                    }
+    fn print_char(&mut self, i: u64) -> io::Result<()> {
+        match self.squeezer {
+            Squeezer::Print | Squeezer::Delete => self.writer.write_all(b" ")?,
+            Squeezer::Ignore | Squeezer::Disabled => {
+                if let Some(&b) = self.line_buf.get(i as usize) {
+                    self.writer
+                        .write_all(self.byte_char_panel[b as usize].as_bytes())?;
+                } else {
+                    self.squeezer = Squeezer::Print;
                 }
             }
-            if i == 8 * self.panels - 1 {
+        }
+        if i == 8 * self.panels - 1 {
+            self.writer.write_all(
+                self.border_style
+                    .outer_sep()
+                    .encode_utf8(&mut [0; 4])
+                    .as_bytes(),
+            )?;
+        } else if i % 8 == 7 {
+            self.writer.write_all(
+                self.border_style
+                    .inner_sep()
+                    .encode_utf8(&mut [0; 4])
+                    .as_bytes(),
+            )?;
+        }
+
+        Ok(())
+    }
+
+    pub fn print_char_panel(&mut self) -> io::Result<()> {
+        for i in 0..self.line_buf.len() {
+            self.print_char(i as u64)?;
+        }
+        Ok(())
+    }
+
+    fn print_byte(&mut self, i: usize, b: u8) -> io::Result<()> {
+        match self.squeezer {
+            Squeezer::Print | Squeezer::Delete => self.writer.write_all(b"   ")?,
+            Squeezer::Ignore | Squeezer::Disabled => self
+                .writer
+                .write_all(self.byte_hex_panel[b as usize].as_bytes())?,
+        }
+        // byte is last in panel
+        if i % 8 == 7 {
+            // byte is last in last panel
+            if i as u64 % (8 * self.panels) == 8 * self.panels - 1 {
+                self.writer.write_all(b" ")?;
                 self.writer.write_all(
                     self.border_style
                         .outer_sep()
                         .encode_utf8(&mut [0; 4])
                         .as_bytes(),
                 )?;
-            } else if i % 8 == 7 {
+            } else {
+                self.writer.write_all(b" ")?;
                 self.writer.write_all(
                     self.border_style
                         .inner_sep()
@@ -418,34 +455,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     }
 
     pub fn print_bytes(&mut self) -> io::Result<()> {
-        for (i, &b) in self.line_buf.iter().enumerate() {
-            match self.squeezer {
-                Squeezer::Print | Squeezer::Delete => self.writer.write_all(b"   ")?,
-                Squeezer::Ignore | Squeezer::Disabled => self
-                    .writer
-                    .write_all(self.byte_hex_panel[b as usize].as_bytes())?,
-            }
-            // byte is last in panel
-            if i as u64 % 8 == 7 {
-                // byte is last in last panel
-                if i as u64 % (8 * self.panels) == 8 * self.panels - 1 {
-                    self.writer.write_all(b" ")?;
-                    self.writer.write_all(
-                        self.border_style
-                            .outer_sep()
-                            .encode_utf8(&mut [0; 4])
-                            .as_bytes(),
-                    )?;
-                } else {
-                    self.writer.write_all(b" ")?;
-                    self.writer.write_all(
-                        self.border_style
-                            .inner_sep()
-                            .encode_utf8(&mut [0; 4])
-                            .as_bytes(),
-                    )?;
-                }
-            }
+        for (i, &b) in self.line_buf.clone().iter().enumerate() {
+            self.print_byte(i, b)?;
         }
         Ok(())
     }
@@ -455,13 +466,19 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     pub fn print_all<Reader: Read>(&mut self, reader: Reader) -> io::Result<()> {
         let mut is_empty = true;
         let mut will_delete = false;
+        let mut leftover = None;
 
         let mut buf = BufReader::new(reader);
 
         self.print_header()?;
         loop {
-            if let Err(e) = buf.read_exact(&mut self.line_buf) {
-                if e.kind() == ErrorKind::UnexpectedEof {
+            if let Ok(n) = buf.read(&mut self.line_buf) {
+                if n > 0 && n < 8 * self.panels as usize {
+                    is_empty = false;
+                    self.line_buf.resize(n, 0);
+                    leftover = Some(n);
+                    break;
+                } else if n == 0 {
                     break;
                 }
             }
@@ -534,6 +551,25 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             if self.show_char_panel {
                 // print empty char panel
                 self.print_char_panel()?;
+            }
+            self.writer.write_all(b"\n")?;
+        } else if let Some(n) = leftover {
+            // last line is incomplete
+            if self.show_position_panel {
+                self.print_position_panel()?;
+            }
+            self.print_bytes()?;
+            self.squeezer = Squeezer::Print;
+            for i in n..8 * self.panels as usize {
+                self.print_byte(i, 0)?;
+            }
+            if self.show_char_panel {
+                self.squeezer = Squeezer::Ignore;
+                self.print_char_panel()?;
+                self.squeezer = Squeezer::Print;
+                for i in n..8 * self.panels as usize {
+                    self.print_char(i as u64)?;
+                }
             }
             self.writer.write_all(b"\n")?;
         }
