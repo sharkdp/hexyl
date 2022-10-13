@@ -391,11 +391,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 Squeezer::Print | Squeezer::Delete => self.writer.write_all(b" ")?,
                 Squeezer::Ignore | Squeezer::Disabled => {
                     if let Some(&b) = self.line_buf.get(i as usize) {
-                        self.writer.write_all(self.byte_char_panel[b as usize].as_bytes())?;
+                        self.writer
+                            .write_all(self.byte_char_panel[b as usize].as_bytes())?;
                     } else {
                         self.squeezer = Squeezer::Print;
                     }
-                },
+                }
             }
             if i == 8 * self.panels - 1 {
                 self.writer.write_all(
@@ -404,7 +405,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                         .encode_utf8(&mut [0; 4])
                         .as_bytes(),
                 )?;
-                self.writer.write_all(b"\n")?;
             } else if i % 8 == 7 {
                 self.writer.write_all(
                     self.border_style
@@ -461,10 +461,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         self.print_header()?;
         loop {
             if let Err(e) = buf.read_exact(&mut self.line_buf) {
-                // self.print_position_panel()?;
-                // self.print_bytes()?;
-                // self.print_char_panel()?;
-                // self.writer.write_all(b"UENXPEC")?;
                 if e.kind() == ErrorKind::UnexpectedEof {
                     break;
                 }
@@ -472,7 +468,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             is_empty = false;
 
             if matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
-                if self.line_buf[0] == self.squeeze_byte && self.line_buf.windows(2).all(|w| w[0] == w[1]) {
+                if self.line_buf[0] == self.squeeze_byte
+                    && self.line_buf.windows(2).all(|w| w[0] == w[1])
+                {
                     if self.squeezer == Squeezer::Print {
                         will_delete = true;
                     } else {
@@ -490,8 +488,10 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             if self.show_char_panel {
                 self.print_char_panel()?;
             }
-            self.idx += 8 * self.panels;
+            self.writer.write_all(b"\n")?;
 
+            self.idx += 8 * self.panels;
+            
             if will_delete {
                 self.squeezer = Squeezer::Delete;
                 will_delete = false;
