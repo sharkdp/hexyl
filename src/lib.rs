@@ -218,6 +218,7 @@ pub struct Printer<'a, Writer: Write> {
     border_style: BorderStyle,
     byte_hex_panel: Vec<String>,
     byte_char_panel: Vec<String>,
+    // same as previous but in Fixed(242) gray color, for position panel
     byte_hex_panel_g: Vec<String>,
     byte_char_panel_g: Vec<String>,
     squeezer: Squeezer,
