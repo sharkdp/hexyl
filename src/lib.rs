@@ -491,7 +491,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             self.writer.write_all(b"\n")?;
 
             self.idx += 8 * self.panels;
-            
+
             if will_delete {
                 self.squeezer = Squeezer::Delete;
                 will_delete = false;
@@ -535,6 +535,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 // print empty char panel
                 self.print_char_panel()?;
             }
+            self.writer.write_all(b"\n")?;
         }
 
         self.print_footer()?;
