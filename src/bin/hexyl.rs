@@ -4,7 +4,7 @@ extern crate clap;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{self, prelude::*, BufWriter, SeekFrom};
-use std::num::{NonZeroI64, NonZeroU16};
+use std::num::{NonZeroI64, NonZeroU64};
 
 use clap::{crate_name, crate_version, AppSettings, Arg, ColorChoice, Command};
 
@@ -294,22 +294,22 @@ fn run() -> Result<(), AnyhowError> {
         .transpose()?
         .unwrap_or(0);
 
-    let max_panels_fn = |terminal_width: u16| {
+    let max_panels_fn = |terminal_width: u64| {
         let offset = if show_position_panel { 10 } else { 1 };
         let col_width = if show_char_panel { 35 } else { 26 };
         if (terminal_width - offset) / col_width < 1 {
             1
         } else {
-            (terminal_width - offset) / col_width
+            ((terminal_width - offset) / col_width) as u64
         }
     };
 
     let panels = if matches.value_of("panels") == Some("auto") {
-        max_panels_fn(terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0)
+        max_panels_fn(terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0 as u64)
     } else if let Some(panels) = matches
         .value_of("panels")
         .map(|s| {
-            s.parse::<NonZeroU16>().map(u16::from).context(anyhow!(
+            s.parse::<NonZeroU64>().map(u64::from).context(anyhow!(
                 "failed to parse `--panels` arg {:?} as unsigned nonzero integer",
                 s
             ))
@@ -320,7 +320,7 @@ fn run() -> Result<(), AnyhowError> {
     } else if let Some(terminal_width) = matches
         .value_of("terminal_width")
         .map(|s| {
-            s.parse::<NonZeroU16>().map(u16::from).context(anyhow!(
+            s.parse::<NonZeroU64>().map(u64::from).context(anyhow!(
                 "failed to parse `--terminal-width` arg {:?} as unsigned nonzero integer",
                 s
             ))
