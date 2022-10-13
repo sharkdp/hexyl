@@ -2,7 +2,7 @@ pub(crate) mod input;
 
 pub use input::*;
 
-use std::io::{self, BufReader, ErrorKind, Read, Write};
+use std::io::{self, BufReader, Read, Write};
 
 use ansi_term::Color;
 use ansi_term::Color::Fixed;
