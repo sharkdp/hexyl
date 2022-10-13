@@ -434,9 +434,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
         // byte is last in panel
         if i % 8 == 7 {
+            self.writer.write_all(b" ")?;
             // byte is last in last panel
             if i as u64 % (8 * self.panels) == 8 * self.panels - 1 {
-                self.writer.write_all(b" ")?;
                 self.writer.write_all(
                     self.border_style
                         .outer_sep()
@@ -444,7 +444,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                         .as_bytes(),
                 )?;
             } else {
-                self.writer.write_all(b" ")?;
                 self.writer.write_all(
                     self.border_style
                         .inner_sep()
