@@ -358,30 +358,32 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 .encode_utf8(&mut [0; 4])
                 .as_bytes(),
         )?;
-        match self.squeezer {
-            Squeezer::Print => {
-                self.writer
-                    .write_all(self.byte_char_panel_g[b'*' as usize].as_bytes())?;
-                self.writer.write_all(b"       ")?;
-            }
-            Squeezer::Ignore | Squeezer::Disabled | Squeezer::Delete => {
-                let byte_index: [u8; 8] = (self.idx + self.display_offset).to_be_bytes();
-                let mut i = 0;
-                while byte_index[i] == 0x0 && i < 4 {
-                    i += 1;
-                }
-                for &byte in byte_index.iter().skip(i) {
+        if self.show_position_panel {
+            match self.squeezer {
+                Squeezer::Print => {
                     self.writer
-                        .write_all(self.byte_hex_panel_g[byte as usize].as_bytes())?;
+                        .write_all(self.byte_char_panel_g[b'*' as usize].as_bytes())?;
+                    self.writer.write_all(b"       ")?;
+                }
+                Squeezer::Ignore | Squeezer::Disabled | Squeezer::Delete => {
+                    let byte_index: [u8; 8] = (self.idx + self.display_offset).to_be_bytes();
+                    let mut i = 0;
+                    while byte_index[i] == 0x0 && i < 4 {
+                        i += 1;
+                    }
+                    for &byte in byte_index.iter().skip(i) {
+                        self.writer
+                            .write_all(self.byte_hex_panel_g[byte as usize].as_bytes())?;
+                    }
                 }
             }
+            self.writer.write_all(
+                self.border_style
+                    .outer_sep()
+                    .encode_utf8(&mut [0; 4])
+                    .as_bytes(),
+            )?;
         }
-        self.writer.write_all(
-            self.border_style
-                .outer_sep()
-                .encode_utf8(&mut [0; 4])
-                .as_bytes(),
-        )?;
         Ok(())
     }
 
@@ -498,9 +500,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     self.squeezer = Squeezer::Ignore;
                 }
             }
-            if self.show_position_panel {
-                self.print_position_panel()?;
-            }
+            self.print_position_panel()?;
             self.print_bytes()?;
             if self.show_char_panel {
                 self.print_char_panel()?;
@@ -540,9 +540,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         } else if matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
             // input was squeezed at the end
             self.squeezer = Squeezer::Ignore;
-            if self.show_position_panel {
-                self.print_position_panel()?;
-            }
+            self.print_position_panel()?;
 
             self.squeezer = Squeezer::Print;
 
@@ -555,9 +553,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             self.writer.write_all(b"\n")?;
         } else if let Some(n) = leftover {
             // last line is incomplete
-            if self.show_position_panel {
-                self.print_position_panel()?;
-            }
+            self.print_position_panel()?;
             self.print_bytes()?;
             self.squeezer = Squeezer::Print;
             for i in n..8 * self.panels as usize {
