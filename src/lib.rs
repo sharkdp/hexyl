@@ -430,7 +430,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         match self.squeezer {
             Squeezer::Print => {
                 if !self.show_position_panel && i == 0 {
-                    self.writer.write_all(self.byte_char_panel_g[b'*' as usize].as_bytes())?;
+                    self.writer
+                        .write_all(self.byte_char_panel_g[b'*' as usize].as_bytes())?;
                 } else {
                     self.writer.write_all(b" ")?;
                 }
@@ -492,8 +493,10 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     leftover = Some(n);
                     break;
                 } else if n == 0 {
-                    self.line_buf.clear();
-                    leftover = Some(0);
+                    if self.squeezer == Squeezer::Delete {
+                        self.line_buf.clear();
+                        leftover = Some(0);
+                    }
                     break;
                 }
             }
