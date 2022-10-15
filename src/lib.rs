@@ -469,6 +469,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let mut is_empty = true;
         let mut will_delete = false;
         let mut leftover = None;
+        let mut all_zero = true;
 
         let mut buf = BufReader::new(reader);
 
@@ -486,7 +487,20 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
             is_empty = false;
 
-            if matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
+            if self.squeezer == Squeezer::Delete && self.squeeze_byte == 0 {
+                for w in self.line_buf.chunks_exact(std::mem::size_of::<usize>()) {
+                    if usize::from_ne_bytes(w.try_into().unwrap()) != 0 {
+                        all_zero = false;
+                        break;
+                    }
+                }
+                if all_zero {
+                    self.idx += 8 * self.panels;
+                    continue;
+                }
+            }
+
+            if all_zero && matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
                 if self.line_buf[0] == self.squeeze_byte
                     && self.line_buf.windows(2).all(|w| w[0] == w[1])
                 {
@@ -520,6 +534,10 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.squeezer = Squeezer::Print;
                 self.squeeze_byte = self.line_buf[0];
             };
+
+            if !all_zero {
+                all_zero = true;
+            }
         }
 
         // special ending
