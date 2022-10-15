@@ -555,20 +555,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 write!(self.writer, "{0:>9}{0:>9}", "│")?;
             }
             writeln!(self.writer)?;
-        } else if matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
-            // input was squeezed at the end
-            self.squeezer = Squeezer::Ignore;
-            self.print_position_panel()?;
-
-            self.squeezer = Squeezer::Print;
-
-            // print empty bytes
-            self.print_bytes()?;
-            if self.show_char_panel {
-                // print empty char panel
-                self.print_char_panel()?;
-            }
-            self.writer.write_all(b"\n")?;
         } else if let Some(n) = leftover {
             // last line is incomplete
             self.print_position_panel()?;
