@@ -247,7 +247,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             border_style,
             byte_hex_panel: (0u8..=u8::MAX)
                 .map(|i| {
-                    let byte_hex = format!(" {:02x}", i);
+                    let byte_hex = format!("{:02x}", i);
                     if show_color {
                         Byte(i).color().paint(byte_hex).to_string()
                     } else {
@@ -428,10 +428,20 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
     fn print_byte(&mut self, i: usize, b: u8) -> io::Result<()> {
         match self.squeezer {
-            Squeezer::Print | Squeezer::Delete => self.writer.write_all(b"   ")?,
-            Squeezer::Ignore | Squeezer::Disabled => self
-                .writer
-                .write_all(self.byte_hex_panel[b as usize].as_bytes())?,
+            Squeezer::Print => {
+                if !self.show_position_panel && i == 0 {
+                    self.writer.write_all(self.byte_char_panel_g[b'*' as usize].as_bytes())?;
+                } else {
+                    self.writer.write_all(b" ")?;
+                }
+                self.writer.write_all(b"  ")?;
+            }
+            Squeezer::Delete => self.writer.write_all(b"   ")?,
+            Squeezer::Ignore | Squeezer::Disabled => {
+                self.writer.write_all(b" ")?;
+                self.writer
+                    .write_all(self.byte_hex_panel[b as usize].as_bytes())?;
+            }
         }
         // byte is last in panel
         if i % 8 == 7 {
