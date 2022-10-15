@@ -482,6 +482,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     leftover = Some(n);
                     break;
                 } else if n == 0 {
+                    self.line_buf.clear();
+                    leftover = Some(0);
                     break;
                 }
             }
@@ -490,6 +492,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             if self.squeezer == Squeezer::Delete && self.squeeze_byte == 0 {
                 for w in self.line_buf.chunks_exact(std::mem::size_of::<usize>()) {
                     if usize::from_ne_bytes(w.try_into().unwrap()) != 0 {
+                        self.squeezer = Squeezer::Ignore;
                         all_zero = false;
                         break;
                     }
@@ -558,6 +561,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         } else if let Some(n) = leftover {
             // last line is incomplete
             self.print_position_panel()?;
+            self.squeezer = Squeezer::Ignore;
             self.print_bytes()?;
             self.squeezer = Squeezer::Print;
             for i in n..8 * self.panels as usize {
