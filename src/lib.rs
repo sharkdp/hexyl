@@ -489,9 +489,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             if let Ok(n) = buf.read(&mut self.line_buf) {
                 if n > 0 && n < 8 * self.panels as usize {
                     is_empty = false;
-                    self.line_buf.resize(n, 0);
-                    leftover = Some(n);
-                    break;
+                    // perform second check on read
+                    if let Ok(0) = buf.read(&mut self.line_buf[n..]) {
+                        self.line_buf.resize(n, 0);
+                        leftover = Some(n);
+                        break;
+                    };
                 } else if n == 0 {
                     if self.squeezer == Squeezer::Delete {
                         self.line_buf.clear();
@@ -503,16 +506,16 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             is_empty = false;
 
             if self.squeezer == Squeezer::Delete && self.squeeze_byte == 0 {
-                for w in self.line_buf.chunks_exact(std::mem::size_of::<usize>()) {
-                    if usize::from_ne_bytes(w.try_into().unwrap()) != 0 {
-                        self.squeezer = Squeezer::Ignore;
-                        all_zero = false;
-                        break;
-                    }
-                }
-                if all_zero {
+                if self
+                    .line_buf
+                    .chunks_exact(std::mem::size_of::<usize>())
+                    .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == 0)
+                {
                     self.idx += 8 * self.panels;
                     continue;
+                } else {
+                    self.squeezer = Squeezer::Ignore;
+                    all_zero = false;
                 }
             }
 
