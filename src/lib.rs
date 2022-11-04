@@ -706,4 +706,61 @@ mod tests {
         let actual_string: &str = str::from_utf8(&output).unwrap();
         assert_eq!(actual_string, expected_string)
     }
+
+    #[test]
+    fn squeeze_works() {
+        let input = io::Cursor::new(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00");
+        let expected_string = "\
+┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+│00000000│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │00000000┊00000000│
+│*       │                         ┊                         │        ┊        │
+│00000020│ 00                      ┊                         │0       ┊        │
+└────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
+"
+        .to_owned();
+        assert_print_all_output(input, expected_string);
+    }
+
+    #[test]
+    fn squeeze_nonzero() {
+        let input = io::Cursor::new(b"000000000000000000000000000000000");
+        let expected_string = "\
+┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+│00000000│ 30 30 30 30 30 30 30 30 ┊ 30 30 30 30 30 30 30 30 │00000000┊00000000│
+│*       │                         ┊                         │        ┊        │
+│00000020│ 30                      ┊                         │0       ┊        │
+└────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
+"
+        .to_owned();
+        assert_print_all_output(input, expected_string);
+    }
+
+    #[test]
+    fn squeeze_multiple_panels() {
+        let input = io::Cursor::new(b"0000000000000000000000000000000000000000000000000");
+        let expected_string = "\
+┌────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬────────┬────────┬────────┐
+│00000000│ 30 30 30 30 30 30 30 30 ┊ 30 30 30 30 30 30 30 30 ┊ 30 30 30 30 30 30 30 30 │00000000┊00000000┊00000000│
+│*       │                         ┊                         ┊                         │        ┊        ┊        │
+│00000030│ 30                      ┊                         ┊                         │0       ┊        ┊        │
+└────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┴────────┴────────┴────────┘
+"
+        .to_owned();
+
+        let mut output = vec![];
+        let mut printer: Printer<Vec<u8>> = Printer::new(
+            &mut output,
+            false,
+            true,
+            true,
+            BorderStyle::Unicode,
+            true,
+            3,
+        );
+
+        printer.print_all(input).unwrap();
+
+        let actual_string: &str = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string)
+    }
 }
