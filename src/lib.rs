@@ -225,7 +225,7 @@ pub struct Printer<'a, Writer: Write> {
     display_offset: u64,
     /// The number of panels to draw.
     panels: u64,
-    squeeze_byte: u8,
+    squeeze_byte: usize,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -480,7 +480,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let mut is_empty = true;
         let mut will_delete = false;
         let mut leftover = None;
-        let mut all_zero = true;
 
         let mut buf = BufReader::new(reader);
 
@@ -505,23 +504,11 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
             is_empty = false;
 
-            if self.squeezer == Squeezer::Delete && self.squeeze_byte == 0 {
+            if matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
                 if self
                     .line_buf
                     .chunks_exact(std::mem::size_of::<usize>())
-                    .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == 0)
-                {
-                    self.idx += 8 * self.panels;
-                    continue;
-                } else {
-                    self.squeezer = Squeezer::Ignore;
-                    all_zero = false;
-                }
-            }
-
-            if all_zero && matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
-                if self.line_buf[0] == self.squeeze_byte
-                    && self.line_buf.windows(2).all(|w| w[0] == w[1])
+                    .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == self.squeeze_byte)
                 {
                     if self.squeezer == Squeezer::Print {
                         will_delete = true;
@@ -551,12 +538,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 && self.line_buf.windows(2).all(|w| w[0] == w[1])
             {
                 self.squeezer = Squeezer::Print;
-                self.squeeze_byte = self.line_buf[0];
+                self.squeeze_byte = (self.line_buf[0] as usize) * (usize::MAX / 255);
             };
-
-            if !all_zero {
-                all_zero = true;
-            }
         }
 
         // special ending
