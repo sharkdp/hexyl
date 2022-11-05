@@ -483,8 +483,10 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         self.print_header()?;
         let leftover = loop {
+            // read a maximum of 8 * self.panels bytes from the reader
             if let Ok(n) = buf.read(&mut self.line_buf) {
                 if n > 0 && n < 8 * self.panels as usize {
+                    // if less are read, that indicates end of file after
                     is_empty = false;
 
                     // perform second check on read
@@ -493,7 +495,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                         break Some(n);
                     };
                 } else if n == 0 {
+                    // if no bytes are read, that indicates end of file
                     if self.squeezer == Squeezer::Delete {
+                        // empty the last line when ending is squeezed
                         self.line_buf.clear();
                         break Some(0);
                     }
@@ -502,6 +506,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
             is_empty = false;
 
+            // squeeze is active, check if the line is the same
+            // skip print if still squeezed, otherwise print and deactivate squeeze
             if matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
                 if self
                     .line_buf
@@ -516,6 +522,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     self.squeezer = Squeezer::Ignore;
                 }
             }
+
+            // print the line
             self.print_position_panel()?;
             self.print_bytes()?;
             if self.show_char_panel {
@@ -523,12 +531,17 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
             self.writer.write_all(b"\n")?;
 
+            // increment index to next line
             self.idx += 8 * self.panels;
 
+            // change from print to delete if squeeze is still active
             if self.squeezer == Squeezer::Print {
                 self.squeezer = Squeezer::Delete;
             }
 
+            // repeat the first byte in the line until it's a usize
+            // compare that usize with each usize chunk in the line
+            // if they are all the same, change squeezer to print
             let repeat_byte = (self.line_buf[0] as usize) * (usize::MAX / 255);
             if !matches!(self.squeezer, Squeezer::Disabled | Squeezer::Delete)
                 && self
