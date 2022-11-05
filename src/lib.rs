@@ -478,28 +478,26 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     /// is exhausted.
     pub fn print_all<Reader: Read>(&mut self, reader: Reader) -> io::Result<()> {
         let mut is_empty = true;
-        let mut will_delete = false;
-        let mut leftover = None;
 
         let mut buf = BufReader::new(reader);
 
         self.print_header()?;
-        loop {
+        let leftover = loop {
             if let Ok(n) = buf.read(&mut self.line_buf) {
                 if n > 0 && n < 8 * self.panels as usize {
                     is_empty = false;
+
                     // perform second check on read
                     if let Ok(0) = buf.read(&mut self.line_buf[n..]) {
                         self.line_buf.resize(n, 0);
-                        leftover = Some(n);
-                        break;
+                        break Some(n);
                     };
                 } else if n == 0 {
                     if self.squeezer == Squeezer::Delete {
                         self.line_buf.clear();
-                        leftover = Some(0);
+                        break Some(0);
                     }
-                    break;
+                    break None;
                 }
             }
             is_empty = false;
@@ -510,9 +508,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     .chunks_exact(std::mem::size_of::<usize>())
                     .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == self.squeeze_byte)
                 {
-                    if self.squeezer == Squeezer::Print {
-                        will_delete = true;
-                    } else {
+                    if self.squeezer == Squeezer::Delete {
                         self.idx += 8 * self.panels;
                         continue;
                     }
@@ -529,9 +525,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
             self.idx += 8 * self.panels;
 
-            if will_delete {
+            if self.squeezer == Squeezer::Print {
                 self.squeezer = Squeezer::Delete;
-                will_delete = false;
             }
 
             if !matches!(self.squeezer, Squeezer::Disabled | Squeezer::Delete)
@@ -540,7 +535,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.squeezer = Squeezer::Print;
                 self.squeeze_byte = (self.line_buf[0] as usize) * (usize::MAX / 255);
             };
-        }
+        };
 
         // special ending
 
