@@ -529,11 +529,15 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.squeezer = Squeezer::Delete;
             }
 
+            let repeat_byte = (self.line_buf[0] as usize) * (usize::MAX / 255);
             if !matches!(self.squeezer, Squeezer::Disabled | Squeezer::Delete)
-                && self.line_buf.windows(2).all(|w| w[0] == w[1])
+                && self
+                    .line_buf
+                    .chunks_exact(std::mem::size_of::<usize>())
+                    .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == repeat_byte)
             {
                 self.squeezer = Squeezer::Print;
-                self.squeeze_byte = (self.line_buf[0] as usize) * (usize::MAX / 255);
+                self.squeeze_byte = repeat_byte;
             };
         };
 
