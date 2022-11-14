@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{self, prelude::*, BufWriter, SeekFrom};
 use std::num::{NonZeroI64, NonZeroU64};
 
-use clap::{crate_name, crate_version, AppSettings, Arg, ColorChoice, Command};
+use clap::{crate_name, crate_version, Arg, ColorChoice, Command};
 
 use atty::Stream;
 
@@ -24,7 +24,6 @@ const DEFAULT_BLOCK_SIZE: i64 = 512;
 
 fn run() -> Result<(), AnyhowError> {
     let command = Command::new(crate_name!())
-        .setting(AppSettings::DeriveDisplayOrder)
         .color(ColorChoice::Auto)
         .max_term_width(90)
         .version(crate_version!())
