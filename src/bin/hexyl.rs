@@ -36,7 +36,7 @@ fn run() -> Result<(), AnyhowError> {
             Arg::new("length")
                 .short('n')
                 .long("length")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
                 .help(
                     "Only read N bytes from the input. The N argument can also include a \
@@ -50,7 +50,7 @@ fn run() -> Result<(), AnyhowError> {
             Arg::new("bytes")
                 .short('c')
                 .long("bytes")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
                 .conflicts_with("length")
                 .help("An alias for -n/--length"),
@@ -58,7 +58,7 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::new("count")
                 .short('l')
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
                 .conflicts_with_all(&["length", "bytes"])
                 .hide(true)
@@ -68,7 +68,7 @@ fn run() -> Result<(), AnyhowError> {
             Arg::new("skip")
                 .short('s')
                 .long("skip")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
                 .help(
                     "Skip the first N bytes of the input. The N argument can also include \
@@ -79,7 +79,7 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::new("block_size")
                 .long("block-size")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("SIZE")
                 .help(formatcp!(
                     "Sets the size of the `block` unit to SIZE (default is {}).\n\
@@ -100,7 +100,7 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::new("color")
                 .long("color")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("WHEN")
                 .possible_values(["always", "auto", "never"])
                 .default_value_if("plain", None, Some("never"))
@@ -116,7 +116,7 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::new("border")
                 .long("border")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("STYLE")
                 .possible_values(["unicode", "ascii", "none"])
                 .default_value_if("plain", None, Some("none"))
@@ -142,7 +142,7 @@ fn run() -> Result<(), AnyhowError> {
             Arg::new("display_offset")
                 .short('o')
                 .long("display-offset")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
                 .help(
                     "Add N bytes to the displayed file position. The N argument can also \
@@ -154,7 +154,7 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::new("panels")
                 .long("panels")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
                 .help(
                     "Sets the number of hex data panels to be displayed. \
@@ -165,7 +165,7 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::new("terminal_width")
                 .long("terminal-width")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
                 .conflicts_with("panels")
                 .help(
