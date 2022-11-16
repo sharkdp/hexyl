@@ -112,9 +112,6 @@ fn run() -> Result<(), AnyhowError> {
                      goes to an interactive terminal",
                 ),
         )
-        .arg(Arg::new("plain").short('p').long("plain").action(ArgAction::SetTrue).help(
-            "Display output with --no-characters, --no-position, --border=none, and --color=never.",
-        ))
         .arg(
             Arg::new("border")
                 .long("border")
@@ -128,6 +125,9 @@ fn run() -> Result<(), AnyhowError> {
                     or none at all",
                 ),
         )
+        .arg(Arg::new("plain").short('p').long("plain").action(ArgAction::SetTrue).help(
+            "Display output with --no-characters, --no-position, --border=none, and --color=never.",
+        ))
         .arg(
             Arg::new("no_chars")
                 .short('C')
@@ -268,13 +268,13 @@ fn run() -> Result<(), AnyhowError> {
         reader.into_inner()
     };
 
-    let show_color = match matches.value_of("color") {
+    let show_color = match matches.get_one::<String>("color").map(String::as_ref) {
         Some("never") => false,
         Some("auto") => atty::is(Stream::Stdout),
         _ => true,
     };
 
-    let border_style = match matches.value_of("border") {
+    let border_style = match matches.get_one::<String>("border").map(String::as_ref) {
         Some("unicode") => BorderStyle::Unicode,
         Some("ascii") => BorderStyle::Ascii,
         _ => BorderStyle::None,
@@ -309,7 +309,7 @@ fn run() -> Result<(), AnyhowError> {
         }
     };
 
-    let panels = if matches.value_of("panels") == Some("auto") {
+    let panels = if matches.get_one::<String>("panels").map(String::as_ref) == Some("auto") {
         max_panels_fn(terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0 as u64)
     } else if let Some(panels) = matches
         .get_one::<String>("panels")
