@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::{self, prelude::*, BufWriter, SeekFrom};
 use std::num::{NonZeroI64, NonZeroU64};
 
+use clap::builder::ArgPredicate;
 use clap::{crate_name, crate_version, Arg, ArgAction, ColorChoice, Command};
 
 use atty::Stream;
@@ -104,7 +105,7 @@ fn run() -> Result<(), AnyhowError> {
                 .num_args(1)
                 .value_name("WHEN")
                 .value_parser(["always", "auto", "never"])
-                .default_value_if("plain", None, Some("never"))
+                .default_value_if("plain", ArgPredicate::IsPresent, Some("never"))
                 .default_value("always")
                 .help(
                     "When to use colors. The auto-mode only displays colors if the output \
@@ -120,7 +121,7 @@ fn run() -> Result<(), AnyhowError> {
                 .num_args(1)
                 .value_name("STYLE")
                 .value_parser(["unicode", "ascii", "none"])
-                .default_value_if("plain", None, Some("none"))
+                .default_value_if("plain", ArgPredicate::IsPresent, Some("none"))
                 .default_value("unicode")
                 .help(
                     "Whether to draw a border with Unicode characters, ASCII characters, \
