@@ -61,7 +61,7 @@ fn run() -> Result<(), AnyhowError> {
                 .short('l')
                 .num_args(1)
                 .value_name("N")
-                .conflicts_with_all(&["length", "bytes"])
+                .conflicts_with_all(["length", "bytes"])
                 .hide(true)
                 .help("Yet another alias for -n/--length"),
         )
@@ -305,7 +305,7 @@ fn run() -> Result<(), AnyhowError> {
         if (terminal_width - offset) / col_width < 1 {
             1
         } else {
-            ((terminal_width - offset) / col_width) as u64
+            (terminal_width - offset) / col_width
         }
     };
 
