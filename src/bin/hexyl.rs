@@ -181,13 +181,13 @@ fn run() -> Result<(), AnyhowError> {
 
     let stdin = io::stdin();
 
-    let mut reader = match matches.value_of("FILE") {
+    let mut reader = match matches.get_one::<String>("FILE") {
         Some(filename) => Input::File(File::open(filename)?),
         None => Input::Stdin(stdin.lock()),
     };
 
     let block_size = matches
-        .value_of("block_size")
+        .get_one::<String>("block_size")
         .map(|bs| {
             if let Some(hex_number) = try_parse_as_hex_number(bs) {
                 return hex_number.map_err(|e| anyhow!(e)).and_then(|x| {
@@ -212,7 +212,7 @@ fn run() -> Result<(), AnyhowError> {
         .unwrap_or_else(|| PositiveI64::new(DEFAULT_BLOCK_SIZE).unwrap());
 
     let skip_arg = matches
-        .value_of("skip")
+        .get_one::<String>("skip")
         .map(|s| {
             parse_byte_offset(s, block_size).context(anyhow!(
                 "failed to parse `--skip` arg {:?} as byte count",
@@ -248,9 +248,9 @@ fn run() -> Result<(), AnyhowError> {
     };
 
     let mut reader = if let Some(length) = matches
-        .value_of("length")
-        .or_else(|| matches.value_of("bytes"))
-        .or_else(|| matches.value_of("count"))
+        .get_one::<String>("length")
+        .or_else(|| matches.get_one::<String>("bytes"))
+        .or_else(|| matches.get_one::<String>("count"))
         .map(|s| {
             parse_byte_count(s).context(anyhow!(
                 "failed to parse `--length` arg {:?} as byte count",
@@ -283,7 +283,7 @@ fn run() -> Result<(), AnyhowError> {
     let show_position_panel = !matches.is_present("no_position") && !matches.is_present("plain");
 
     let display_offset: u64 = matches
-        .value_of("display_offset")
+        .get_one::<String>("display_offset")
         .map(|s| {
             parse_byte_count(s).context(anyhow!(
                 "failed to parse `--display-offset` arg {:?} as byte count",
@@ -306,7 +306,7 @@ fn run() -> Result<(), AnyhowError> {
     let panels = if matches.value_of("panels") == Some("auto") {
         max_panels_fn(terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0 as u64)
     } else if let Some(panels) = matches
-        .value_of("panels")
+        .get_one::<String>("panels")
         .map(|s| {
             s.parse::<NonZeroU64>().map(u64::from).context(anyhow!(
                 "failed to parse `--panels` arg {:?} as unsigned nonzero integer",
@@ -317,7 +317,7 @@ fn run() -> Result<(), AnyhowError> {
     {
         panels
     } else if let Some(terminal_width) = matches
-        .value_of("terminal_width")
+        .get_one::<String>("terminal_width")
         .map(|s| {
             s.parse::<NonZeroU64>().map(u64::from).context(anyhow!(
                 "failed to parse `--terminal-width` arg {:?} as unsigned nonzero integer",
