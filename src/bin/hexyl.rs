@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::{self, prelude::*, BufWriter, SeekFrom};
 use std::num::{NonZeroI64, NonZeroU64};
 
-use clap::{crate_name, crate_version, Arg, ColorChoice, Command};
+use clap::{crate_name, crate_version, Arg, ArgAction, ColorChoice, Command};
 
 use atty::Stream;
 
@@ -91,6 +91,7 @@ fn run() -> Result<(), AnyhowError> {
             Arg::new("nosqueezing")
                 .short('v')
                 .long("no-squeezing")
+                .action(ArgAction::SetFalse)
                 .help(
                     "Displays all input data. Otherwise any number of groups of output \
                      lines which would be identical to the preceding group of lines, are \
@@ -110,7 +111,7 @@ fn run() -> Result<(), AnyhowError> {
                      goes to an interactive terminal",
                 ),
         )
-        .arg(Arg::new("plain").short('p').long("plain").help(
+        .arg(Arg::new("plain").short('p').long("plain").action(ArgAction::SetTrue).help(
             "Display output with --no-characters, --no-position, --border=none, and --color=never.",
         ))
         .arg(
@@ -130,12 +131,14 @@ fn run() -> Result<(), AnyhowError> {
             Arg::new("no_chars")
                 .short('C')
                 .long("no-characters")
+                .action(ArgAction::SetFalse)
                 .help("Whether to display the character panel on the right."),
         )
         .arg(
             Arg::new("no_position")
                 .short('P')
                 .long("no-position")
+                .action(ArgAction::SetFalse)
                 .help("Whether to display the position panel on the left."),
         )
         .arg(
@@ -276,11 +279,13 @@ fn run() -> Result<(), AnyhowError> {
         _ => BorderStyle::None,
     };
 
-    let squeeze = !matches.is_present("nosqueezing");
+    let &squeeze = matches.get_one::<bool>("nosqueezing").unwrap_or(&true);
 
-    let show_char_panel = !matches.is_present("no_chars") && !matches.is_present("plain");
+    let show_char_panel = *matches.get_one::<bool>("no_chars").unwrap_or(&true)
+        && !matches.get_one::<bool>("plain").unwrap_or(&false);
 
-    let show_position_panel = !matches.is_present("no_position") && !matches.is_present("plain");
+    let show_position_panel = *matches.get_one::<bool>("no_position").unwrap_or(&true)
+        && !matches.get_one::<bool>("plain").unwrap_or(&false);
 
     let display_offset: u64 = matches
         .get_one::<String>("display_offset")
