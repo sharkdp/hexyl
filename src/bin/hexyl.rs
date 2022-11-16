@@ -102,7 +102,7 @@ fn run() -> Result<(), AnyhowError> {
                 .long("color")
                 .num_args(1)
                 .value_name("WHEN")
-                .possible_values(["always", "auto", "never"])
+                .value_parser(["always", "auto", "never"])
                 .default_value_if("plain", None, Some("never"))
                 .default_value("always")
                 .help(
@@ -118,7 +118,7 @@ fn run() -> Result<(), AnyhowError> {
                 .long("border")
                 .num_args(1)
                 .value_name("STYLE")
-                .possible_values(["unicode", "ascii", "none"])
+                .value_parser(["unicode", "ascii", "none"])
                 .default_value_if("plain", None, Some("none"))
                 .default_value("unicode")
                 .help(
