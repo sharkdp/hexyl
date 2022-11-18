@@ -198,6 +198,7 @@ dependencies = [
  "clap",
  "const_format",
  "libc",
+ "once_cell",
  "predicates",
  "terminal_size",
  "thiserror",
