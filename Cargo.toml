@@ -11,7 +11,7 @@ version = "0.10.0"
 edition = "2021"
 
 [dependencies]
-ansi_term = "0.12"
+anstyle = "0.2.5"
 anyhow = "1.0"
 atty = "0.2"
 const_format = "0.2"
