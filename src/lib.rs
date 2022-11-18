@@ -4,15 +4,14 @@ pub use input::*;
 
 use std::io::{self, BufReader, Read, Write};
 
-use ansi_term::Color;
-use ansi_term::Color::Fixed;
+use anstyle::{AnsiColor, Color, Style};
 
-const COLOR_NULL: Color = Fixed(242); // grey
-const COLOR_OFFSET: Color = Fixed(242); // grey
-const COLOR_ASCII_PRINTABLE: Color = Color::Cyan;
-const COLOR_ASCII_WHITESPACE: Color = Color::Green;
-const COLOR_ASCII_OTHER: Color = Color::Purple;
-const COLOR_NONASCII: Color = Color::Yellow;
+const COLOR_NULL: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlack)));
+const COLOR_OFFSET: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlack)));
+const COLOR_ASCII_PRINTABLE: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Cyan)));
+const COLOR_ASCII_WHITESPACE: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)));
+const COLOR_ASCII_OTHER: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Magenta)));
+const COLOR_NONASCII: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow)));
 
 pub enum ByteCategory {
     Null,
@@ -48,7 +47,7 @@ impl Byte {
         }
     }
 
-    fn color(self) -> &'static Color {
+    fn color(self) -> &'static Style {
         use crate::ByteCategory::*;
 
         match self.category() {
