@@ -4,7 +4,7 @@ pub use input::*;
 
 use std::io::{self, BufReader, Read, Write};
 
-use anstyle::{AnsiColor, Color, Style};
+use anstyle::{AnsiColor, Color, Reset, Style};
 
 const COLOR_NULL: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlack)));
 const COLOR_OFFSET: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlack)));
@@ -248,7 +248,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 .map(|i| {
                     let byte_hex = format!("{:02x}", i);
                     if show_color {
-                        Byte(i).color().paint(byte_hex).to_string()
+                        format!("{}{}{}", Byte(i).color().render(), byte_hex, Reset.render())
                     } else {
                         byte_hex
                     }
@@ -258,7 +258,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 .map(|i| {
                     let byte_char = format!("{}", Byte(i).as_char());
                     if show_color {
-                        Byte(i).color().paint(byte_char).to_string()
+                        format!(
+                            "{}{}{}",
+                            Byte(i).color().render(),
+                            byte_char,
+                            Reset.render()
+                        )
                     } else {
                         byte_char
                     }
@@ -267,9 +272,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             byte_hex_panel_g: (0u8..=u8::MAX)
                 .map(|i| {
                     let byte_hex = format!("{:02x}", i);
-                    let style = COLOR_OFFSET.normal();
                     if show_color {
-                        style.paint(byte_hex).to_string()
+                        format!("{}{}{}", COLOR_OFFSET.render(), byte_hex, Reset.render())
                     } else {
                         byte_hex
                     }
@@ -278,9 +282,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             byte_char_panel_g: (0u8..=u8::MAX)
                 .map(|i| {
                     let byte_char = format!("{}", Byte(i).as_char());
-                    let style = COLOR_OFFSET.normal();
                     if show_color {
-                        style.paint(byte_char).to_string()
+                        format!("{}{}{}", COLOR_OFFSET.render(), byte_char, Reset.render())
                     } else {
                         byte_char
                     }
