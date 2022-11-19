@@ -2,12 +2,21 @@ pub(crate) mod input;
 
 pub use input::*;
 
-use std::collections::HashMap;
 use std::io::{self, BufReader, Read, Write};
 
 use anstyle::{AnsiColor, Reset};
 
-use once_cell::sync::Lazy;
+#[derive(PartialEq, Eq)]
+#[repr(usize)]
+enum ByteColor {
+    Null = 0,
+    Offset = 1,
+    AsciiPrintable = 2,
+    AsciiWhitespace = 3,
+    AsciiOther = 4,
+    NonAscii = 5,
+    Reset = 6,
+}
 
 const COLOR_NULL: AnsiColor = AnsiColor::BrightBlack;
 const COLOR_OFFSET: AnsiColor = AnsiColor::BrightBlack;
@@ -15,25 +24,6 @@ const COLOR_ASCII_PRINTABLE: AnsiColor = AnsiColor::Cyan;
 const COLOR_ASCII_WHITESPACE: AnsiColor = AnsiColor::Green;
 const COLOR_ASCII_OTHER: AnsiColor = AnsiColor::Magenta;
 const COLOR_NONASCII: AnsiColor = AnsiColor::Yellow;
-
-static COLORS: Lazy<HashMap<AnsiColor, String>> = Lazy::new(|| {
-    let mut m = HashMap::new();
-    for &col in [
-        COLOR_NULL,
-        COLOR_OFFSET,
-        COLOR_ASCII_PRINTABLE,
-        COLOR_ASCII_WHITESPACE,
-        COLOR_ASCII_OTHER,
-        COLOR_NONASCII,
-    ]
-    .iter()
-    {
-        m.insert(col, col.render_fg().to_string());
-    }
-    m
-});
-
-static RESET: Lazy<String> = Lazy::new(|| Reset.render().to_string());
 
 pub enum ByteCategory {
     Null,
@@ -69,15 +59,15 @@ impl Byte {
         }
     }
 
-    fn color(self) -> &'static AnsiColor {
+    fn color(self) -> ByteColor {
         use crate::ByteCategory::*;
 
         match self.category() {
-            Null => &COLOR_NULL,
-            AsciiPrintable => &COLOR_ASCII_PRINTABLE,
-            AsciiWhitespace => &COLOR_ASCII_WHITESPACE,
-            AsciiOther => &COLOR_ASCII_OTHER,
-            NonAscii => &COLOR_NONASCII,
+            Null => ByteColor::Null,
+            AsciiPrintable => ByteColor::AsciiPrintable,
+            AsciiWhitespace => ByteColor::AsciiWhitespace,
+            AsciiOther => ByteColor::AsciiOther,
+            NonAscii => ByteColor::NonAscii,
         }
     }
 
@@ -237,7 +227,8 @@ pub struct Printer<'a, Writer: Write> {
     show_char_panel: bool,
     show_position_panel: bool,
     show_color: bool,
-    curr_color: Option<AnsiColor>,
+    colors: Vec<String>,
+    curr_color: Option<ByteColor>,
     border_style: BorderStyle,
     byte_hex_panel: Vec<String>,
     byte_char_panel: Vec<String>,
@@ -269,6 +260,15 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             show_position_panel,
             show_color,
             curr_color: None,
+            colors: vec![
+                COLOR_NULL.render_fg().to_string(),
+                COLOR_OFFSET.render_fg().to_string(),
+                COLOR_ASCII_PRINTABLE.render_fg().to_string(),
+                COLOR_ASCII_WHITESPACE.render_fg().to_string(),
+                COLOR_ASCII_OTHER.render_fg().to_string(),
+                COLOR_NONASCII.render_fg().to_string(),
+                Reset.render().to_string(),
+            ],
             border_style,
             byte_hex_panel: (0u8..=u8::MAX).map(|i| format!("{:02x}", i)).collect(),
             byte_char_panel: (0u8..=u8::MAX)
@@ -351,7 +351,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 .as_bytes(),
         )?;
         if self.show_color {
-            self.writer.write_all(COLORS[&COLOR_OFFSET].as_bytes())?;
+            self.writer.write_all(self.colors[ByteColor::Offset as usize].as_bytes())?;
         }
         if self.show_position_panel {
             match self.squeezer {
@@ -359,7 +359,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     self.writer
                         .write_all(self.byte_char_panel_g[b'*' as usize].as_bytes())?;
                     if self.show_color {
-                        self.writer.write_all(RESET.as_bytes())?;
+                        self.writer.write_all(self.colors[ByteColor::Reset as usize].as_bytes())?;
                     }
                     self.writer.write_all(b"       ")?;
                 }
@@ -374,7 +374,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                             .write_all(self.byte_hex_panel_g[byte as usize].as_bytes())?;
                     }
                     if self.show_color {
-                        self.writer.write_all(RESET.as_bytes())?;
+                        self.writer.write_all(self.colors[ByteColor::Reset as usize].as_bytes())?;
                     }
                 }
             }
@@ -393,9 +393,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             Squeezer::Print | Squeezer::Delete => self.writer.write_all(b" ")?,
             Squeezer::Ignore | Squeezer::Disabled => {
                 if let Some(&b) = self.line_buf.get(i as usize) {
-                    if self.show_color && self.curr_color != Some(*Byte(b).color()) {
-                        self.writer.write_all(COLORS[Byte(b).color()].as_bytes())?;
-                        self.curr_color = Some(*Byte(b).color());
+                    if self.show_color && self.curr_color != Some(Byte(b).color()) {
+                        self.writer.write_all(self.colors[Byte(b).color() as usize].as_bytes())?;
+                        self.curr_color = Some(Byte(b).color());
                     }
                     self.writer
                         .write_all(self.byte_char_panel[b as usize].as_bytes())?;
@@ -406,7 +406,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
         if i == 8 * self.panels - 1 {
             if self.show_color {
-                self.writer.write_all(RESET.as_bytes())?;
+                self.writer.write_all(self.colors[ByteColor::Reset as usize].as_bytes())?;
                 self.curr_color = None;
             }
             self.writer.write_all(
@@ -417,7 +417,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             )?;
         } else if i % 8 == 7 {
             if self.show_color {
-                self.writer.write_all(RESET.as_bytes())?;
+                self.writer.write_all(self.colors[ByteColor::Reset as usize].as_bytes())?;
                 self.curr_color = None;
             }
             self.writer.write_all(
@@ -443,12 +443,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             Squeezer::Print => {
                 if !self.show_position_panel && i == 0 {
                     if self.show_color {
-                        self.writer.write_all(COLORS[&COLOR_OFFSET].as_bytes())?;
+                        self.writer.write_all(self.colors[ByteColor::Offset as usize].as_bytes())?;
                     }
                     self.writer
                         .write_all(self.byte_char_panel_g[b'*' as usize].as_bytes())?;
                     if self.show_color {
-                        self.writer.write_all(RESET.as_bytes())?;
+                        self.writer.write_all(self.colors[ByteColor::Reset as usize].as_bytes())?;
                     }
                 } else {
                     self.writer.write_all(b" ")?;
@@ -458,9 +458,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             Squeezer::Delete => self.writer.write_all(b"   ")?,
             Squeezer::Ignore | Squeezer::Disabled => {
                 self.writer.write_all(b" ")?;
-                if self.show_color && self.curr_color != Some(*Byte(b).color()) {
-                    self.writer.write_all(COLORS[Byte(b).color()].as_bytes())?;
-                    self.curr_color = Some(*Byte(b).color());
+                if self.show_color && self.curr_color != Some(Byte(b).color()) {
+                    self.writer.write_all(self.colors[Byte(b).color() as usize].as_bytes())?;
+                    self.curr_color = Some(Byte(b).color());
                 }
                 self.writer
                     .write_all(self.byte_hex_panel[b as usize].as_bytes())?;
@@ -470,7 +470,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         if i % 8 == 7 {
             if self.show_color {
                 self.curr_color = None;
-                self.writer.write_all(RESET.as_bytes())?;
+                self.writer.write_all(self.colors[ByteColor::Reset as usize].as_bytes())?;
             }
             self.writer.write_all(b" ")?;
             // byte is last in last panel
