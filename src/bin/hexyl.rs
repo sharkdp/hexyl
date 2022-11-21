@@ -6,7 +6,8 @@ use std::fs::File;
 use std::io::{self, prelude::*, BufWriter, SeekFrom};
 use std::num::{NonZeroI64, NonZeroU64, NonZeroU8};
 
-use clap::{crate_name, crate_version, AppSettings, Arg, ColorChoice, Command};
+use clap::builder::ArgPredicate;
+use clap::{crate_name, crate_version, Arg, ArgAction, ColorChoice, Command};
 
 use atty::Stream;
 
@@ -24,7 +25,6 @@ const DEFAULT_BLOCK_SIZE: i64 = 512;
 
 fn run() -> Result<(), AnyhowError> {
     let command = Command::new(crate_name!())
-        .setting(AppSettings::DeriveDisplayOrder)
         .color(ColorChoice::Auto)
         .max_term_width(90)
         .version(crate_version!())
@@ -37,7 +37,7 @@ fn run() -> Result<(), AnyhowError> {
             Arg::new("length")
                 .short('n')
                 .long("length")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
                 .help(
                     "Only read N bytes from the input. The N argument can also include a \
@@ -51,7 +51,7 @@ fn run() -> Result<(), AnyhowError> {
             Arg::new("bytes")
                 .short('c')
                 .long("bytes")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
                 .conflicts_with("length")
                 .help("An alias for -n/--length"),
@@ -59,9 +59,9 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::new("count")
                 .short('l')
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
-                .conflicts_with_all(&["length", "bytes"])
+                .conflicts_with_all(["length", "bytes"])
                 .hide(true)
                 .help("Yet another alias for -n/--length"),
         )
@@ -69,7 +69,7 @@ fn run() -> Result<(), AnyhowError> {
             Arg::new("skip")
                 .short('s')
                 .long("skip")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
                 .help(
                     "Skip the first N bytes of the input. The N argument can also include \
@@ -80,7 +80,7 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::new("block_size")
                 .long("block-size")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("SIZE")
                 .help(formatcp!(
                     "Sets the size of the `block` unit to SIZE (default is {}).\n\
@@ -92,6 +92,7 @@ fn run() -> Result<(), AnyhowError> {
             Arg::new("nosqueezing")
                 .short('v')
                 .long("no-squeezing")
+                .action(ArgAction::SetFalse)
                 .help(
                     "Displays all input data. Otherwise any number of groups of output \
                      lines which would be identical to the preceding group of lines, are \
@@ -101,49 +102,51 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::new("color")
                 .long("color")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("WHEN")
-                .possible_values(["always", "auto", "never"])
-                .default_value_if("plain", None, Some("never"))
+                .value_parser(["always", "auto", "never"])
+                .default_value_if("plain", ArgPredicate::IsPresent, Some("never"))
                 .default_value("always")
                 .help(
                     "When to use colors. The auto-mode only displays colors if the output \
                      goes to an interactive terminal",
                 ),
         )
-        .arg(Arg::new("plain").short('p').long("plain").help(
-            "Display output with --no-characters, --no-position, --border=none, and --color=never.",
-        ))
         .arg(
             Arg::new("border")
                 .long("border")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("STYLE")
-                .possible_values(["unicode", "ascii", "none"])
-                .default_value_if("plain", None, Some("none"))
+                .value_parser(["unicode", "ascii", "none"])
+                .default_value_if("plain", ArgPredicate::IsPresent, Some("none"))
                 .default_value("unicode")
                 .help(
                     "Whether to draw a border with Unicode characters, ASCII characters, \
                     or none at all",
                 ),
         )
+        .arg(Arg::new("plain").short('p').long("plain").action(ArgAction::SetTrue).help(
+            "Display output with --no-characters, --no-position, --border=none, and --color=never.",
+        ))
         .arg(
             Arg::new("no_chars")
                 .short('C')
                 .long("no-characters")
+                .action(ArgAction::SetFalse)
                 .help("Whether to display the character panel on the right."),
         )
         .arg(
             Arg::new("no_position")
                 .short('P')
                 .long("no-position")
+                .action(ArgAction::SetFalse)
                 .help("Whether to display the position panel on the left."),
         )
         .arg(
             Arg::new("display_offset")
                 .short('o')
                 .long("display-offset")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
                 .help(
                     "Add N bytes to the displayed file position. The N argument can also \
@@ -155,7 +158,7 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::new("panels")
                 .long("panels")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
                 .help(
                     "Sets the number of hex data panels to be displayed. \
@@ -177,7 +180,7 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::new("terminal_width")
                 .long("terminal-width")
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
                 .conflicts_with("panels")
                 .help(
@@ -193,13 +196,13 @@ fn run() -> Result<(), AnyhowError> {
 
     let stdin = io::stdin();
 
-    let mut reader = match matches.value_of("FILE") {
+    let mut reader = match matches.get_one::<String>("FILE") {
         Some(filename) => Input::File(File::open(filename)?),
         None => Input::Stdin(stdin.lock()),
     };
 
     let block_size = matches
-        .value_of("block_size")
+        .get_one::<String>("block_size")
         .map(|bs| {
             if let Some(hex_number) = try_parse_as_hex_number(bs) {
                 return hex_number.map_err(|e| anyhow!(e)).and_then(|x| {
@@ -224,7 +227,7 @@ fn run() -> Result<(), AnyhowError> {
         .unwrap_or_else(|| PositiveI64::new(DEFAULT_BLOCK_SIZE).unwrap());
 
     let skip_arg = matches
-        .value_of("skip")
+        .get_one::<String>("skip")
         .map(|s| {
             parse_byte_offset(s, block_size).context(anyhow!(
                 "failed to parse `--skip` arg {:?} as byte count",
@@ -260,9 +263,9 @@ fn run() -> Result<(), AnyhowError> {
     };
 
     let mut reader = if let Some(length) = matches
-        .value_of("length")
-        .or_else(|| matches.value_of("bytes"))
-        .or_else(|| matches.value_of("count"))
+        .get_one::<String>("length")
+        .or_else(|| matches.get_one::<String>("bytes"))
+        .or_else(|| matches.get_one::<String>("count"))
         .map(|s| {
             parse_byte_count(s).context(anyhow!(
                 "failed to parse `--length` arg {:?} as byte count",
@@ -276,26 +279,28 @@ fn run() -> Result<(), AnyhowError> {
         reader.into_inner()
     };
 
-    let show_color = match matches.value_of("color") {
+    let show_color = match matches.get_one::<String>("color").map(String::as_ref) {
         Some("never") => false,
         Some("auto") => atty::is(Stream::Stdout),
         _ => true,
     };
 
-    let border_style = match matches.value_of("border") {
+    let border_style = match matches.get_one::<String>("border").map(String::as_ref) {
         Some("unicode") => BorderStyle::Unicode,
         Some("ascii") => BorderStyle::Ascii,
         _ => BorderStyle::None,
     };
 
-    let squeeze = !matches.is_present("nosqueezing");
+    let &squeeze = matches.get_one::<bool>("nosqueezing").unwrap_or(&true);
 
-    let show_char_panel = !matches.is_present("no_chars") && !matches.is_present("plain");
+    let show_char_panel = *matches.get_one::<bool>("no_chars").unwrap_or(&true)
+        && !matches.get_one::<bool>("plain").unwrap_or(&false);
 
-    let show_position_panel = !matches.is_present("no_position") && !matches.is_present("plain");
+    let show_position_panel = *matches.get_one::<bool>("no_position").unwrap_or(&true)
+        && !matches.get_one::<bool>("plain").unwrap_or(&false);
 
     let display_offset: u64 = matches
-        .value_of("display_offset")
+        .get_one::<String>("display_offset")
         .map(|s| {
             parse_byte_count(s).context(anyhow!(
                 "failed to parse `--display-offset` arg {:?} as byte count",
@@ -311,14 +316,14 @@ fn run() -> Result<(), AnyhowError> {
         if (terminal_width - offset) / col_width < 1 {
             1
         } else {
-            ((terminal_width - offset) / col_width) as u64
+            (terminal_width - offset) / col_width
         }
     };
 
-    let panels = if matches.value_of("panels") == Some("auto") {
+    let panels = if matches.get_one::<String>("panels").map(String::as_ref) == Some("auto") {
         max_panels_fn(terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0 as u64)
     } else if let Some(panels) = matches
-        .value_of("panels")
+        .get_one::<String>("panels")
         .map(|s| {
             s.parse::<NonZeroU64>().map(u64::from).context(anyhow!(
                 "failed to parse `--panels` arg {:?} as unsigned nonzero integer",
@@ -329,7 +334,7 @@ fn run() -> Result<(), AnyhowError> {
     {
         panels
     } else if let Some(terminal_width) = matches
-        .value_of("terminal_width")
+        .get_one::<String>("terminal_width")
         .map(|s| {
             s.parse::<NonZeroU64>().map(u64::from).context(anyhow!(
                 "failed to parse `--terminal-width` arg {:?} as unsigned nonzero integer",
