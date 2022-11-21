@@ -169,7 +169,7 @@ fn run() -> Result<(), AnyhowError> {
         .arg(
             Arg::new("group_bytes")
                 .short('g')
-                .takes_value(true)
+                .num_args(1)
                 .value_name("N")
                 .help(
                     "Sets the number of octets per group to be displayed. \
@@ -349,7 +349,7 @@ fn run() -> Result<(), AnyhowError> {
     };
 
     let group_bytes = if let Some(group_bytes) = matches
-        .value_of("group_bytes")
+        .get_one::<String>("group_bytes")
         .map(|s| {
             s.parse::<NonZeroU8>().map(u8::from).context(anyhow!(
                 "failed to parse `-g` arg {:?} as unsigned nonzero integer",
