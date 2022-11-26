@@ -5,6 +5,26 @@ fn hexyl() -> Command {
     cmd.current_dir("tests/examples");
     cmd
 }
+trait PrettyAssert<S>
+where
+    S: AsRef<str>,
+{
+    fn pretty_stdout(self, other: S);
+}
+
+// https://github.com/assert-rs/assert_cmd/issues/121#issuecomment-849937376
+//
+impl<S> PrettyAssert<S> for assert_cmd::assert::Assert
+where
+    S: AsRef<str>,
+{
+    fn pretty_stdout(self, other: S) {
+        println!("{}", other.as_ref().len());
+        let self_str = String::from_utf8(self.get_output().stdout.clone()).unwrap();
+        println!("{}", self_str.len());
+        pretty_assertions::assert_eq!(self_str, other.as_ref());
+    }
+}
 
 mod basic {
     use super::hexyl;
@@ -274,6 +294,7 @@ mod display_settings {
 
 mod group {
     use super::hexyl;
+    use super::PrettyAssert;
 
     #[test]
     fn group_2_bytes() {
@@ -356,5 +377,177 @@ mod group {
             .arg("--group-bytes=3")
             .assert()
             .failure();
+    }
+    #[test]
+    fn squeeze_no_chars() {
+        hexyl()
+            .arg("hello_world_elf64")
+            .arg("--color=never")
+            .arg("--skip=1024")
+            .arg("--length=4096")
+            .arg("--no-characters")
+            .assert()
+            .success()
+            .pretty_stdout(
+                "\
+┌────────┬─────────────────────────┬─────────────────────────┐
+│00000400│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │
+│*       │                         ┊                         │
+│00001000│ ba 0e 00 00 00 b9 00 20 ┊ 40 00 bb 01 00 00 00 b8 │
+│00001010│ 04 00 00 00 cd 80 b8 01 ┊ 00 00 00 cd 80 00 00 00 │
+│00001020│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │
+│*       │                         ┊                         │
+│00001400│                         ┊                         │
+└────────┴─────────────────────────┴─────────────────────────┘
+",
+            );
+    }
+    #[test]
+    fn squeeze_no_chars_one_panel() {
+        hexyl()
+            .arg("hello_world_elf64")
+            .arg("--color=never")
+            .arg("--skip=1024")
+            .arg("--length=4096")
+            .arg("--no-characters")
+            .arg("--panels=1")
+            .assert()
+            .success()
+            .pretty_stdout(
+                "\
+┌────────┬─────────────────────────┐
+│00000400│ 00 00 00 00 00 00 00 00 │
+│*       │                         │
+│00001000│ ba 0e 00 00 00 b9 00 20 │
+│00001008│ 40 00 bb 01 00 00 00 b8 │
+│00001010│ 04 00 00 00 cd 80 b8 01 │
+│00001018│ 00 00 00 cd 80 00 00 00 │
+│00001020│ 00 00 00 00 00 00 00 00 │
+│*       │                         │
+│00001400│                         │
+└────────┴─────────────────────────┘
+",
+            );
+    }
+    #[test]
+    fn squeeze_no_position() {
+        hexyl()
+            .arg("hello_world_elf64")
+            .arg("--color=never")
+            .arg("--skip=1024")
+            .arg("--length=4096")
+            .arg("--no-position")
+            .assert()
+            .success()
+            .pretty_stdout(
+                "\
+┌─────────────────────────┬─────────────────────────┬────────┬────────┐
+│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │00000000┊00000000│
+│*                        ┊                         │        ┊        │
+│ ba 0e 00 00 00 b9 00 20 ┊ 40 00 bb 01 00 00 00 b8 │×•000×0 ┊@0×•000×│
+│ 04 00 00 00 cd 80 b8 01 ┊ 00 00 00 cd 80 00 00 00 │•000×××•┊000××000│
+│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │00000000┊00000000│
+│*                        ┊                         │        ┊        │
+│*                        ┊                         │        ┊        │
+└─────────────────────────┴─────────────────────────┴────────┴────────┘
+",
+            );
+    }
+    #[test]
+    fn squeeze_no_position_one_panel() {
+        hexyl()
+            .arg("hello_world_elf64")
+            .arg("--color=never")
+            .arg("--skip=1024")
+            .arg("--length=4096")
+            .arg("--no-position")
+            .arg("--panels=1")
+            .assert()
+            .success()
+            .pretty_stdout(
+                "\
+┌─────────────────────────┬────────┐
+│ 00 00 00 00 00 00 00 00 │00000000│
+│*                        │        │
+│ ba 0e 00 00 00 b9 00 20 │×•000×0 │
+│ 40 00 bb 01 00 00 00 b8 │@0×•000×│
+│ 04 00 00 00 cd 80 b8 01 │•000×××•│
+│ 00 00 00 cd 80 00 00 00 │000××000│
+│ 00 00 00 00 00 00 00 00 │00000000│
+│*                        │        │
+│*                        │        │
+└─────────────────────────┴────────┘
+",
+            );
+    }
+    #[test]
+    fn squeeze_odd_panels_remainder_bytes() {
+        hexyl()
+            .arg("hello_world_elf64")
+            .arg("--color=never")
+            .arg("--skip=1024")
+            .arg("--length=4092") // 4 byte remainder
+            .arg("--panels=3")
+            .assert()
+            .success()
+            .pretty_stdout(
+                "\
+┌────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬────────┬────────┬────────┐
+│00000400│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │00000000┊00000000┊00000000│
+│*       │                         ┊                         ┊                         │        ┊        ┊        │
+│00001000│ ba 0e 00 00 00 b9 00 20 ┊ 40 00 bb 01 00 00 00 b8 ┊ 04 00 00 00 cd 80 b8 01 │×•000×0 ┊@0×•000×┊•000×××•│
+│00001018│ 00 00 00 cd 80 00 00 00 ┊ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │000××000┊00000000┊00000000│
+│00001030│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │00000000┊00000000┊00000000│
+│*       │                         ┊                         ┊                         │        ┊        ┊        │
+│000013f0│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00             ┊                         │00000000┊0000    ┊        │
+└────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┴────────┴────────┴────────┘
+",
+            );
+    }
+
+    #[test]
+    fn squeeze_plain() {
+        hexyl()
+            .arg("hello_world_elf64")
+            .arg("--color=never")
+            .arg("--skip=1024")
+            .arg("--length=4096")
+            .arg("--plain")
+            .assert()
+            .success()
+            .pretty_stdout(
+                "  \
+  00 00 00 00 00 00 00 00   00 00 00 00 00 00 00 00  
+ *                                                   
+  ba 0e 00 00 00 b9 00 20   40 00 bb 01 00 00 00 b8  
+  04 00 00 00 cd 80 b8 01   00 00 00 cd 80 00 00 00  
+  00 00 00 00 00 00 00 00   00 00 00 00 00 00 00 00  
+ *                                                   
+ *                                                   
+",
+            );
+    }
+
+    #[test]
+    fn squeeze_plain_remainder() {
+        hexyl()
+            .arg("hello_world_elf64")
+            .arg("--color=never")
+            .arg("--skip=1024")
+            .arg("--length=4092") // 4 byte remainder
+            .arg("--plain")
+            .assert()
+            .success()
+            .pretty_stdout(
+                "  \
+  00 00 00 00 00 00 00 00   00 00 00 00 00 00 00 00  
+ *                                                   
+  ba 0e 00 00 00 b9 00 20   40 00 bb 01 00 00 00 b8  
+  04 00 00 00 cd 80 b8 01   00 00 00 cd 80 00 00 00  
+  00 00 00 00 00 00 00 00   00 00 00 00 00 00 00 00  
+ *                                                   
+  00 00 00 00 00 00 00 00   00 00 00 00              
+",
+            );
     }
 }
