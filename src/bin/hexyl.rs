@@ -352,7 +352,7 @@ fn run() -> Result<(), AnyhowError> {
         .get_one::<String>("group_bytes")
         .map(|s| {
             s.parse::<NonZeroU8>().map(u8::from).context(anyhow!(
-                "failed to parse `--group-bytes` arg {:?} as unsigned nonzero integer",
+                "failed to parse `--group-bytes`/`-g` arg {:?} as unsigned nonzero integer",
                 s
             ))
         })
@@ -362,7 +362,7 @@ fn run() -> Result<(), AnyhowError> {
             group_bytes
         } else {
             return Err(anyhow!(
-                "the possible options of group_bytes could only be 1, 2, 4 or 8. "
+                "Possible options for the `--group-bytes`/`-g` option are 1, 2, 4 or 8. "
             ));
         }
     } else {
