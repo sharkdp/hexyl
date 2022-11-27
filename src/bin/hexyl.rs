@@ -19,7 +19,7 @@ use thiserror::Error as ThisError;
 
 use terminal_size::terminal_size;
 
-use hexyl::{BorderStyle, Input, PrinterBuilder};
+use hexyl::{Base, BorderStyle, Input, PrinterBuilder};
 
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
@@ -336,6 +336,37 @@ fn run() -> Result<(), AnyhowError> {
         }
     };
 
+    let base = if let Some(base) = matches.get_one::<String>("base")
+    .map(|s| {
+        if let Ok(base_num) = s.parse::<u8>() {
+            match base_num {
+                2 => Ok(Base::Binary),
+                8 => Ok(Base::Octal),
+                10 => Ok(Base::Decimal),
+                16 => Ok(Base::Hexadecimal),
+                _ => Err(anyhow!("The number provided is not a valid base. Valid bases are 2, 8, 10, and 16.")),
+            }
+        } else {
+            match s.as_str() {
+                "b" | "bin" | "binary" => Ok(Base::Binary),
+                "o" | "oct" | "octal" => Ok(Base::Octal),
+                "d" | "dec" | "decimal" => Ok(Base::Decimal),
+                "x" | "hex" | "hexadecimal" => Ok(Base::Hexadecimal),
+                _ => Err(anyhow!("The base provided is not valid. Valid bases are \"b\", \"o\", \"d\", and \"x\"."))
+            }
+        }
+    }).transpose()? {
+        base
+    } else {
+        Base::Hexadecimal
+    };
+
+    let base_digits = match base {
+        Base::Binary => 8,
+        Base::Octal => 3,
+        Base::Decimal => 3,
+        Base::Hexadecimal => 2,
+    };
 
     let group_bytes = if let Some(group_bytes) = matches
         .get_one::<String>("group_bytes")
