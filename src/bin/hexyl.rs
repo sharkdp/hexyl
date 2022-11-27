@@ -331,6 +331,28 @@ fn run() -> Result<(), AnyhowError> {
         }
     };
 
+
+    let group_bytes = if let Some(group_bytes) = matches
+        .get_one::<String>("group_bytes")
+        .map(|s| {
+            s.parse::<NonZeroU8>().map(u8::from).context(anyhow!(
+                "failed to parse `--group-bytes`/`-g` arg {:?} as unsigned nonzero integer",
+                s
+            ))
+        })
+        .transpose()?
+    {
+        if (group_bytes <= 8) && ((group_bytes & (group_bytes - 1)) == 0) {
+            group_bytes
+        } else {
+            return Err(anyhow!(
+                "Possible options for the `--group-bytes`/`-g` option are 1, 2, 4 or 8. "
+            ));
+        }
+    } else {
+        1
+    };
+
     let panels = if matches.get_one::<String>("panels").map(String::as_ref) == Some("auto") {
         max_panels_fn(terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0 as u64)
     } else if let Some(panels) = matches
