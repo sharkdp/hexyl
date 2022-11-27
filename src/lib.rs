@@ -572,13 +572,15 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         let mut buf = BufReader::new(reader);
 
-        self.print_header()?;
         let leftover = loop {
             // read a maximum of 8 * self.panels bytes from the reader
             if let Ok(n) = buf.read(&mut self.line_buf) {
                 if n > 0 && n < 8 * self.panels as usize {
                     // if less are read, that indicates end of file after
+                    if is_empty {
+                        self.print_header()?;
                     is_empty = false;
+                    }
 
                     // perform second check on read
                     if let Ok(0) = buf.read(&mut self.line_buf[n..]) {
@@ -595,7 +597,10 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     break None;
                 }
             }
+            if is_empty {
+                self.print_header()?;
             is_empty = false;
+            }
 
             // squeeze is active, check if the line is the same
             // skip print if still squeezed, otherwise print and deactivate squeeze
@@ -648,6 +653,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         // special ending
 
         if is_empty {
+            self.base_digits = 2;
+            self.print_header()?;
             if self.show_position_panel {
                 write!(self.writer, "{0:9}", "│")?;
             }
