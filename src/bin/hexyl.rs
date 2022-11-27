@@ -4,7 +4,7 @@ extern crate clap;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{self, prelude::*, BufWriter, SeekFrom};
-use std::num::{NonZeroI64, NonZeroU64};
+use std::num::{NonZeroI64, NonZeroU64, NonZeroU8};
 
 use clap::builder::ArgPredicate;
 use clap::{crate_name, crate_version, Arg, ArgAction, ColorChoice, Command};
@@ -164,6 +164,17 @@ fn run() -> Result<(), AnyhowError> {
                     "Sets the number of hex data panels to be displayed. \
                     `--panels=auto` will display the maximum number of hex data panels \
                     based on the current terminal width",
+                ),
+        )
+        .arg(
+            Arg::new("group_bytes")
+                .short('g')
+                .long("group-bytes")
+                .num_args(1)
+                .value_name("N")
+                .help(
+                    "Sets the number of octets per group to be displayed. \
+                    The possible options are 1, 2, 4, 8. The default is 1",
                 ),
         )
         .arg(
@@ -337,6 +348,27 @@ fn run() -> Result<(), AnyhowError> {
         2
     };
 
+    let group_bytes = if let Some(group_bytes) = matches
+        .get_one::<String>("group_bytes")
+        .map(|s| {
+            s.parse::<NonZeroU8>().map(u8::from).context(anyhow!(
+                "failed to parse `--group-bytes`/`-g` arg {:?} as unsigned nonzero integer",
+                s
+            ))
+        })
+        .transpose()?
+    {
+        if (group_bytes <= 8) && ((group_bytes & (group_bytes - 1)) == 0) {
+            group_bytes
+        } else {
+            return Err(anyhow!(
+                "Possible options for the `--group-bytes`/`-g` option are 1, 2, 4 or 8. "
+            ));
+        }
+    } else {
+        1
+    };
+
     let stdout = io::stdout();
     let mut stdout_lock = BufWriter::new(stdout.lock());
 
@@ -347,6 +379,7 @@ fn run() -> Result<(), AnyhowError> {
         .with_border_style(border_style)
         .enable_squeezing(squeeze)
         .num_panels(panels)
+        .num_group_bytes(group_bytes)
         .build();
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
