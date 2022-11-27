@@ -178,6 +178,17 @@ fn run() -> Result<(), AnyhowError> {
                 ),
         )
         .arg(
+            Arg::new("base")
+                .short('b')
+                .long("base")
+                .num_args(1)
+                .value_name("B")
+                .help(
+                    "Sets the base used for the bytes. The possible options are \
+                    binary, octal, decimal, and hexadecimal."
+                )
+        )
+        .arg(
             Arg::new("terminal_width")
                 .long("terminal-width")
                 .num_args(1)
