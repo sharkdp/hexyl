@@ -299,11 +299,18 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 Reset.render().to_string(),
             ],
             border_style,
-            byte_hex_panel: (0u8..=u8::MAX).map(|i| format!("{:02x}", i)).collect(),
+            byte_hex_panel: (0u8..=u8::MAX)
+                .map(|i| match base {
+                    Base::Binary => format!("{i:08b}"),
+                    Base::Octal => format!("{i:03o}"),
+                    Base::Decimal => format!("{i:03}"),
+                    Base::Hexadecimal => format!("{i:02x}"),
+                })
+                .collect(),
             byte_char_panel: (0u8..=u8::MAX)
                 .map(|i| format!("{}", Byte(i).as_char()))
                 .collect(),
-            byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{:02x}", i)).collect(),
+            byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{i:02x}")).collect(),
             byte_char_panel_g: (0u8..=u8::MAX)
                 .map(|i| format!("{}", Byte(i).as_char()))
                 .collect(),
