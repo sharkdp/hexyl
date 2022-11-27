@@ -339,7 +339,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
     fn panel_sz(&self) -> usize {
         // add one to include the trailing space of a group
-        let group_sz = 2 * self.group_bytes as usize + 1;
+        let group_sz = self.base_digits as usize * self.group_bytes as usize + 1;
         let group_per_panel = 8 / self.group_bytes as usize;
         // add one to include the leading space
         1 + group_sz * group_per_panel
@@ -514,7 +514,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                         self.writer.write_all(b" ")?;
                     }
                 }
-                self.writer.write_all(b"  ")?;
+                for _ in 0..self.base_digits {
+                    self.writer.write_all(b" ")?;
+                }
             }
             Squeezer::Delete => self.writer.write_all(b"   ")?,
             Squeezer::Ignore | Squeezer::Disabled => {
