@@ -388,10 +388,6 @@ fn run() -> Result<(), AnyhowError> {
 }
 
 fn main() {
-    // Enable ANSI support for Windows
-    #[cfg(windows)]
-    let _ = ansi_term::enable_ansi_support();
-
     let result = run();
 
     if let Err(err) = result {
