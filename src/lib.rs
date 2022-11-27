@@ -6,6 +6,13 @@ use std::io::{self, BufReader, Read, Write};
 
 use anstyle::{AnsiColor, Reset};
 
+pub enum Base {
+    Binary,
+    Octal,
+    Decimal,
+    Hexadecimal,
+}
+
 #[derive(PartialEq, Eq)]
 #[repr(usize)]
 enum ByteColor {
@@ -162,6 +169,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     use_squeeze: bool,
     panels: u64,
     group_bytes: u8,
+    base: Base,
 }
 
 impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
@@ -175,6 +183,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             use_squeeze: true,
             panels: 2,
             group_bytes: 1,
+            base: Base::Hexadecimal,
         }
     }
 
@@ -213,6 +222,11 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
+    pub fn with_base(mut self, base: Base) -> Self {
+        self.base = base;
+        self
+    }
+
     pub fn build(self) -> Printer<'a, Writer> {
         Printer::new(
             self.writer,
@@ -223,6 +237,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             self.use_squeeze,
             self.panels,
             self.group_bytes,
+            self.base,
         )
     }
 }
@@ -250,6 +265,8 @@ pub struct Printer<'a, Writer: Write> {
     squeeze_byte: usize,
     /// The number of octets per group.
     group_bytes: u8,
+    /// The number of digits used to write the base.
+    base_digits: u8,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -262,6 +279,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         use_squeeze: bool,
         panels: u64,
         group_bytes: u8,
+        base: Base,
     ) -> Printer<'a, Writer> {
         Printer {
             idx: 0,
@@ -298,6 +316,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             panels,
             squeeze_byte: 0x00,
             group_bytes,
+            base_digits: match base {
+                Base::Binary => 8,
+                Base::Octal => 3,
+                Base::Decimal => 3,
+                Base::Hexadecimal => 2,
+            },
         }
     }
 
