@@ -709,6 +709,7 @@ mod tests {
             true,
             2,
             1,
+            Base::Hexadecimal,
         );
 
         printer.print_all(input).unwrap();
@@ -762,6 +763,7 @@ mod tests {
             true,
             2,
             1,
+            Base::Hexadecimal,
         );
         printer.display_offset(0xdeadbeef);
 
@@ -794,6 +796,7 @@ mod tests {
             true,
             4,
             1,
+            Base::Hexadecimal,
         );
 
         printer.print_all(input).unwrap();
@@ -852,6 +855,7 @@ mod tests {
             true,
             3,
             1,
+            Base::Hexadecimal,
         );
 
         printer.print_all(input).unwrap();
