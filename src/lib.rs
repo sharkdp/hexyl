@@ -581,7 +581,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     // if less are read, that indicates end of file after
                     if is_empty {
                         self.print_header()?;
-                    is_empty = false;
+                        is_empty = false;
                     }
 
                     // perform second check on read
@@ -601,7 +601,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
             if is_empty {
                 self.print_header()?;
-            is_empty = false;
+                is_empty = false;
             }
 
             // squeeze is active, check if the line is the same
