@@ -321,9 +321,14 @@ fn run() -> Result<(), AnyhowError> {
         .transpose()?
         .unwrap_or(0);
 
-    let max_panels_fn = |terminal_width: u64| {
+    let max_panels_fn = |terminal_width: u64, base_digits: u64, group_bytes: u64| {
         let offset = if show_position_panel { 10 } else { 1 };
-        let col_width = if show_char_panel { 35 } else { 26 };
+        let col_width = if show_char_panel {
+            ((8 / group_bytes) * (base_digits * group_bytes + 1)) + 2 + 8
+        } else {
+            ((8 / group_bytes) * (base_digits * group_bytes + 1)) + 2
+        };
+        dbg!(terminal_width, col_width);
         if (terminal_width - offset) / col_width < 1 {
             1
         } else {
