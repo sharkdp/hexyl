@@ -328,7 +328,6 @@ fn run() -> Result<(), AnyhowError> {
         } else {
             ((8 / group_bytes) * (base_digits * group_bytes + 1)) + 2
         };
-        dbg!(terminal_width, col_width);
         if (terminal_width - offset) / col_width < 1 {
             1
         } else {
