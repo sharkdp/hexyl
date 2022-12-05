@@ -1,24 +1,30 @@
 # unreleased
 
-## Changes
-
-
 ## Features
 
-- Breaking change (library): `Printer::new` is deprecated as a part of the public API. Alternatively, you can now construct a `Printer` using the `PrinterBuilder` builder API, see [#168](https://github.com/sharkdp/hexyl/pull/168). (@sharifhsn)
-
+- Significantly improved performance, see #173 and #176 (@sharifhsn)
 - Added variable panels through the `--panels` and `--terminal-width` flags, see [#13](https://github.com/sharkdp/hexyl/issues/13) and [#164](https://github.com/sharkdp/hexyl/pull/164) (@sharifhsn)
-
 - Added new `--group-bytes`/`-g` option, see #104 and #170 (@RinHizakura)
+- Added new `--base B` option (where `B` can be `binary`, `octal`, `decimal` or `hexadecimal`), see #147 and #178 (@sharifhsn)
 
 ## Bugfixes
 
 
 ## Other
 
+- More tests for the squeezing feature, see #177 (@mkatychev)
 
-## Packaging
 
+## `hexyl` as a library
+
+- Breaking change: `Printer::new` is deprecated as a part of the public API. Alternatively, you can now construct a `Printer` using the `PrinterBuilder` builder API, see [#168](https://github.com/sharkdp/hexyl/pull/168). (@sharifhsn)
+
+
+## Thank you
+
+Special thanks go to @sharifhsn, not just for the new features,
+bugfixes and performance improvements. But also for many internal
+improvements of the code base and other maintenance tasks.
 
 
 # v0.10.0
