@@ -6,19 +6,16 @@
 - Added variable panels through the `--panels` and `--terminal-width` flags, see [#13](https://github.com/sharkdp/hexyl/issues/13) and [#164](https://github.com/sharkdp/hexyl/pull/164) (@sharifhsn)
 - Added new `--group-bytes`/`-g` option, see #104 and #170 (@RinHizakura)
 - Added new `--base B` option (where `B` can be `binary`, `octal`, `decimal` or `hexadecimal`), see #147 and #178 (@sharifhsn)
-
-## Bugfixes
-
-
-## Other
-
-- More tests for the squeezing feature, see #177 (@mkatychev)
-
+- Show actual zero bytes as `⋄` in the character panel (previously: `0`), in order not to confuse them with ASCII
+  `0` bytes if colors are deactivated. Closes #166 (@sharkdp)
 
 ## `hexyl` as a library
 
 - Breaking change: `Printer::new` is deprecated as a part of the public API. Alternatively, you can now construct a `Printer` using the `PrinterBuilder` builder API, see [#168](https://github.com/sharkdp/hexyl/pull/168). (@sharifhsn)
 
+## Other
+
+- More tests for the squeezing feature, see #177 (@mkatychev)
 
 ## Thank you
 
