@@ -19,7 +19,7 @@ use thiserror::Error as ThisError;
 
 use terminal_size::terminal_size;
 
-use hexyl::{BorderStyle, Input, PrinterBuilder};
+use hexyl::{Base, BorderStyle, Input, PrinterBuilder};
 
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
@@ -178,6 +178,18 @@ fn run() -> Result<(), AnyhowError> {
                 ),
         )
         .arg(
+            Arg::new("base")
+                .short('b')
+                .long("base")
+                .num_args(1)
+                .value_name("B")
+                .help(
+                    "Sets the base used for the bytes. The possible options are \
+                    binary, octal, decimal, and hexadecimal. The default base \
+                    is hexadecimal."
+                )
+        )
+        .arg(
             Arg::new("terminal_width")
                 .long("terminal-width")
                 .num_args(1)
@@ -310,9 +322,13 @@ fn run() -> Result<(), AnyhowError> {
         .transpose()?
         .unwrap_or(0);
 
-    let max_panels_fn = |terminal_width: u64| {
+    let max_panels_fn = |terminal_width: u64, base_digits: u64, group_bytes: u64| {
         let offset = if show_position_panel { 10 } else { 1 };
-        let col_width = if show_char_panel { 35 } else { 26 };
+        let col_width = if show_char_panel {
+            ((8 / group_bytes) * (base_digits * group_bytes + 1)) + 2 + 8
+        } else {
+            ((8 / group_bytes) * (base_digits * group_bytes + 1)) + 2
+        };
         if (terminal_width - offset) / col_width < 1 {
             1
         } else {
@@ -320,32 +336,36 @@ fn run() -> Result<(), AnyhowError> {
         }
     };
 
-    let panels = if matches.get_one::<String>("panels").map(String::as_ref) == Some("auto") {
-        max_panels_fn(terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0 as u64)
-    } else if let Some(panels) = matches
-        .get_one::<String>("panels")
-        .map(|s| {
-            s.parse::<NonZeroU64>().map(u64::from).context(anyhow!(
-                "failed to parse `--panels` arg {:?} as unsigned nonzero integer",
-                s
-            ))
-        })
-        .transpose()?
-    {
-        panels
-    } else if let Some(terminal_width) = matches
-        .get_one::<String>("terminal_width")
-        .map(|s| {
-            s.parse::<NonZeroU64>().map(u64::from).context(anyhow!(
-                "failed to parse `--terminal-width` arg {:?} as unsigned nonzero integer",
-                s
-            ))
-        })
-        .transpose()?
-    {
-        max_panels_fn(terminal_width)
+    let base = if let Some(base) = matches.get_one::<String>("base")
+    .map(|s| {
+        if let Ok(base_num) = s.parse::<u8>() {
+            match base_num {
+                2 => Ok(Base::Binary),
+                8 => Ok(Base::Octal),
+                10 => Ok(Base::Decimal),
+                16 => Ok(Base::Hexadecimal),
+                _ => Err(anyhow!("The number provided is not a valid base. Valid bases are 2, 8, 10, and 16.")),
+            }
+        } else {
+            match s.as_str() {
+                "b" | "bin" | "binary" => Ok(Base::Binary),
+                "o" | "oct" | "octal" => Ok(Base::Octal),
+                "d" | "dec" | "decimal" => Ok(Base::Decimal),
+                "x" | "hex" | "hexadecimal" => Ok(Base::Hexadecimal),
+                _ => Err(anyhow!("The base provided is not valid. Valid bases are \"b\", \"o\", \"d\", and \"x\"."))
+            }
+        }
+    }).transpose()? {
+        base
     } else {
-        2
+        Base::Hexadecimal
+    };
+
+    let base_digits = match base {
+        Base::Binary => 8,
+        Base::Octal => 3,
+        Base::Decimal => 3,
+        Base::Hexadecimal => 2,
     };
 
     let group_bytes = if let Some(group_bytes) = matches
@@ -369,6 +389,38 @@ fn run() -> Result<(), AnyhowError> {
         1
     };
 
+    let panels = if matches.get_one::<String>("panels").map(String::as_ref) == Some("auto") {
+        max_panels_fn(
+            terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0 as u64,
+            base_digits,
+            group_bytes.into(),
+        )
+    } else if let Some(panels) = matches
+        .get_one::<String>("panels")
+        .map(|s| {
+            s.parse::<NonZeroU64>().map(u64::from).context(anyhow!(
+                "failed to parse `--panels` arg {:?} as unsigned nonzero integer",
+                s
+            ))
+        })
+        .transpose()?
+    {
+        panels
+    } else if let Some(terminal_width) = matches
+        .get_one::<String>("terminal_width")
+        .map(|s| {
+            s.parse::<NonZeroU64>().map(u64::from).context(anyhow!(
+                "failed to parse `--terminal-width` arg {:?} as unsigned nonzero integer",
+                s
+            ))
+        })
+        .transpose()?
+    {
+        max_panels_fn(terminal_width, base_digits, group_bytes.into())
+    } else {
+        2
+    };
+
     let stdout = io::stdout();
     let mut stdout_lock = BufWriter::new(stdout.lock());
 
@@ -380,6 +432,7 @@ fn run() -> Result<(), AnyhowError> {
         .enable_squeezing(squeeze)
         .num_panels(panels)
         .num_group_bytes(group_bytes)
+        .with_base(base)
         .build();
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;

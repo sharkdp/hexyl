@@ -6,6 +6,13 @@ use std::io::{self, BufReader, Read, Write};
 
 use anstyle::{AnsiColor, Reset};
 
+pub enum Base {
+    Binary,
+    Octal,
+    Decimal,
+    Hexadecimal,
+}
+
 #[derive(PartialEq, Eq)]
 #[repr(usize)]
 enum ByteColor {
@@ -162,6 +169,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     use_squeeze: bool,
     panels: u64,
     group_bytes: u8,
+    base: Base,
 }
 
 impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
@@ -175,6 +183,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             use_squeeze: true,
             panels: 2,
             group_bytes: 1,
+            base: Base::Hexadecimal,
         }
     }
 
@@ -213,6 +222,11 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
+    pub fn with_base(mut self, base: Base) -> Self {
+        self.base = base;
+        self
+    }
+
     pub fn build(self) -> Printer<'a, Writer> {
         Printer::new(
             self.writer,
@@ -223,6 +237,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             self.use_squeeze,
             self.panels,
             self.group_bytes,
+            self.base,
         )
     }
 }
@@ -250,6 +265,8 @@ pub struct Printer<'a, Writer: Write> {
     squeeze_byte: usize,
     /// The number of octets per group.
     group_bytes: u8,
+    /// The number of digits used to write the base.
+    base_digits: u8,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -262,6 +279,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         use_squeeze: bool,
         panels: u64,
         group_bytes: u8,
+        base: Base,
     ) -> Printer<'a, Writer> {
         Printer {
             idx: 0,
@@ -281,11 +299,18 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 Reset.render().to_string(),
             ],
             border_style,
-            byte_hex_panel: (0u8..=u8::MAX).map(|i| format!("{:02x}", i)).collect(),
+            byte_hex_panel: (0u8..=u8::MAX)
+                .map(|i| match base {
+                    Base::Binary => format!("{i:08b}"),
+                    Base::Octal => format!("{i:03o}"),
+                    Base::Decimal => format!("{i:03}"),
+                    Base::Hexadecimal => format!("{i:02x}"),
+                })
+                .collect(),
             byte_char_panel: (0u8..=u8::MAX)
                 .map(|i| format!("{}", Byte(i).as_char()))
                 .collect(),
-            byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{:02x}", i)).collect(),
+            byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{i:02x}")).collect(),
             byte_char_panel_g: (0u8..=u8::MAX)
                 .map(|i| format!("{}", Byte(i).as_char()))
                 .collect(),
@@ -298,6 +323,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             panels,
             squeeze_byte: 0x00,
             group_bytes,
+            base_digits: match base {
+                Base::Binary => 8,
+                Base::Octal => 3,
+                Base::Decimal => 3,
+                Base::Hexadecimal => 2,
+            },
         }
     }
 
@@ -308,7 +339,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
     fn panel_sz(&self) -> usize {
         // add one to include the trailing space of a group
-        let group_sz = 2 * self.group_bytes as usize + 1;
+        let group_sz = self.base_digits as usize * self.group_bytes as usize + 1;
         let group_per_panel = 8 / self.group_bytes as usize;
         // add one to include the leading space
         1 + group_sz * group_per_panel
@@ -483,7 +514,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                         self.writer.write_all(b" ")?;
                     }
                 }
-                self.writer.write_all(b"  ")?;
+                for _ in 0..self.base_digits {
+                    self.writer.write_all(b" ")?;
+                }
             }
             Squeezer::Delete => self.writer.write_all(b"   ")?,
             Squeezer::Ignore | Squeezer::Disabled => {
@@ -541,13 +574,15 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         let mut buf = BufReader::new(reader);
 
-        self.print_header()?;
         let leftover = loop {
             // read a maximum of 8 * self.panels bytes from the reader
             if let Ok(n) = buf.read(&mut self.line_buf) {
                 if n > 0 && n < 8 * self.panels as usize {
                     // if less are read, that indicates end of file after
-                    is_empty = false;
+                    if is_empty {
+                        self.print_header()?;
+                        is_empty = false;
+                    }
 
                     // perform second check on read
                     if let Ok(0) = buf.read(&mut self.line_buf[n..]) {
@@ -564,7 +599,10 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     break None;
                 }
             }
-            is_empty = false;
+            if is_empty {
+                self.print_header()?;
+                is_empty = false;
+            }
 
             // squeeze is active, check if the line is the same
             // skip print if still squeezed, otherwise print and deactivate squeeze
@@ -617,6 +655,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         // special ending
 
         if is_empty {
+            self.base_digits = 2;
+            self.print_header()?;
             if self.show_position_panel {
                 write!(self.writer, "{0:9}", "│")?;
             }
@@ -678,6 +718,7 @@ mod tests {
             true,
             2,
             1,
+            Base::Hexadecimal,
         );
 
         printer.print_all(input).unwrap();
@@ -731,6 +772,7 @@ mod tests {
             true,
             2,
             1,
+            Base::Hexadecimal,
         );
         printer.display_offset(0xdeadbeef);
 
@@ -763,6 +805,7 @@ mod tests {
             true,
             4,
             1,
+            Base::Hexadecimal,
         );
 
         printer.print_all(input).unwrap();
@@ -821,6 +864,7 @@ mod tests {
             true,
             3,
             1,
+            Base::Hexadecimal,
         );
 
         printer.print_all(input).unwrap();

@@ -551,3 +551,21 @@ mod group {
             );
     }
 }
+
+mod base {
+    use super::hexyl;
+    use super::PrettyAssert;
+
+    #[test]
+    fn base2() {
+        hexyl()
+            .arg("ascii")
+            .arg("--plain")
+            .arg("--base=binary")
+            .assert()
+            .success()
+            .pretty_stdout(
+                "  00110000 00110001 00110010 00110011 00110100 00110101 00110110 00110111   00111000 00111001 01100001 01100010 01100011 01100100 01100101 00001010  \n"
+            );
+    }
+}
