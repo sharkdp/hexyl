@@ -11,7 +11,7 @@ version = "0.10.0"
 edition = "2021"
 
 [dependencies]
-anstyle = "0.2.5"
+anstyle = "0.2"
 anyhow = "1.0"
 const_format = "0.2"
 is-terminal = "0.4"
