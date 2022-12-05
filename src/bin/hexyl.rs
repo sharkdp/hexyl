@@ -185,7 +185,8 @@ fn run() -> Result<(), AnyhowError> {
                 .value_name("B")
                 .help(
                     "Sets the base used for the bytes. The possible options are \
-                    binary, octal, decimal, and hexadecimal."
+                    binary, octal, decimal, and hexadecimal. The default base \
+                    is hexadecimal."
                 )
         )
         .arg(
