@@ -9,7 +9,7 @@ use std::num::{NonZeroI64, NonZeroU64, NonZeroU8};
 use clap::builder::ArgPredicate;
 use clap::{crate_name, crate_version, Arg, ArgAction, ColorChoice, Command};
 
-use atty::Stream;
+use is_terminal::IsTerminal;
 
 use anyhow::{anyhow, Context, Error as AnyhowError};
 
@@ -293,7 +293,7 @@ fn run() -> Result<(), AnyhowError> {
 
     let show_color = match matches.get_one::<String>("color").map(String::as_ref) {
         Some("never") => false,
-        Some("auto") => atty::is(Stream::Stdout),
+        Some("auto") => std::io::stdout().is_terminal(),
         _ => true,
     };
 

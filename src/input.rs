@@ -2,6 +2,8 @@ use std::convert::TryFrom;
 use std::fs;
 use std::io::{self, copy, sink, Read, Seek, SeekFrom};
 
+use rustix::io::Errno;
+
 pub enum Input<'a> {
     File(fs::File),
     Stdin(io::StdinLock<'a>),
@@ -35,8 +37,7 @@ impl<'a> Seek for Input<'a> {
         match *self {
             Input::File(ref mut file) => {
                 let seek_res = file.seek(pos);
-                if let Err(Some(libc::ESPIPE)) = seek_res.as_ref().map_err(|err| err.raw_os_error())
-                {
+                if let Err(Some(Errno::SPIPE)) = seek_res.as_ref().map_err(Errno::from_io_error) {
                     try_skip(
                         file,
                         pos,
