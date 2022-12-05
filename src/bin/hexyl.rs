@@ -11,7 +11,7 @@ use clap::{crate_name, crate_version, Arg, ArgAction, ColorChoice, Command};
 
 use is_terminal::IsTerminal;
 
-use anyhow::{anyhow, Context, Error as AnyhowError};
+use anyhow::{anyhow, Context, Result};
 
 use const_format::formatcp;
 
@@ -23,7 +23,7 @@ use hexyl::{Base, BorderStyle, Input, PrinterBuilder};
 
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
-fn run() -> Result<(), AnyhowError> {
+fn run() -> Result<()> {
     let command = Command::new(crate_name!())
         .color(ColorChoice::Auto)
         .max_term_width(90)
@@ -268,7 +268,7 @@ fn run() -> Result<(), AnyhowError> {
         0
     };
 
-    let parse_byte_count = |s| -> Result<u64, AnyhowError> {
+    let parse_byte_count = |s| -> Result<u64> {
         Ok(parse_byte_offset(s, block_size)?
             .assume_forward_offset_from_start()?
             .into())
@@ -444,6 +444,11 @@ fn main() {
     let result = run();
 
     if let Err(err) = result {
+        if let Some(io_error) = err.downcast_ref::<io::Error>() {
+            if io_error.kind() == ::std::io::ErrorKind::BrokenPipe {
+                std::process::exit(0);
+            }
+        }
         eprintln!("Error: {:?}", err);
         std::process::exit(1);
     }
