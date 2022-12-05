@@ -194,9 +194,9 @@ dependencies = [
  "clap",
  "const_format",
  "is-terminal",
+ "libc",
  "predicates",
  "pretty_assertions",
- "rustix",
  "terminal_size",
  "thiserror",
 ]

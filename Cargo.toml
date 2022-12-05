@@ -15,7 +15,7 @@ anstyle = "0.2"
 anyhow = "1.0"
 const_format = "0.2"
 is-terminal = "0.4"
-rustix = "0.36"
+libc = "0.2"
 thiserror = "1.0"
 terminal_size = "0.2"
 
