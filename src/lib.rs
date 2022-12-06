@@ -257,7 +257,6 @@ pub struct Printer<'a, Writer: Write> {
     byte_char_panel: Vec<String>,
     // same as previous but in Fixed(242) gray color, for position panel
     byte_hex_panel_g: Vec<String>,
-    byte_char_panel_g: Vec<String>,
     squeezer: Squeezer,
     display_offset: u64,
     /// The number of panels to draw.
@@ -311,9 +310,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 .map(|i| format!("{}", Byte(i).as_char()))
                 .collect(),
             byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{i:02x}")).collect(),
-            byte_char_panel_g: (0u8..=u8::MAX)
-                .map(|i| format!("{}", Byte(i).as_char()))
-                .collect(),
             squeezer: if use_squeeze {
                 Squeezer::Ignore
             } else {
@@ -409,7 +405,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             match self.squeezer {
                 Squeezer::Print => {
                     self.writer
-                        .write_all(self.byte_char_panel_g[b'*' as usize].as_bytes())?;
+                        .write_all(self.byte_char_panel[b'*' as usize].as_bytes())?;
                     if self.show_color {
                         self.writer
                             .write_all(self.colors[ByteColor::Reset as usize].as_bytes())?;
@@ -504,7 +500,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                             .write_all(self.colors[ByteColor::Offset as usize].as_bytes())?;
                     }
                     self.writer
-                        .write_all(self.byte_char_panel_g[b'*' as usize].as_bytes())?;
+                        .write_all(self.byte_char_panel[b'*' as usize].as_bytes())?;
                     if self.show_color {
                         self.writer
                             .write_all(self.colors[ByteColor::Reset as usize].as_bytes())?;
