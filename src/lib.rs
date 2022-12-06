@@ -13,13 +13,13 @@ pub enum Base {
     Hexadecimal,
 }
 
-const COLOR_NULL: &'static [u8] = colors::BrightBlack::ANSI_FG.as_bytes();
-const COLOR_OFFSET: &'static [u8] = colors::BrightBlack::ANSI_FG.as_bytes();
-const COLOR_ASCII_PRINTABLE: &'static [u8] = colors::Cyan::ANSI_FG.as_bytes();
-const COLOR_ASCII_WHITESPACE: &'static [u8] = colors::Green::ANSI_FG.as_bytes();
-const COLOR_ASCII_OTHER: &'static [u8] = colors::Green::ANSI_FG.as_bytes();
-const COLOR_NONASCII: &'static [u8] = colors::Yellow::ANSI_FG.as_bytes();
-const COLOR_RESET: &'static [u8] = colors::Default::ANSI_FG.as_bytes();
+const COLOR_NULL: &[u8] = colors::BrightBlack::ANSI_FG.as_bytes();
+const COLOR_OFFSET: &[u8] = colors::BrightBlack::ANSI_FG.as_bytes();
+const COLOR_ASCII_PRINTABLE: &[u8] = colors::Cyan::ANSI_FG.as_bytes();
+const COLOR_ASCII_WHITESPACE: &[u8] = colors::Green::ANSI_FG.as_bytes();
+const COLOR_ASCII_OTHER: &[u8] = colors::Green::ANSI_FG.as_bytes();
+const COLOR_NONASCII: &[u8] = colors::Yellow::ANSI_FG.as_bytes();
+const COLOR_RESET: &[u8] = colors::Default::ANSI_FG.as_bytes();
 
 pub enum ByteCategory {
     Null,
@@ -329,27 +329,27 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let h_repeat = h.to_string().repeat(self.panel_sz());
 
         if self.show_position_panel {
-            write!(self.writer, "{l}{h8}{c}", l = l, c = c, h8 = h8).ok();
+            write!(self.writer, "{l}{h8}{c}")?;
         } else {
-            write!(self.writer, "{}", l).ok();
+            write!(self.writer, "{l}")?;
         }
 
         for _ in 0..self.panels - 1 {
-            write!(self.writer, "{h_repeat}{c}", h_repeat = h_repeat, c = c).ok();
+            write!(self.writer, "{h_repeat}{c}")?;
         }
         if self.show_char_panel {
-            write!(self.writer, "{h_repeat}{c}", h_repeat = h_repeat, c = c).ok();
+            write!(self.writer, "{h_repeat}{c}")?;
         } else {
-            write!(self.writer, "{h_repeat}", h_repeat = h_repeat).ok();
+            write!(self.writer, "{h_repeat}")?;
         }
 
         if self.show_char_panel {
             for _ in 0..self.panels - 1 {
-                write!(self.writer, "{h8}{c}", h8 = h8, c = c).ok();
+                write!(self.writer, "{h8}{c}")?;
             }
-            writeln!(self.writer, "{h8}{r}", h8 = h8, r = r).ok();
+            writeln!(self.writer, "{h8}{r}")?;
         } else {
-            writeln!(self.writer, "{r}", r = r).ok();
+            writeln!(self.writer, "{r}")?;
         }
 
         Ok(())
@@ -476,10 +476,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     if self.show_color {
                         self.writer.write_all(COLOR_RESET)?;
                     }
-                } else {
-                    if i % (self.group_bytes as usize) == 0 {
-                        self.writer.write_all(b" ")?;
-                    }
+                } else if i % (self.group_bytes as usize) == 0 {
+                    self.writer.write_all(b" ")?;
                 }
                 for _ in 0..self.base_digits {
                     self.writer.write_all(b" ")?;

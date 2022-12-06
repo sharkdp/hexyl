@@ -449,7 +449,7 @@ fn main() {
                 std::process::exit(0);
             }
         }
-        eprintln!("Error: {:?}", err);
+        eprintln!("Error: {err:?}");
         std::process::exit(1);
     }
 }
