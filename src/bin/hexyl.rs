@@ -9,8 +9,6 @@ use std::num::{NonZeroI64, NonZeroU64, NonZeroU8};
 use clap::builder::ArgPredicate;
 use clap::{crate_name, crate_version, Arg, ArgAction, ColorChoice, Command};
 
-use is_terminal::IsTerminal;
-
 use anyhow::{anyhow, Context, Result};
 
 use const_format::formatcp;
@@ -106,7 +104,7 @@ fn run() -> Result<()> {
                 .value_name("WHEN")
                 .value_parser(["always", "auto", "never"])
                 .default_value_if("plain", ArgPredicate::IsPresent, Some("never"))
-                .default_value("always")
+                .default_value("auto")
                 .help(
                     "When to use colors. The auto-mode only displays colors if the output \
                      goes to an interactive terminal",
@@ -293,8 +291,10 @@ fn run() -> Result<()> {
 
     let show_color = match matches.get_one::<String>("color").map(String::as_ref) {
         Some("never") => false,
-        Some("auto") => std::io::stdout().is_terminal(),
-        _ => true,
+        Some("always") => true,
+        _ => supports_color::on_cached(supports_color::Stream::Stdout)
+            .map(|level| level.has_basic)
+            .unwrap_or(false),
     };
 
     let border_style = match matches.get_one::<String>("border").map(String::as_ref) {
