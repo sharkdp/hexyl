@@ -8,6 +8,14 @@
 
 - Do not fail with an error if `--panels=auto` is used and the output is piped, see #184 (@sharkdp)
 
+## Changes
+
+- Breaking: For `xxd`-compatibility reasons, `--group_bytes` has been renamed to `--group-size` (with an `--groupsize` alias), see #121 (@sharkdp)
+
+## `hexyl` as a library
+
+- Breaking: `num_group_bytes` has been renamed to `group_size`.
+
 
 # v0.11.0
 

@@ -168,7 +168,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     border_style: BorderStyle,
     use_squeeze: bool,
     panels: u64,
-    group_bytes: u8,
+    group_size: u8,
     base: Base,
 }
 
@@ -182,7 +182,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             border_style: BorderStyle::Unicode,
             use_squeeze: true,
             panels: 2,
-            group_bytes: 1,
+            group_size: 1,
             base: Base::Hexadecimal,
         }
     }
@@ -217,8 +217,8 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
-    pub fn num_group_bytes(mut self, num: u8) -> Self {
-        self.group_bytes = num;
+    pub fn group_size(mut self, num: u8) -> Self {
+        self.group_size = num;
         self
     }
 
@@ -236,7 +236,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             self.border_style,
             self.use_squeeze,
             self.panels,
-            self.group_bytes,
+            self.group_size,
             self.base,
         )
     }
@@ -264,7 +264,7 @@ pub struct Printer<'a, Writer: Write> {
     panels: u64,
     squeeze_byte: usize,
     /// The number of octets per group.
-    group_bytes: u8,
+    group_size: u8,
     /// The number of digits used to write the base.
     base_digits: u8,
 }
@@ -278,7 +278,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         border_style: BorderStyle,
         use_squeeze: bool,
         panels: u64,
-        group_bytes: u8,
+        group_size: u8,
         base: Base,
     ) -> Printer<'a, Writer> {
         Printer {
@@ -322,7 +322,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             display_offset: 0,
             panels,
             squeeze_byte: 0x00,
-            group_bytes,
+            group_size,
             base_digits: match base {
                 Base::Binary => 8,
                 Base::Octal => 3,
@@ -339,8 +339,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
     fn panel_sz(&self) -> usize {
         // add one to include the trailing space of a group
-        let group_sz = self.base_digits as usize * self.group_bytes as usize + 1;
-        let group_per_panel = 8 / self.group_bytes as usize;
+        let group_sz = self.base_digits as usize * self.group_size as usize + 1;
+        let group_per_panel = 8 / self.group_size as usize;
         // add one to include the leading space
         1 + group_sz * group_per_panel
     }
@@ -510,7 +510,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                             .write_all(self.colors[ByteColor::Reset as usize].as_bytes())?;
                     }
                 } else {
-                    if i % (self.group_bytes as usize) == 0 {
+                    if i % (self.group_size as usize) == 0 {
                         self.writer.write_all(b" ")?;
                     }
                 }
@@ -520,7 +520,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
             Squeezer::Delete => self.writer.write_all(b"   ")?,
             Squeezer::Ignore | Squeezer::Disabled => {
-                if i % (self.group_bytes as usize) == 0 {
+                if i % (self.group_size as usize) == 0 {
                     self.writer.write_all(b" ")?;
                 }
                 if self.show_color && self.curr_color != Some(Byte(b).color()) {
