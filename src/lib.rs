@@ -569,7 +569,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
     /// Loop through the given `Reader`, printing until the `Reader` buffer
     /// is exhausted.
-    pub fn print_all<Reader: Read>(&mut self, reader: Reader) -> io::Result<()> {
+    pub fn print_all(&mut self, reader: Input) -> io::Result<()> {
         let mut is_empty = true;
 
         let mut buf = BufReader::new(reader);
@@ -707,7 +707,7 @@ mod tests {
 
     use super::*;
 
-    fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) {
+    fn assert_print_all_output(input: Input, expected_string: String) {
         let mut output = vec![];
         let mut printer = Printer::new(
             &mut output,
@@ -729,7 +729,7 @@ mod tests {
 
     #[test]
     fn empty_file_passes() {
-        let input = io::empty();
+        let input = Input::Generic(Box::new(io::empty()));
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 │        │ No content              │                         │        │        │
@@ -741,7 +741,7 @@ mod tests {
 
     #[test]
     fn short_input_passes() {
-        let input = io::Cursor::new(b"spam");
+        let input = Input::Generic(Box::new(io::Cursor::new(b"spam")));
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 │00000000│ 73 70 61 6d             ┊                         │spam    ┊        │
@@ -753,7 +753,7 @@ mod tests {
 
     #[test]
     fn display_offset() {
-        let input = io::Cursor::new(b"spamspamspamspamspam");
+        let input = Input::Generic(Box::new(io::Cursor::new(b"spamspamspamspamspam")));
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 │deadbeef│ 73 70 61 6d 73 70 61 6d ┊ 73 70 61 6d 73 70 61 6d │spamspam┊spamspam│
@@ -784,7 +784,7 @@ mod tests {
 
     #[test]
     fn multiple_panels() {
-        let input = io::Cursor::new(b"supercalifragilisticexpialidocioussupercalifragilisticexpialidocioussupercalifragilisticexpialidocious");
+        let input = Input::Generic(Box::new(io::Cursor::new(b"supercalifragilisticexpialidocioussupercalifragilisticexpialidocioussupercalifragilisticexpialidocious")));
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬────────┬────────┬────────┬────────┐
 │00000000│ 73 75 70 65 72 63 61 6c ┊ 69 66 72 61 67 69 6c 69 ┊ 73 74 69 63 65 78 70 69 ┊ 61 6c 69 64 6f 63 69 6f │supercal┊ifragili┊sticexpi┊alidocio│
@@ -816,7 +816,7 @@ mod tests {
 
     #[test]
     fn squeeze_works() {
-        let input = io::Cursor::new(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00");
+        let input = Input::Generic(Box::new(io::Cursor::new(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")));
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 │00000000│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │⋄⋄⋄⋄⋄⋄⋄⋄┊⋄⋄⋄⋄⋄⋄⋄⋄│
@@ -830,7 +830,7 @@ mod tests {
 
     #[test]
     fn squeeze_nonzero() {
-        let input = io::Cursor::new(b"000000000000000000000000000000000");
+        let input = Input::Generic(Box::new(io::Cursor::new(b"000000000000000000000000000000000")));
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 │00000000│ 30 30 30 30 30 30 30 30 ┊ 30 30 30 30 30 30 30 30 │00000000┊00000000│
@@ -844,7 +844,7 @@ mod tests {
 
     #[test]
     fn squeeze_multiple_panels() {
-        let input = io::Cursor::new(b"0000000000000000000000000000000000000000000000000");
+        let input = Input::Generic(Box::new(io::Cursor::new(b"0000000000000000000000000000000000000000000000000")));
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬────────┬────────┬────────┐
 │00000000│ 30 30 30 30 30 30 30 30 ┊ 30 30 30 30 30 30 30 30 ┊ 30 30 30 30 30 30 30 30 │00000000┊00000000┊00000000│

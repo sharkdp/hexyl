@@ -277,7 +277,7 @@ fn run() -> Result<()> {
             .into())
     };
 
-    let mut reader = if let Some(length) = matches
+    let reader = if let Some(length) = matches
         .get_one::<String>("length")
         .or_else(|| matches.get_one::<String>("bytes"))
         .or_else(|| matches.get_one::<String>("count"))
@@ -439,7 +439,7 @@ fn run() -> Result<()> {
         .with_base(base)
         .build();
     printer.display_offset(skip_offset + display_offset);
-    printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
+    printer.print_all(Input::Generic(reader)).map_err(|e| anyhow!(e))?;
 
     Ok(())
 }
