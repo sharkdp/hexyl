@@ -5,6 +5,7 @@ use std::io::{self, copy, sink, Read, Seek, SeekFrom};
 pub enum Input<'a> {
     File(fs::File),
     Stdin(io::StdinLock<'a>),
+    Generic(Box<dyn Read>),
 }
 
 impl<'a> Read for Input<'a> {
@@ -12,6 +13,7 @@ impl<'a> Read for Input<'a> {
         match *self {
             Input::File(ref mut file) => file.read(buf),
             Input::Stdin(ref mut stdin) => stdin.read(buf),
+            Input::Generic(ref mut reader) => reader.read(buf),
         }
     }
 }
@@ -51,6 +53,11 @@ impl<'a> Seek for Input<'a> {
                 pos,
                 "STDIN only supports seeking forward with a relative offset",
             ),
+            Input::Generic(ref mut reader) => try_skip(
+                reader,
+                pos,
+                "This reader only supports seeking forward with a relative offset",
+            ),
         }
     }
 }
@@ -60,6 +67,7 @@ impl<'a> Input<'a> {
         match self {
             Input::File(file) => Box::new(file),
             Input::Stdin(stdin) => Box::new(stdin),
+            Input::Generic(reader) => reader,
         }
     }
 }
