@@ -9,8 +9,6 @@ use std::num::{NonZeroI64, NonZeroU64, NonZeroU8};
 use clap::builder::ArgPredicate;
 use clap::{crate_name, crate_version, Arg, ArgAction, ColorChoice, Command};
 
-use is_terminal::IsTerminal;
-
 use anyhow::{anyhow, Context, Result};
 
 use const_format::formatcp;
@@ -296,8 +294,10 @@ fn run() -> Result<()> {
 
     let show_color = match matches.get_one::<String>("color").map(String::as_ref) {
         Some("never") => false,
-        Some("auto") => std::io::stdout().is_terminal(),
-        _ => true,
+        Some("always") => true,
+        _ => supports_color::on(supports_color::Stream::Stdout)
+            .map(|level| level.has_basic)
+            .unwrap_or(false),
     };
 
     let border_style = match matches.get_one::<String>("border").map(String::as_ref) {
@@ -453,7 +453,7 @@ fn main() {
                 std::process::exit(0);
             }
         }
-        eprintln!("Error: {:?}", err);
+        eprintln!("Error: {err:?}");
         std::process::exit(1);
     }
 }
