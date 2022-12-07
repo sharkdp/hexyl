@@ -417,7 +417,10 @@ fn run() -> Result<()> {
     {
         max_panels_fn(terminal_width, base_digits, group_bytes.into())
     } else {
-        2
+        std::cmp::min(
+            2,
+            max_panels_fn(terminal_width, base_digits, group_bytes.into()),
+        )
     };
 
     let stdout = io::stdout();
