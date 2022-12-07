@@ -104,7 +104,7 @@ fn run() -> Result<()> {
                 .value_name("WHEN")
                 .value_parser(["always", "auto", "never"])
                 .default_value_if("plain", ArgPredicate::IsPresent, Some("never"))
-                .default_value("auto")
+                .default_value("always")
                 .help(
                     "When to use colors. The auto-mode only displays colors if the output \
                      goes to an interactive terminal",
