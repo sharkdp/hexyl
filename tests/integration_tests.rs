@@ -301,7 +301,7 @@ mod group {
         hexyl()
             .arg("ascii")
             .arg("--color=never")
-            .arg("--group-bytes=2")
+            .arg("--group-size=2")
             .assert()
             .success()
             .stdout(
@@ -316,7 +316,7 @@ mod group {
         hexyl()
             .arg("ascii")
             .arg("--color=never")
-            .arg("--group-bytes=4")
+            .arg("--group-size=4")
             .assert()
             .success()
             .stdout(
@@ -331,7 +331,7 @@ mod group {
         hexyl()
             .arg("ascii")
             .arg("--color=never")
-            .arg("--group-bytes=8")
+            .arg("--group-size=8")
             .assert()
             .success()
             .stdout(
@@ -342,22 +342,22 @@ mod group {
     }
 
     #[test]
-    fn group_bytes_plain() {
+    fn group_size_plain() {
         hexyl()
             .arg("ascii")
             .arg("--color=never")
             .arg("--plain")
-            .arg("--group-bytes=2")
+            .arg("--group-size=2")
             .assert()
             .success()
             .stdout("  3031 3233 3435 3637   3839 6162 6364 650a  \n");
     }
 
     #[test]
-    fn group_bytes_fill_space() {
+    fn group_size_fill_space() {
         hexyl()
             .arg("--color=never")
-            .arg("--group-bytes=2")
+            .arg("--group-size=2")
             .write_stdin("abc")
             .assert()
             .success()
@@ -369,12 +369,12 @@ mod group {
     }
 
     #[test]
-    fn group_bytes_invalid() {
+    fn group_size_invalid() {
         hexyl()
             .arg("ascii")
             .arg("--color=never")
             .arg("--plain")
-            .arg("--group-bytes=3")
+            .arg("--group-size=3")
             .assert()
             .failure();
     }
@@ -565,7 +565,8 @@ mod base {
             .assert()
             .success()
             .pretty_stdout(
-                "  00110000 00110001 00110010 00110011 00110100 00110101 00110110 00110111   00111000 00111001 01100001 01100010 01100011 01100100 01100101 00001010  \n"
+                "  00110000 00110001 00110010 00110011 00110100 00110101 00110110 00110111  \n  \
+                   00111000 00111001 01100001 01100010 01100011 01100100 01100101 00001010  \n",
             );
     }
 }

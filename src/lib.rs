@@ -157,7 +157,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     border_style: BorderStyle,
     use_squeeze: bool,
     panels: u64,
-    group_bytes: u8,
+    group_size: u8,
     base: Base,
 }
 
@@ -171,7 +171,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             border_style: BorderStyle::Unicode,
             use_squeeze: true,
             panels: 2,
-            group_bytes: 1,
+            group_size: 1,
             base: Base::Hexadecimal,
         }
     }
@@ -206,8 +206,8 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
-    pub fn num_group_bytes(mut self, num: u8) -> Self {
-        self.group_bytes = num;
+    pub fn group_size(mut self, num: u8) -> Self {
+        self.group_size = num;
         self
     }
 
@@ -225,7 +225,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             self.border_style,
             self.use_squeeze,
             self.panels,
-            self.group_bytes,
+            self.group_size,
             self.base,
         )
     }

@@ -161,18 +161,21 @@ fn run() -> Result<()> {
                 .help(
                     "Sets the number of hex data panels to be displayed. \
                     `--panels=auto` will display the maximum number of hex data panels \
-                    based on the current terminal width",
+                    based on the current terminal width. By default, hexyl will show \
+                    two panels, unless the terminal is not wide enough for that.",
                 ),
         )
         .arg(
-            Arg::new("group_bytes")
+            Arg::new("group_size")
                 .short('g')
-                .long("group-bytes")
+                .long("group-size")
+                .alias("groupsize")
                 .num_args(1)
                 .value_name("N")
                 .help(
-                    "Sets the number of octets per group to be displayed. \
-                    The possible options are 1, 2, 4, 8. The default is 1",
+                    "Number of bytes/octets that should be grouped together. \
+                    Possible group sizes are 1, 2, 4, 8. The default is 1. \
+                    '--groupsize can be used as an alias (xxd-compatibility).",
                 ),
         )
         .arg(
@@ -322,12 +325,12 @@ fn run() -> Result<()> {
         .transpose()?
         .unwrap_or(0);
 
-    let max_panels_fn = |terminal_width: u64, base_digits: u64, group_bytes: u64| {
+    let max_panels_fn = |terminal_width: u64, base_digits: u64, group_size: u64| {
         let offset = if show_position_panel { 10 } else { 1 };
         let col_width = if show_char_panel {
-            ((8 / group_bytes) * (base_digits * group_bytes + 1)) + 2 + 8
+            ((8 / group_size) * (base_digits * group_size + 1)) + 2 + 8
         } else {
-            ((8 / group_bytes) * (base_digits * group_bytes + 1)) + 2
+            ((8 / group_size) * (base_digits * group_size + 1)) + 2
         };
         if (terminal_width - offset) / col_width < 1 {
             1
@@ -368,33 +371,31 @@ fn run() -> Result<()> {
         Base::Hexadecimal => 2,
     };
 
-    let group_bytes = if let Some(group_bytes) = matches
-        .get_one::<String>("group_bytes")
+    let group_size = if let Some(group_size) = matches
+        .get_one::<String>("group_size")
         .map(|s| {
             s.parse::<NonZeroU8>().map(u8::from).context(anyhow!(
-                "failed to parse `--group-bytes`/`-g` arg {:?} as unsigned nonzero integer",
+                "Failed to parse `--group-size`/`-g` argument {:?} as unsigned nonzero integer",
                 s
             ))
         })
         .transpose()?
     {
-        if (group_bytes <= 8) && ((group_bytes & (group_bytes - 1)) == 0) {
-            group_bytes
+        if (group_size <= 8) && ((group_size & (group_size - 1)) == 0) {
+            group_size
         } else {
             return Err(anyhow!(
-                "Possible options for the `--group-bytes`/`-g` option are 1, 2, 4 or 8. "
+                "Possible sizes for the `--group-size`/`-g` option are 1, 2, 4 or 8. "
             ));
         }
     } else {
         1
     };
 
+    let terminal_width = terminal_size().map(|s| s.0 .0 as u64).unwrap_or(80);
+
     let panels = if matches.get_one::<String>("panels").map(String::as_ref) == Some("auto") {
-        max_panels_fn(
-            terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0 as u64,
-            base_digits,
-            group_bytes.into(),
-        )
+        max_panels_fn(terminal_width, base_digits, group_size.into())
     } else if let Some(panels) = matches
         .get_one::<String>("panels")
         .map(|s| {
@@ -416,9 +417,12 @@ fn run() -> Result<()> {
         })
         .transpose()?
     {
-        max_panels_fn(terminal_width, base_digits, group_bytes.into())
+        max_panels_fn(terminal_width, base_digits, group_size.into())
     } else {
-        2
+        std::cmp::min(
+            2,
+            max_panels_fn(terminal_width, base_digits, group_size.into()),
+        )
     };
 
     let stdout = io::stdout();
@@ -431,7 +435,7 @@ fn run() -> Result<()> {
         .with_border_style(border_style)
         .enable_squeezing(squeeze)
         .num_panels(panels)
-        .num_group_bytes(group_bytes)
+        .group_size(group_size)
         .with_base(base)
         .build();
     printer.display_offset(skip_offset + display_offset);
