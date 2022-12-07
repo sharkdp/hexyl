@@ -163,7 +163,8 @@ fn run() -> Result<()> {
                 .help(
                     "Sets the number of hex data panels to be displayed. \
                     `--panels=auto` will display the maximum number of hex data panels \
-                    based on the current terminal width",
+                    based on the current terminal width. By default, hexyl will show \
+                    two panels, unless the terminal is not wide enough for that.",
                 ),
         )
         .arg(
@@ -389,12 +390,10 @@ fn run() -> Result<()> {
         1
     };
 
+    let terminal_width = terminal_size().map(|s| s.0 .0 as u64).unwrap_or(80);
+
     let panels = if matches.get_one::<String>("panels").map(String::as_ref) == Some("auto") {
-        max_panels_fn(
-            terminal_size().ok_or_else(|| anyhow!("not a TTY"))?.0 .0 as u64,
-            base_digits,
-            group_bytes.into(),
-        )
+        max_panels_fn(terminal_width, base_digits, group_bytes.into())
     } else if let Some(panels) = matches
         .get_one::<String>("panels")
         .map(|s| {

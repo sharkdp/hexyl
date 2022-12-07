@@ -1,3 +1,14 @@
+# unreleased
+
+## Features
+
+- Only show one panel by default if the terminal width is not wide enough for two panels, see #182 (@sharkdp)
+
+## Bugfixes
+
+- Do not fail with an error if `--panels=auto` is used and the output is piped, see #184 (@sharkdp)
+
+
 # v0.11.0
 
 ## Features
