@@ -1,8 +1,9 @@
-# unreleased
+# v0.12.0
 
 ## Features
 
 - Only show one panel by default if the terminal width is not wide enough for two panels, see #182 (@sharkdp)
+- Respect the `NO_COLOR` environment variable, see #179 (@sharifhsn)
 
 ## Bugfixes
 
