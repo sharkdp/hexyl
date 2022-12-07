@@ -295,7 +295,7 @@ fn run() -> Result<()> {
     let show_color = match matches.get_one::<String>("color").map(String::as_ref) {
         Some("never") => false,
         Some("always") => true,
-        _ => supports_color::on_cached(supports_color::Stream::Stdout)
+        _ => supports_color::on(supports_color::Stream::Stdout)
             .map(|level| level.has_basic)
             .unwrap_or(false),
     };
