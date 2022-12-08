@@ -4,6 +4,9 @@ pub use input::*;
 
 use std::io::{self, BufReader, Read, Write};
 
+use libc::{lseek, SEEK_DATA};
+use std::os::unix::io::AsRawFd;
+
 use owo_colors::{colors, Color};
 
 pub enum Base {
@@ -598,6 +601,14 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             // change from print to delete if squeeze is still active
             if self.squeezer == Squeezer::Print {
                 self.squeezer = Squeezer::Delete;
+                #[cfg(target_os = "linux")]
+                if let Input::File(ref mut file) = buf.get_mut() {
+                    let res: i64 = unsafe { lseek(file.as_raw_fd(), 0, SEEK_DATA) };
+                    if res < 0 {
+                        writeln!(self.writer, "{}", io::Error::last_os_error())?;
+                    }
+                    self.idx = res.try_into().unwrap();
+                };
             }
 
             // repeat the first byte in the line until it's a usize
