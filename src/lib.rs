@@ -604,8 +604,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 #[cfg(target_os = "linux")]
                 if let Input::File(ref mut file) = buf.get_mut() {
                     writeln!(self.writer, "original idx {}", self.idx)?;
-                    let res: i64 =
-                        unsafe { libc::lseek(file.as_raw_fd(), self.idx as i64, libc::SEEK_DATA) as i64 };
+                    let res: i64 = unsafe {
+                        libc::lseek(file.as_raw_fd(), self.idx as i64, libc::SEEK_DATA) as i64
+                    };
                     if res < 0 {
                         write!(self.writer, "Error: ")?;
                         match io::Error::last_os_error().raw_os_error() {
