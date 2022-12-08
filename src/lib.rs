@@ -4,8 +4,11 @@ pub use input::*;
 
 use std::io::{self, BufReader, Read, Write};
 
-use libc::{lseek, SEEK_DATA};
+#[cfg(target_os = "linux")]
 use std::os::unix::io::AsRawFd;
+
+#[cfg(target_os = "linux")]
+use libc::{lseek, SEEK_DATA};
 
 use owo_colors::{colors, Color};
 
