@@ -603,7 +603,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.squeezer = Squeezer::Delete;
                 #[cfg(target_os = "linux")]
                 if let Input::File(ref mut file) = buf.get_mut() {
-                    let res: i64 = unsafe { lseek(file.as_raw_fd(), 0, SEEK_DATA) };
+                    let res: i64 = unsafe { lseek(file.as_raw_fd(), 0, SEEK_DATA) as i64 };
                     if res < 0 {
                         writeln!(self.writer, "{}", io::Error::last_os_error())?;
                     }
