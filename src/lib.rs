@@ -535,8 +535,13 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
     #[cfg(target_os = "linux")]
     fn sparse_check(&mut self, file: &mut std::fs::File) -> io::Result<()> {
-        let res: i64 =
-            unsafe { libc::lseek(file.as_raw_fd(), self.idx.try_into().unwrap(), libc::SEEK_DATA) as i64 };
+        let res: i64 = unsafe {
+            libc::lseek(
+                file.as_raw_fd(),
+                self.idx.try_into().unwrap(),
+                libc::SEEK_DATA,
+            ) as i64
+        };
         if res < 0 {
             match io::Error::last_os_error().raw_os_error() {
                 Some(libc::EBADF) => writeln!(self.writer, "Error: fd is not an open file descriptor")?,
