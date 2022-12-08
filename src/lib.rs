@@ -605,6 +605,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 {
                     if self.squeezer == Squeezer::Delete {
                         self.idx += 8 * self.panels;
+                        #[cfg(target_os = "linux")]
                         if let Input::File(ref mut file) = buf {
                             self.sparse_check(file)?;
                         }
