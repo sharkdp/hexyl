@@ -533,12 +533,37 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         Ok(())
     }
 
+    #[cfg(target_os = "linux")]
+    fn sparse_check(&mut self, file: &mut std::fs::File) -> io::Result<()> {
+        let res: i64 = unsafe {
+            libc::lseek(file.as_raw_fd(), self.idx as i64, libc::SEEK_DATA) as i64
+        };
+        if res < 0 {
+            match io::Error::last_os_error().raw_os_error() {
+                Some(libc::EBADF) => writeln!(self.writer, "Error: fd is not an open file descriptor")?,
+                Some(libc::EINVAL) => writeln!(self.writer, "Error: whence is not valid.  Or: the resulting file offset would be negative, or beyond the end of a seekable device.")?,
+                Some(libc::ENXIO) => {
+                    // this should only happen when the rest of the file is a hole
+                    self.idx = file.seek(io::SeekFrom::End(0))?;
+                },
+                Some(libc::EOVERFLOW) => writeln!(self.writer, "Error: The resulting file offset cannot be represented in an off_t.")?,
+                Some(libc::ESPIPE) => writeln!(self.writer, "Error: fd is associated with a pipe, socket, or FIFO.")?,
+                err => writeln!(self.writer, "Error: uncategorized error: {:?}", err)?,
+            }
+        } else {
+            if res as u64 != self.idx {
+                self.idx = res as u64;
+            }
+        }
+        Ok(())
+    }
+
     /// Loop through the given `Reader`, printing until the `Reader` buffer
     /// is exhausted.
     pub fn print_all(&mut self, reader: Input) -> io::Result<()> {
         let mut is_empty = true;
 
-        let mut buf = BufReader::new(reader);
+        let mut buf = reader;
 
         let leftover = loop {
             // read a maximum of 8 * self.panels bytes from the reader
@@ -580,6 +605,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 {
                     if self.squeezer == Squeezer::Delete {
                         self.idx += 8 * self.panels;
+                        if let Input::File(ref mut file) = buf {
+                            self.sparse_check(file)?;
+                        }
                         continue;
                     }
                 } else {
@@ -602,25 +630,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             if self.squeezer == Squeezer::Print {
                 self.squeezer = Squeezer::Delete;
                 #[cfg(target_os = "linux")]
-                if let Input::File(ref mut file) = buf.get_mut() {
-                    let res: i64 = unsafe {
-                        libc::lseek(file.as_raw_fd(), self.idx as i64, libc::SEEK_DATA) as i64
-                    };
-                    if res < 0 {
-                        match io::Error::last_os_error().raw_os_error() {
-                            Some(libc::EBADF) => writeln!(self.writer, "Error: fd is not an open file descriptor")?,
-                            Some(libc::EINVAL) => writeln!(self.writer, "Error: whence is not valid.  Or: the resulting file offset would be negative, or beyond the end of a seekable device.")?,
-                            Some(libc::ENXIO) => {
-                                // this should only happen when the rest of the file is a hole
-                                self.idx = file.seek(io::SeekFrom::End(0))? - 0x1fe0;
-                            },
-                            Some(libc::EOVERFLOW) => writeln!(self.writer, "Error: The resulting file offset cannot be represented in an off_t.")?,
-                            Some(libc::ESPIPE) => writeln!(self.writer, "Error: fd is associated with a pipe, socket, or FIFO.")?,
-                            err => writeln!(self.writer, "Error: uncategorized error: {:?}", err)?,
-                        }
-                    } else {
-                        self.idx = res as u64 - 0x1fe0;
-                    }
+                if let Input::File(ref mut file) = buf {
+                    self.sparse_check(file)?;
+                    continue;
                 };
             }
 
