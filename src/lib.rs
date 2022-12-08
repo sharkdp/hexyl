@@ -2,7 +2,7 @@ pub(crate) mod input;
 
 pub use input::*;
 
-use std::io::{self, BufReader, Read, Write};
+use std::io::{self, BufReader, Read, Write, Seek};
 
 #[cfg(target_os = "linux")]
 use std::os::unix::io::AsRawFd;
@@ -608,14 +608,16 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                         libc::lseek(file.as_raw_fd(), self.idx as i64, libc::SEEK_DATA) as i64
                     };
                     if res < 0 {
-                        write!(self.writer, "Error: ")?;
                         match io::Error::last_os_error().raw_os_error() {
-                            Some(libc::EBADF) => writeln!(self.writer, "fd is not an open file descriptor")?,
-                            Some(libc::EINVAL) => writeln!(self.writer, "whence is not valid.  Or: the resulting file offset would be negative, or beyond the end of a seekable device.")?,
-                            Some(libc::ENXIO) => writeln!(self.writer, "whence is SEEK_DATA or SEEK_HOLE, and offset is beyond the end of the file, or whence is SEEK_DATA and offset is within a hole at the end of the file.")?,
-                            Some(libc::EOVERFLOW) => writeln!(self.writer, "The resulting file offset cannot be represented in an off_t.")?,
-                            Some(libc::ESPIPE) => writeln!(self.writer, "fd is associated with a pipe, socket, or FIFO.")?,
-                            err => writeln!(self.writer, "uncategorized error: {:?}", err)?,
+                            Some(libc::EBADF) => writeln!(self.writer, "Error: fd is not an open file descriptor")?,
+                            Some(libc::EINVAL) => writeln!(self.writer, "Error: whence is not valid.  Or: the resulting file offset would be negative, or beyond the end of a seekable device.")?,
+                            Some(libc::ENXIO) => {
+                                // this should only happen when the rest of the file is a hole
+                                self.idx = file.seek(io::SeekFrom::End(-8 * self.panels as i64))?;
+                            },
+                            Some(libc::EOVERFLOW) => writeln!(self.writer, "Error: The resulting file offset cannot be represented in an off_t.")?,
+                            Some(libc::ESPIPE) => writeln!(self.writer, "Error: fd is associated with a pipe, socket, or FIFO.")?,
+                            err => writeln!(self.writer, "Error: uncategorized error: {:?}", err)?,
                         }
                     } else {
                         writeln!(self.writer, "new idx {}", self.idx)?;
