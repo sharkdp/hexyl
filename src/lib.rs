@@ -606,11 +606,22 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.squeezer = Squeezer::Delete;
                 #[cfg(target_os = "linux")]
                 if let Input::File(ref mut file) = buf.get_mut() {
-                    let res: i64 = unsafe { lseek(file.as_raw_fd(), 0, SEEK_DATA) as i64 };
+                    writeln!(self.writer, "original idx {}", self.idx)?;
+                    let res: i64 = unsafe { lseek(file.as_raw_fd(), self.idx as i64, SEEK_DATA) as i64 };
                     if res < 0 {
-                        writeln!(self.writer, "{}", io::Error::last_os_error())?;
+                        write!(self.writer, "Error: ")?;
+                        match io::Error::last_os_error().raw_os_error() {
+                            Some(libc::EBADF) => writeln!(self.writer, "fd is not an open file descriptor")?,
+                            Some(libc::EINVAL) => writeln!(self.writer, "whence is not valid.  Or: the resulting file offset would be negative, or beyond the end of a seekable device.")?,
+                            Some(libc::ENXIO) => writeln!(self.writer, "whence is SEEK_DATA or SEEK_HOLE, and offset is beyond the end of the file, or whence is SEEK_DATA and offset is within a hole at the end of the file.")?,
+                            Some(libc::EOVERFLOW) => writeln!(self.writer, "The resulting file offset cannot be represented in an off_t.")?,
+                            Some(libc::ESPIPE) => writeln!(self.writer, "fd is associated with a pipe, socket, or FIFO.")?,
+                            err => writeln!(self.writer, "uncategorized error: {:?}", err)?,
+                        }
+                    } else {
+                        writeln!(self.writer, "new idx {}", self.idx)?;
+                        self.idx = res.try_into().unwrap();
                     }
-                    self.idx = res.try_into().unwrap();
                 };
             }
 
