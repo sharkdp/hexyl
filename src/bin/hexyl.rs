@@ -287,9 +287,11 @@ fn run() -> Result<()> {
         })
         .transpose()?
     {
-        Box::new(reader.take(length))
+        Input::Generic(Box::new(reader.take(length)))
+    } else if let Input::File(_) = reader {
+        reader
     } else {
-        reader.into_inner()
+        Input::Generic(reader.into_inner())
     };
 
     let show_color = match matches.get_one::<String>("color").map(String::as_ref) {
@@ -439,7 +441,7 @@ fn run() -> Result<()> {
         .with_base(base)
         .build();
     printer.display_offset(skip_offset + display_offset);
-    printer.print_all(Input::Generic(reader)).map_err(|e| anyhow!(e))?;
+    printer.print_all(reader).map_err(|e| anyhow!(e))?;
 
     Ok(())
 }

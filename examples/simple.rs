@@ -1,6 +1,6 @@
 use std::io;
 
-use hexyl::{BorderStyle, PrinterBuilder, Input};
+use hexyl::{BorderStyle, Input, PrinterBuilder};
 
 fn main() {
     let input = vec![
@@ -20,5 +20,7 @@ fn main() {
         .num_panels(2)
         .group_size(1)
         .build();
-    printer.print_all(Input::Generic(Box::new(io::Cursor::new(input)))).unwrap();
+    printer
+        .print_all(Input::Generic(Box::new(io::Cursor::new(input))))
+        .unwrap();
 }
