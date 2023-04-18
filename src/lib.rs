@@ -159,6 +159,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     panels: u64,
     group_size: u8,
     base: Base,
+    little_endian_dump: bool,
 }
 
 impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
@@ -173,6 +174,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             panels: 2,
             group_size: 1,
             base: Base::Hexadecimal,
+            little_endian_dump: false,
         }
     }
 
@@ -216,6 +218,11 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
+    pub fn little_endian_dump(mut self, little_endian_dump: bool) -> Self {
+        self.little_endian_dump = little_endian_dump;
+        self
+    }
+
     pub fn build(self) -> Printer<'a, Writer> {
         Printer::new(
             self.writer,
@@ -227,6 +234,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             self.panels,
             self.group_size,
             self.base,
+            self.little_endian_dump,
         )
     }
 }
@@ -254,6 +262,8 @@ pub struct Printer<'a, Writer: Write> {
     group_size: u8,
     /// The number of digits used to write the base.
     base_digits: u8,
+    /// Whether to print the bytes in little endian
+    little_endian_dump: bool,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -267,6 +277,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         panels: u64,
         group_size: u8,
         base: Base,
+        little_endian_dump: bool,
     ) -> Printer<'a, Writer> {
         Printer {
             idx: 0,
@@ -304,6 +315,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 Base::Decimal => 3,
                 Base::Hexadecimal => 2,
             },
+            little_endian_dump,
         }
     }
 
@@ -523,8 +535,27 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         Ok(())
     }
 
+    fn reorder_buf_to_le(&self, buf: &mut Vec<u8>) {
+        let n = buf.len();
+        let group_sz = self.group_size as usize;
+
+        for idx in (0..n).step_by(group_sz) {
+            let remaining = n - idx;
+            let total = remaining.min(group_sz);
+
+            buf[idx..idx+total].reverse();
+        }
+    }
+
     pub fn print_bytes(&mut self) -> io::Result<()> {
-        for (i, &b) in self.line_buf.clone().iter().enumerate() {
+        let mut buf = self.line_buf.clone();
+
+        if self.little_endian_dump {
+            // reorder the buffer to the little endian format
+            self.reorder_buf_to_le(&mut buf);
+        };
+
+        for (i, &b) in buf.iter().enumerate() {
             self.print_byte(i, b)?;
         }
         Ok(())
@@ -682,6 +713,7 @@ mod tests {
             2,
             1,
             Base::Hexadecimal,
+            false,
         );
 
         printer.print_all(input).unwrap();
@@ -736,6 +768,7 @@ mod tests {
             2,
             1,
             Base::Hexadecimal,
+            false,
         );
         printer.display_offset(0xdeadbeef);
 
@@ -769,6 +802,7 @@ mod tests {
             4,
             1,
             Base::Hexadecimal,
+            false,
         );
 
         printer.print_all(input).unwrap();
@@ -828,6 +862,7 @@ mod tests {
             3,
             1,
             Base::Hexadecimal,
+            false,
         );
 
         printer.print_all(input).unwrap();

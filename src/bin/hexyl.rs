@@ -203,6 +203,15 @@ fn run() -> Result<()> {
                     width but still leave some space to the right.\nCannot be used with other \
                     width-setting options.",
                 ),
+        )
+        .arg(
+            Arg::new("little_endian_dump")
+                .short('e')
+                .action(ArgAction::SetTrue)
+                .help(
+                    "Print out the data in little endian format. Otherwise the data will be showed \
+                    in big endian format by default.",
+                ),
         );
 
     let matches = command.get_matches();
@@ -425,6 +434,7 @@ fn run() -> Result<()> {
         )
     };
 
+    let little_endian_dump = *matches.get_one::<bool>("little_endian_dump").unwrap_or(&false);
     let stdout = io::stdout();
     let mut stdout_lock = BufWriter::new(stdout.lock());
 
@@ -437,6 +447,7 @@ fn run() -> Result<()> {
         .num_panels(panels)
         .group_size(group_size)
         .with_base(base)
+        .little_endian_dump(little_endian_dump)
         .build();
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;

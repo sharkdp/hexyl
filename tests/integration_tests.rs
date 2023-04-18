@@ -292,12 +292,12 @@ mod display_settings {
     }
 }
 
-mod group {
+mod group_and_endian {
     use super::hexyl;
     use super::PrettyAssert;
 
     #[test]
-    fn group_2_bytes() {
+    fn group_2_bytes_be() {
         hexyl()
             .arg("ascii")
             .arg("--color=never")
@@ -312,7 +312,23 @@ mod group {
     }
 
     #[test]
-    fn group_4_bytes() {
+    fn group_2_bytes_le() {
+        hexyl()
+            .arg("ascii")
+            .arg("--color=never")
+            .arg("--group-size=2")
+            .arg("-e")
+            .assert()
+            .success()
+            .stdout(
+                "┌────────┬─────────────────────┬─────────────────────┬────────┬────────┐\n\
+                 │00000000│ 3130 3332 3534 3736 ┊ 3938 6261 6463 0a65 │01234567┊89abcde_│\n\
+                 └────────┴─────────────────────┴─────────────────────┴────────┴────────┘\n",
+            );
+    }
+
+    #[test]
+    fn group_4_bytes_be() {
         hexyl()
             .arg("ascii")
             .arg("--color=never")
@@ -327,7 +343,23 @@ mod group {
     }
 
     #[test]
-    fn group_8_bytes() {
+    fn group_4_bytes_le() {
+        hexyl()
+            .arg("ascii")
+            .arg("--color=never")
+            .arg("--group-size=4")
+            .arg("-e")
+            .assert()
+            .success()
+            .stdout(
+                "┌────────┬───────────────────┬───────────────────┬────────┬────────┐\n\
+                 │00000000│ 33323130 37363534 ┊ 62613938 0a656463 │01234567┊89abcde_│\n\
+                 └────────┴───────────────────┴───────────────────┴────────┴────────┘\n",
+            );
+    }
+
+    #[test]
+    fn group_8_bytes_be() {
         hexyl()
             .arg("ascii")
             .arg("--color=never")
@@ -337,6 +369,22 @@ mod group {
             .stdout(
                 "┌────────┬──────────────────┬──────────────────┬────────┬────────┐\n\
                  │00000000│ 3031323334353637 ┊ 383961626364650a │01234567┊89abcde_│\n\
+                 └────────┴──────────────────┴──────────────────┴────────┴────────┘\n",
+            );
+    }
+
+    #[test]
+    fn group_8_bytes_le() {
+        hexyl()
+            .arg("ascii")
+            .arg("--color=never")
+            .arg("--group-size=8")
+            .arg("-e")
+            .assert()
+            .success()
+            .stdout(
+                "┌────────┬──────────────────┬──────────────────┬────────┬────────┐\n\
+                 │00000000│ 3736353433323130 ┊ 0a65646362613938 │01234567┊89abcde_│\n\
                  └────────┴──────────────────┴──────────────────┴────────┴────────┘\n",
             );
     }
