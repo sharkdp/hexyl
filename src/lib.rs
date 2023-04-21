@@ -543,7 +543,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             let remaining = n - idx;
             let total = remaining.min(group_sz);
 
-            buf[idx..idx+total].reverse();
+            buf[idx..idx + total].reverse();
         }
     }
 

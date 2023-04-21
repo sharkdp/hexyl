@@ -434,7 +434,9 @@ fn run() -> Result<()> {
         )
     };
 
-    let little_endian_dump = *matches.get_one::<bool>("little_endian_dump").unwrap_or(&false);
+    let little_endian_dump = *matches
+        .get_one::<bool>("little_endian_dump")
+        .unwrap_or(&false);
     let stdout = io::stdout();
     let mut stdout_lock = BufWriter::new(stdout.lock());
 
