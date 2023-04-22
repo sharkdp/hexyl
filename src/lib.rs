@@ -29,6 +29,11 @@ pub enum ByteCategory {
     NonAscii,
 }
 
+pub enum Endianness {
+    Little,
+    Big,
+}
+
 #[derive(PartialEq)]
 enum Squeezer {
     Print,
@@ -159,7 +164,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     panels: u64,
     group_size: u8,
     base: Base,
-    little_endian_dump: bool,
+    endianness: Endianness,
 }
 
 impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
@@ -174,7 +179,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             panels: 2,
             group_size: 1,
             base: Base::Hexadecimal,
-            little_endian_dump: false,
+            endianness: Endianness::Big,
         }
     }
 
@@ -218,8 +223,8 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
-    pub fn little_endian_dump(mut self, little_endian_dump: bool) -> Self {
-        self.little_endian_dump = little_endian_dump;
+    pub fn endianness(mut self, endianness: Endianness) -> Self {
+        self.endianness = endianness;
         self
     }
 
@@ -234,7 +239,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             self.panels,
             self.group_size,
             self.base,
-            self.little_endian_dump,
+            self.endianness,
         )
     }
 }
@@ -263,7 +268,7 @@ pub struct Printer<'a, Writer: Write> {
     /// The number of digits used to write the base.
     base_digits: u8,
     /// Whether to print the bytes in little endian
-    little_endian_dump: bool,
+    endianness: Endianness,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -277,7 +282,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         panels: u64,
         group_size: u8,
         base: Base,
-        little_endian_dump: bool,
+        endianness: Endianness,
     ) -> Printer<'a, Writer> {
         Printer {
             idx: 0,
@@ -315,7 +320,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 Base::Decimal => 3,
                 Base::Hexadecimal => 2,
             },
-            little_endian_dump,
+            endianness,
         }
     }
 
@@ -550,7 +555,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     pub fn print_bytes(&mut self) -> io::Result<()> {
         let mut buf = self.line_buf.clone();
 
-        if self.little_endian_dump {
+        if matches!(self.endianness, Endianness::Little) {
             // reorder the buffer to the little endian format
             self.reorder_buf_to_le(&mut buf);
         };

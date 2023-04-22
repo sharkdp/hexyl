@@ -17,7 +17,7 @@ use thiserror::Error as ThisError;
 
 use terminal_size::terminal_size;
 
-use hexyl::{Base, BorderStyle, Input, PrinterBuilder};
+use hexyl::{Base, BorderStyle, Endianness, Input, PrinterBuilder};
 
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
@@ -434,9 +434,13 @@ fn run() -> Result<()> {
         )
     };
 
-    let little_endian_dump = *matches
+    let endianness = match *matches
         .get_one::<bool>("little_endian_dump")
-        .unwrap_or(&false);
+        .unwrap_or(&false)
+    {
+        true => Endianness::Little,
+        false => Endianness::Big,
+    };
     let stdout = io::stdout();
     let mut stdout_lock = BufWriter::new(stdout.lock());
 
@@ -449,7 +453,7 @@ fn run() -> Result<()> {
         .num_panels(panels)
         .group_size(group_size)
         .with_base(base)
-        .little_endian_dump(little_endian_dump)
+        .endianness(endianness)
         .build();
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
