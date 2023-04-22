@@ -718,7 +718,7 @@ mod tests {
             2,
             1,
             Base::Hexadecimal,
-            false,
+            Endianness::Big,
         );
 
         printer.print_all(input).unwrap();
@@ -773,7 +773,7 @@ mod tests {
             2,
             1,
             Base::Hexadecimal,
-            false,
+            Endianness::Big,
         );
         printer.display_offset(0xdeadbeef);
 
@@ -807,7 +807,7 @@ mod tests {
             4,
             1,
             Base::Hexadecimal,
-            false,
+            Endianness::Big,
         );
 
         printer.print_all(input).unwrap();
@@ -867,7 +867,7 @@ mod tests {
             3,
             1,
             Base::Hexadecimal,
-            false,
+            Endianness::Big,
         );
 
         printer.print_all(input).unwrap();
