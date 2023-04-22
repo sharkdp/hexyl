@@ -292,7 +292,7 @@ mod display_settings {
     }
 }
 
-mod group_and_endian {
+mod group_and_endianness {
     use super::hexyl;
     use super::PrettyAssert;
 
