@@ -540,7 +540,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         Ok(())
     }
 
-    fn reorder_buf_to_le(&self, buf: &mut Vec<u8>) {
+    fn reorder_buf_to_little_endian(&self, buf: &mut Vec<u8>) {
         let n = buf.len();
         let group_sz = self.group_size as usize;
 
