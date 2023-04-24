@@ -209,7 +209,7 @@ fn run() -> Result<()> {
                 .short('e')
                 .action(ArgAction::SetTrue)
                 .help(
-                    "Print out the data in little endian format. Otherwise the data will be showed \
+                    "Print out the data in little endian format. Otherwise the data will be shown \
                     in big endian format by default.",
                 ),
         );
