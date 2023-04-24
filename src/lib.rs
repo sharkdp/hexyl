@@ -557,7 +557,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         if matches!(self.endianness, Endianness::Little) {
             // reorder the buffer to the little endian format
-            self.reorder_buf_to_le(&mut buf);
+            self.reorder_buf_to_little_endian(&mut buf);
         };
 
         for (i, &b) in buf.iter().enumerate() {

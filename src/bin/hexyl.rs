@@ -205,12 +205,15 @@ fn run() -> Result<()> {
                 ),
         )
         .arg(
-            Arg::new("little_endian_dump")
-                .short('e')
-                .action(ArgAction::SetTrue)
+            Arg::new("endianness")
+                .long("endianness")
+                .requires("group_size")
+                .num_args(1)
+                .value_name("ENDIANNESS")
+                .value_parser(["big", "little"])
+                .default_value("big")
                 .help(
-                    "Print out the data in little endian format. Otherwise the data will be shown \
-                    in big endian format by default.",
+                    "Whether to print out the data in little endian format or big endian format.",
                 ),
         );
 
@@ -434,12 +437,10 @@ fn run() -> Result<()> {
         )
     };
 
-    let endianness = match *matches
-        .get_one::<bool>("little_endian_dump")
-        .unwrap_or(&false)
-    {
-        true => Endianness::Little,
-        false => Endianness::Big,
+    let endianness = match matches.get_one::<String>("endianness").map(String::as_ref) {
+        Some("little") => Endianness::Little,
+        Some("big") => Endianness::Big,
+        _ => unreachable!(),
     };
     let stdout = io::stdout();
     let mut stdout_lock = BufWriter::new(stdout.lock());

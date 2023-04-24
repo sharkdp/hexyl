@@ -317,7 +317,7 @@ mod group_and_endianness {
             .arg("ascii")
             .arg("--color=never")
             .arg("--group-size=2")
-            .arg("-e")
+            .arg("--endianness=little")
             .assert()
             .success()
             .stdout(
@@ -348,7 +348,7 @@ mod group_and_endianness {
             .arg("ascii")
             .arg("--color=never")
             .arg("--group-size=4")
-            .arg("-e")
+            .arg("--endianness=little")
             .assert()
             .success()
             .stdout(
@@ -379,7 +379,7 @@ mod group_and_endianness {
             .arg("ascii")
             .arg("--color=never")
             .arg("--group-size=8")
-            .arg("-e")
+            .arg("--endianness=little")
             .assert()
             .success()
             .stdout(
