@@ -540,7 +540,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         Ok(())
     }
 
-    fn reorder_buf_to_little_endian(&self, buf: &mut Vec<u8>) {
+    fn reorder_buffer_to_little_endian(&self, buf: &mut Vec<u8>) {
         let n = buf.len();
         let group_sz = self.group_size as usize;
 
@@ -556,8 +556,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let mut buf = self.line_buf.clone();
 
         if matches!(self.endianness, Endianness::Little) {
-            // reorder the buffer to the little endian format
-            self.reorder_buf_to_little_endian(&mut buf);
+            self.reorder_buffer_to_little_endian(&mut buf);
         };
 
         for (i, &b) in buf.iter().enumerate() {
