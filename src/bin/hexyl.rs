@@ -190,8 +190,17 @@ fn run() -> Result<()> {
                 .help(
                     "Whether to print out groups in little-endian or big-endian \
                      format. This option only has an effect if the '--group-size' \
-                     is larger than 1.",
+                     is larger than 1. '-e' can be used as an alias for \
+                     '--endianness=little'.",
                 ),
+        )
+        .arg(
+            Arg::new("little_endian_format")
+                .short('e')
+                .action(ArgAction::SetTrue)
+                .overrides_with("endianness")
+                .hide(true)
+                .help("An alias for '--endianness=little'."),
         )
         .arg(
             Arg::new("base")
@@ -440,9 +449,14 @@ fn run() -> Result<()> {
         )
     };
 
-    let endianness = match matches.get_one::<String>("endianness").map(String::as_ref) {
-        Some("little") => Endianness::Little,
-        Some("big") => Endianness::Big,
+    let little_endian_format = *matches.get_one::<bool>("little_endian_format").unwrap();
+    let endianness = matches.get_one::<String>("endianness");
+    let endianness = match (
+        endianness.map(|s| s.as_ref()).unwrap(),
+        little_endian_format,
+    ) {
+        (_, true) | ("little", _) => Endianness::Little,
+        ("big", _) => Endianness::Big,
         _ => unreachable!(),
     };
     let stdout = io::stdout();
