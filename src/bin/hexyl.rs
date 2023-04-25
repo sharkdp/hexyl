@@ -174,8 +174,23 @@ fn run() -> Result<()> {
                 .value_name("N")
                 .help(
                     "Number of bytes/octets that should be grouped together. \
-                    Possible group sizes are 1, 2, 4, 8. The default is 1. \
-                    '--groupsize can be used as an alias (xxd-compatibility).",
+                    Possible group sizes are 1, 2, 4, 8. The default is 1. You \
+                    can use the '--endianness' option to control the ordering of \
+                    the bytes within a group. '--groupsize' can be used as an \
+                    alias (xxd-compatibility).",
+                ),
+        )
+        .arg(
+            Arg::new("endianness")
+                .long("endianness")
+                .num_args(1)
+                .value_name("FORMAT")
+                .value_parser(["big", "little"])
+                .default_value("big")
+                .help(
+                    "Whether to print out groups in little-endian or big-endian \
+                     format. This option only has an effect if the '--group-size' \
+                     is larger than 1.",
                 ),
         )
         .arg(
@@ -202,18 +217,6 @@ fn run() -> Result<()> {
                     will use the greatest number of hex data panels that can fit in the requested \
                     width but still leave some space to the right.\nCannot be used with other \
                     width-setting options.",
-                ),
-        )
-        .arg(
-            Arg::new("endianness")
-                .long("endianness")
-                .requires("group_size")
-                .num_args(1)
-                .value_name("ENDIANNESS")
-                .value_parser(["big", "little"])
-                .default_value("big")
-                .help(
-                    "Whether to print out the data in little endian format or big endian format.",
                 ),
         );
 
