@@ -267,7 +267,7 @@ pub struct Printer<'a, Writer: Write> {
     group_size: u8,
     /// The number of digits used to write the base.
     base_digits: u8,
-    /// Whether to show groups in little or big endian ordering.
+    /// Whether to show groups in little or big endian format.
     endianness: Endianness,
 }
 
