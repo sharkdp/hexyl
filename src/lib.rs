@@ -21,6 +21,7 @@ const COLOR_ASCII_OTHER: &[u8] = colors::Green::ANSI_FG.as_bytes();
 const COLOR_NONASCII: &[u8] = colors::Yellow::ANSI_FG.as_bytes();
 const COLOR_RESET: &[u8] = colors::Default::ANSI_FG.as_bytes();
 
+#[derive(Copy, Clone)]
 pub enum ByteCategory {
     Null,
     AsciiPrintable,
@@ -29,6 +30,7 @@ pub enum ByteCategory {
     NonAscii,
 }
 
+#[derive(Copy, Clone)]
 pub enum Endianness {
     Little,
     Big,
