@@ -128,10 +128,17 @@ fn run() -> Result<()> {
         ))
         .arg(
             Arg::new("no_chars")
-                .short('C')
                 .long("no-characters")
                 .action(ArgAction::SetFalse)
-                .help("Whether to display the character panel on the right."),
+                .help("Do not show the character panel on the right."),
+        )
+        .arg(
+            Arg::new("chars")
+                .short('C')
+                .long("characters")
+                .overrides_with("no_chars")
+                .action(ArgAction::SetTrue)
+                .help("Show the character panel on the right. This is the default, unless --no-characters has been specified."),
         )
         .arg(
             Arg::new("no_position")
