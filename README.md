@@ -17,6 +17,19 @@ of bytes (NULL bytes, printable ASCII characters, ASCII whitespace characters, o
 
 ![](https://i.imgur.com/f8nm8g6.png)
 
+## Color Reference
+
+|Type of Byte|Color|ANSI Code |
+|---|---|---|
+|NULL|![#555753](https://placehold.co/10x10/555753/555753.png) Bright Black|90|
+|OFFSET|![#555753](https://placehold.co/10x10/555753/555753.png) Bright Black|90|
+|ASCII Printable|![#06989a](https://placehold.co/10x10/06989a/06989a.png) Cyan|36|
+|ASCII Whitespace|![#4e9a06](https://placehold.co/10x10/4e9a06/4e9a06.png) Green|32|
+|ASCII Other|![#4e9a06](https://placehold.co/10x10/4e9a06/4e9a06.png) Green|32|
+|Non-ASCII|![#c4a000](https://placehold.co/10x10/c4a000/c4a000.png) Yellow|33|
+Placeholder colors taken from the Ubuntu terminal color scheme
+
+
 ## Installation
 
 ### On Ubuntu
