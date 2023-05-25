@@ -27,7 +27,8 @@ of bytes (NULL bytes, printable ASCII characters, ASCII whitespace characters, o
 |ASCII Whitespace|![#4e9a06](https://placehold.co/10x10/4e9a06/4e9a06.png) Green|32|
 |ASCII Other|![#4e9a06](https://placehold.co/10x10/4e9a06/4e9a06.png) Green|32|
 |Non-ASCII|![#c4a000](https://placehold.co/10x10/c4a000/c4a000.png) Yellow|33|
-Placeholder colors taken from the Ubuntu terminal color scheme
+
+*Colors taken from the Ubuntu terminal color scheme, they could look different in your terminal*
 
 
 ## Installation
