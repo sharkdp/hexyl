@@ -117,14 +117,6 @@ impl Byte {
             },
             CharacterTable::CP437 => CP437[self.0.to_ne_bytes()[0] as usize],
         }
-        // match self.category() {
-        //     Null => '⋄',
-        //     AsciiPrintable => self.0 as char,
-        //     AsciiWhitespace if self.0 == 0x20 => ' ',
-        //     AsciiWhitespace => '_',
-        //     AsciiOther => '•',
-        //     NonAscii => '×',
-        // }
     }
 }
 
