@@ -54,6 +54,7 @@ pub enum ByteCategory {
 }
 
 #[derive(Copy, Clone)]
+#[non_exhaustive]
 pub enum CharTable {
     AsciiOnly,
     CP437,
