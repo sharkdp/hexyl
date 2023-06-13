@@ -213,8 +213,8 @@ fn run() -> Result<()> {
                 .help("An alias for '--endianness=little'."),
         )
         .arg(
-            Arg::new("character_table")
-                .long("character_table")
+            Arg::new("character-table")
+                .long("character-table")
                 .value_name("FORMAT")
                 .value_parser(["codepage-437", "ascii-only"])
                 .help(
@@ -482,7 +482,7 @@ fn run() -> Result<()> {
     };
 
     let char_table = match matches
-        .get_one::<String>("character_table")
+        .get_one::<String>("character-table")
         .unwrap_or(&String::from("ascii-only"))
         .as_ref()
     {
