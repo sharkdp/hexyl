@@ -220,7 +220,7 @@ fn run() -> Result<()> {
                 .default_value("ascii-only")
                 .help(
                     "The character table that should be used. 'ascii-only' \
-                    will show dots for non-ASCII characters, and 'codepage-437 \
+                    will show dots for non-ASCII characters, and 'codepage-437' \
                     will use Code page 437 for those characters."
                 ),
         )
