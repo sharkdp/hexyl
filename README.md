@@ -17,6 +17,20 @@ of bytes (NULL bytes, printable ASCII characters, ASCII whitespace characters, o
 
 ![](https://i.imgur.com/f8nm8g6.png)
 
+## Color Reference
+
+|Type of Byte|Color|ANSI Code |
+|---|---|---|
+|NULL|![#555753](https://placehold.co/10x10/555753/555753.png) Bright Black|90|
+|OFFSET|![#555753](https://placehold.co/10x10/555753/555753.png) Bright Black|90|
+|ASCII Printable|![#06989a](https://placehold.co/10x10/06989a/06989a.png) Cyan|36|
+|ASCII Whitespace|![#4e9a06](https://placehold.co/10x10/4e9a06/4e9a06.png) Green|32|
+|ASCII Other|![#4e9a06](https://placehold.co/10x10/4e9a06/4e9a06.png) Green|32|
+|Non-ASCII|![#c4a000](https://placehold.co/10x10/c4a000/c4a000.png) Yellow|33|
+
+*Colors taken from the Ubuntu terminal color scheme, they could look different in your terminal*
+
+
 ## Installation
 
 ### On Ubuntu
@@ -31,7 +45,7 @@ If you use an older version of Ubuntu, you can download
 the latest `.deb` package from the release page and install it via:
 
 ``` bash
-sudo dpkg -i hexyl_0.11.0_amd64.deb  # adapt version number and architecture
+sudo dpkg -i hexyl_0.13.0_amd64.deb  # adapt version number and architecture
 ```
 
 ### On Debian

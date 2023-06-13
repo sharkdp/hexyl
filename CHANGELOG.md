@@ -1,8 +1,24 @@
-# unreleased
+# v0.13.0
+
+## Features
+
+- Support both little and big Endian dumps using `--endianness={little,big}`, see #189 and #104 (@RinHizakura)
+
+## Changes
+
+- **Breaking**: Changed the meaning of the short flag `-C` to be consistent with `hexdump -C`. Previously, this would *hide* the character panel, but now `-C` *shows* the character panel, in case it has been previously (e.g. in an `alias`) disabled with `--no-characters`, see #187 (@sharkdp)
+
+## `hexyl` as a library
+
+- New `endianness` method for `PrinterBuilder`
+
+
+# v0.12.0
 
 ## Features
 
 - Only show one panel by default if the terminal width is not wide enough for two panels, see #182 (@sharkdp)
+- Respect the `NO_COLOR` environment variable, see #179 (@sharifhsn)
 
 ## Bugfixes
 

@@ -17,7 +17,7 @@ use thiserror::Error as ThisError;
 
 use terminal_size::terminal_size;
 
-use hexyl::{Base, BorderStyle, Input, PrinterBuilder};
+use hexyl::{Base, BorderStyle, CharacterTable, Endianness, Input, PrinterBuilder};
 
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
@@ -128,10 +128,17 @@ fn run() -> Result<()> {
         ))
         .arg(
             Arg::new("no_chars")
-                .short('C')
                 .long("no-characters")
                 .action(ArgAction::SetFalse)
-                .help("Whether to display the character panel on the right."),
+                .help("Do not show the character panel on the right."),
+        )
+        .arg(
+            Arg::new("chars")
+                .short('C')
+                .long("characters")
+                .overrides_with("no_chars")
+                .action(ArgAction::SetTrue)
+                .help("Show the character panel on the right. This is the default, unless --no-characters has been specified."),
         )
         .arg(
             Arg::new("no_position")
@@ -174,8 +181,44 @@ fn run() -> Result<()> {
                 .value_name("N")
                 .help(
                     "Number of bytes/octets that should be grouped together. \
-                    Possible group sizes are 1, 2, 4, 8. The default is 1. \
-                    '--groupsize can be used as an alias (xxd-compatibility).",
+                    Possible group sizes are 1, 2, 4, 8. The default is 1. You \
+                    can use the '--endianness' option to control the ordering of \
+                    the bytes within a group. '--groupsize' can be used as an \
+                    alias (xxd-compatibility).",
+                ),
+        )
+        .arg(
+            Arg::new("endianness")
+                .long("endianness")
+                .num_args(1)
+                .value_name("FORMAT")
+                .value_parser(["big", "little"])
+                .default_value("big")
+                .help(
+                    "Whether to print out groups in little-endian or big-endian \
+                     format. This option only has an effect if the '--group-size' \
+                     is larger than 1. '-e' can be used as an alias for \
+                     '--endianness=little'.",
+                ),
+        )
+        .arg(
+            Arg::new("little_endian_format")
+                .short('e')
+                .action(ArgAction::SetTrue)
+                .overrides_with("endianness")
+                .hide(true)
+                .help("An alias for '--endianness=little'."),
+        )
+        .arg(
+            Arg::new("character-table")
+                .long("character-table")
+                .value_name("FORMAT")
+                .value_parser(["codepage-437", "ascii-only"])
+                .default_value("ascii-only")
+                .help(
+                    "The character table that should be used. 'ascii-only' \
+                    will show dots for non-ASCII characters, and 'codepage-437' \
+                    will use Code page 437 for those characters."
                 ),
         )
         .arg(
@@ -427,6 +470,27 @@ fn run() -> Result<()> {
         )
     };
 
+    let little_endian_format = *matches.get_one::<bool>("little_endian_format").unwrap();
+    let endianness = matches.get_one::<String>("endianness");
+    let endianness = match (
+        endianness.map(|s| s.as_ref()).unwrap(),
+        little_endian_format,
+    ) {
+        (_, true) | ("little", _) => Endianness::Little,
+        ("big", _) => Endianness::Big,
+        _ => unreachable!(),
+    };
+
+    let character_table = match matches
+        .get_one::<String>("character-table")
+        .unwrap()
+        .as_ref()
+    {
+        "ascii-only" => CharacterTable::AsciiOnly,
+        "codepage-437" => CharacterTable::CP437,
+        _ => unreachable!(),
+    };
+
     let stdout = io::stdout();
     let mut stdout_lock = BufWriter::new(stdout.lock());
 
@@ -439,6 +503,8 @@ fn run() -> Result<()> {
         .num_panels(panels)
         .group_size(group_size)
         .with_base(base)
+        .endianness(endianness)
+        .character_table(character_table)
         .build();
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(reader).map_err(|e| anyhow!(e))?;

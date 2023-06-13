@@ -1,8 +1,8 @@
 name: CICD
 
 env:
-  MIN_SUPPORTED_RUST_VERSION: "1.61.0"
   CICD_INTERMEDIATES_DIR: "_cicd-intermediates"
+  MSRV_FEATURES: ""
 
 on:
   workflow_dispatch:
@@ -14,84 +14,102 @@ on:
       - '*'
 
 jobs:
+  crate_metadata:
+    name: Extract crate metadata
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Extract crate information
+      id: crate_metadata
+      run: |
+        cargo metadata --no-deps --format-version 1 | jq -r '"name=" + .packages[0].name' | tee -a $GITHUB_OUTPUT
+        cargo metadata --no-deps --format-version 1 | jq -r '"version=" + .packages[0].version' | tee -a $GITHUB_OUTPUT
+        cargo metadata --no-deps --format-version 1 | jq -r '"maintainer=" + .packages[0].authors[0]' | tee -a $GITHUB_OUTPUT
+        cargo metadata --no-deps --format-version 1 | jq -r '"homepage=" + .packages[0].homepage' | tee -a $GITHUB_OUTPUT
+        cargo metadata --no-deps --format-version 1 | jq -r '"msrv=" + .packages[0].rust_version' | tee -a $GITHUB_OUTPUT
+    outputs:
+      name: ${{ steps.crate_metadata.outputs.name }}
+      version: ${{ steps.crate_metadata.outputs.version }}
+      maintainer: ${{ steps.crate_metadata.outputs.maintainer }}
+      homepage: ${{ steps.crate_metadata.outputs.homepage }}
+      msrv: ${{ steps.crate_metadata.outputs.msrv }}
+
+  ensure_cargo_fmt:
+    name: Ensure 'cargo fmt' has been run
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt
+    - uses: actions/checkout@v3
+    - run: cargo fmt -- --check
+
   min_version:
     name: Minimum supported rust version
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
+    needs: crate_metadata
     steps:
     - name: Checkout source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
-    - name: Install rust toolchain (v${{ env.MIN_SUPPORTED_RUST_VERSION }})
-      uses: actions-rs/toolchain@v1
+    - name: Install rust toolchain (v${{ needs.crate_metadata.outputs.msrv }})
+      uses: dtolnay/rust-toolchain@master
       with:
-        toolchain: ${{ env.MIN_SUPPORTED_RUST_VERSION }}
-        default: true
-        profile: minimal # minimal component installation (ie, no documentation)
-        components: clippy, rustfmt
-
-    - name: Ensure `cargo fmt` has been run
-      uses: actions-rs/cargo@v1
-      with:
-        command: fmt
-        args: -- --check
-
+        toolchain: ${{ needs.crate_metadata.outputs.msrv }}
+        components: clippy
     - name: Run clippy (on minimum supported rust version to prevent warnings we can't fix)
-      uses: actions-rs/cargo@v1
-      with:
-        command: clippy
-        args: --locked --all-targets
-
+      run: cargo clippy --locked --all-targets ${{ env.MSRV_FEATURES }}
     - name: Run tests
-      uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --locked
+      run: cargo test --locked ${{ env.MSRV_FEATURES }}
 
   build:
-    name: ${{ matrix.job.os }} (${{ matrix.job.target }})
+    name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
+    needs: crate_metadata
     strategy:
       fail-fast: false
       matrix:
         job:
-          - { os: ubuntu-18.04, target: arm-unknown-linux-gnueabihf , use-cross: true }
-          - { os: ubuntu-18.04, target: aarch64-unknown-linux-gnu   , use-cross: true }
-          - { os: ubuntu-18.04, target: i686-unknown-linux-gnu      , use-cross: true }
-          - { os: ubuntu-18.04, target: i686-unknown-linux-musl     , use-cross: true }
-          - { os: ubuntu-18.04, target: x86_64-unknown-linux-gnu    }
-          - { os: ubuntu-18.04, target: x86_64-unknown-linux-musl   , use-cross: true }
-          - { os: macos-10.15 , target: x86_64-apple-darwin         }
-          # - { os: windows-2019, target: i686-pc-windows-gnu         }  ## disabled; error: linker `i686-w64-mingw32-gcc` not found
-          - { os: windows-2019, target: i686-pc-windows-msvc        }
-          - { os: windows-2019, target: x86_64-pc-windows-gnu       }
-          - { os: windows-2019, target: x86_64-pc-windows-msvc      }
+          - { target: aarch64-unknown-linux-gnu   , os: ubuntu-20.04, use-cross: true }
+          - { target: arm-unknown-linux-gnueabihf , os: ubuntu-20.04, use-cross: true }
+          - { target: arm-unknown-linux-musleabihf, os: ubuntu-20.04, use-cross: true }
+          - { target: i686-pc-windows-msvc        , os: windows-2019                  }
+          - { target: i686-unknown-linux-gnu      , os: ubuntu-20.04, use-cross: true }
+          - { target: i686-unknown-linux-musl     , os: ubuntu-20.04, use-cross: true }
+          - { target: x86_64-apple-darwin         , os: macos-12                      }
+          - { target: x86_64-pc-windows-gnu       , os: windows-2019                  }
+          - { target: x86_64-pc-windows-msvc      , os: windows-2019                  }
+          - { target: x86_64-unknown-linux-gnu    , os: ubuntu-20.04, use-cross: true }
+          - { target: x86_64-unknown-linux-musl   , os: ubuntu-20.04, use-cross: true }
+    env:
+      BUILD_CMD: cargo
     steps:
     - name: Checkout source code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Install prerequisites
       shell: bash
       run: |
         case ${{ matrix.job.target }} in
-          arm-unknown-linux-gnueabihf) sudo apt-get -y update ; sudo apt-get -y install gcc-arm-linux-gnueabihf ;;
+          arm-unknown-linux-*) sudo apt-get -y update ; sudo apt-get -y install gcc-arm-linux-gnueabihf ;;
           aarch64-unknown-linux-gnu) sudo apt-get -y update ; sudo apt-get -y install gcc-aarch64-linux-gnu ;;
         esac
 
-    - name: Extract crate information
-      shell: bash
-      run: |
-        echo "PROJECT_NAME=$(sed -n 's/^name = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
-        echo "PROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)" >> $GITHUB_ENV
-        echo "PROJECT_MAINTAINER=$(sed -n 's/^authors = \["\(.*\)"\]/\1/p' Cargo.toml)" >> $GITHUB_ENV
-        echo "PROJECT_HOMEPAGE=$(sed -n 's/^homepage = "\(.*\)"/\1/p' Cargo.toml)" >> $GITHUB_ENV
-
     - name: Install Rust toolchain
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: stable
-        target: ${{ matrix.job.target }}
-        override: true
-        profile: minimal # minimal component installation (ie, no documentation)
+        targets: ${{ matrix.job.target }}
+
+    - name: Install cross
+      if: matrix.job.use-cross
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cross
+
+    - name: Overwrite build command env variable
+      if: matrix.job.use-cross
+      shell: bash
+      run: echo "BUILD_CMD=cross" >> $GITHUB_ENV
 
     - name: Show version information (Rust, cargo, GCC)
       shell: bash
@@ -104,21 +122,16 @@ jobs:
         rustc -V
 
     - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        use-cross: ${{ matrix.job.use-cross }}
-        command: build
-        args: --release --target=${{ matrix.job.target }}
+      shell: bash
+      run: $BUILD_CMD build --locked --release --target=${{ matrix.job.target }}
 
     - name: Run example
-      uses: actions-rs/cargo@v1
-      with:
-        use-cross: ${{ matrix.job.use-cross }}
-        command: run
-        args: --release --target=${{ matrix.job.target }} --example=simple
+      if: ${{ !matrix.job.use-cross }}
+      shell: bash
+      run: $BUILD_CMD run --release --target=${{ matrix.job.target }} --example=simple
 
-    - name: Strip debug information from executable
-      id: strip
+    - name: Set binary name & path
+      id: bin
       shell: bash
       run: |
         # Figure out suffix of binary
@@ -127,31 +140,13 @@ jobs:
           *-pc-windows-*) EXE_suffix=".exe" ;;
         esac;
 
-        # Figure out what strip tool to use if any
-        STRIP="strip"
-        case ${{ matrix.job.target }} in
-          arm-unknown-linux-gnueabihf) STRIP="arm-linux-gnueabihf-strip" ;;
-          aarch64-unknown-linux-gnu) STRIP="aarch64-linux-gnu-strip" ;;
-          *-pc-windows-msvc) STRIP="" ;;
-        esac;
-
         # Setup paths
-        BIN_DIR="${{ env.CICD_INTERMEDIATES_DIR }}/stripped-release-bin/"
-        mkdir -p "${BIN_DIR}"
-        BIN_NAME="${{ env.PROJECT_NAME }}${EXE_suffix}"
-        BIN_PATH="${BIN_DIR}/${BIN_NAME}"
+        BIN_NAME="${{ needs.crate_metadata.outputs.name }}${EXE_suffix}"
+        BIN_PATH="target/${{ matrix.job.target }}/release/${BIN_NAME}"
 
-        # Copy the release build binary to the result location
-        cp "target/${{ matrix.job.target }}/release/${BIN_NAME}" "${BIN_DIR}"
-
-        # Also strip if possible
-        if [ -n "${STRIP}" ]; then
-          "${STRIP}" "${BIN_PATH}"
-        fi
-
-        # Let subsequent steps know where to find the (stripped) bin
-        echo ::set-output name=BIN_PATH::${BIN_PATH}
-        echo ::set-output name=BIN_NAME::${BIN_NAME}
+        # Let subsequent steps know where to find the binary
+        echo "BIN_PATH=${BIN_PATH}" >> $GITHUB_OUTPUT
+        echo "BIN_NAME=${BIN_NAME}" >> $GITHUB_OUTPUT
 
     - name: Set testing options
       id: test-options
@@ -159,43 +154,40 @@ jobs:
       run: |
         # test only library unit tests and binary for arm-type targets
         unset CARGO_TEST_OPTIONS
-        unset CARGO_TEST_OPTIONS ; case ${{ matrix.job.target }} in arm-* | aarch64-*) CARGO_TEST_OPTIONS="--lib --bin ${PROJECT_NAME}" ;; esac;
-        echo ::set-output name=CARGO_TEST_OPTIONS::${CARGO_TEST_OPTIONS}
+        unset CARGO_TEST_OPTIONS ; case ${{ matrix.job.target }} in arm-* | aarch64-*) CARGO_TEST_OPTIONS="--lib --bin ${{ needs.crate_metadata.outputs.name }}" ;; esac;
+        echo "CARGO_TEST_OPTIONS=${CARGO_TEST_OPTIONS}" >> $GITHUB_OUTPUT
 
     - name: Run tests
-      uses: actions-rs/cargo@v1
-      with:
-        use-cross: ${{ matrix.job.use-cross }}
-        command: test
-        args: --target=${{ matrix.job.target }} ${{ steps.test-options.outputs.CARGO_TEST_OPTIONS}}
+      shell: bash
+      run: $BUILD_CMD test --locked --target=${{ matrix.job.target }} ${{ steps.test-options.outputs.CARGO_TEST_OPTIONS}}
 
     - name: Setup Pandoc
       uses: r-lib/actions/setup-pandoc@v2
 
     - name: Generate man page
-      run: pandoc -s -f markdown -t man -o "doc/${{ env.PROJECT_NAME }}.1" "doc/${{ env.PROJECT_NAME }}.1.md"
+      run: pandoc -s -f markdown -t man -o "doc/${{ needs.crate_metadata.outputs.name }}.1" "doc/${{ needs.crate_metadata.outputs.name }}.1.md"
 
     - name: Create tarball
       id: package
       shell: bash
       run: |
         PKG_suffix=".tar.gz" ; case ${{ matrix.job.target }} in *-pc-windows-*) PKG_suffix=".zip" ;; esac;
-        PKG_BASENAME=${PROJECT_NAME}-v${PROJECT_VERSION}-${{ matrix.job.target }}
+        PKG_BASENAME=${{ needs.crate_metadata.outputs.name }}-v${{ needs.crate_metadata.outputs.version }}-${{ matrix.job.target }}
         PKG_NAME=${PKG_BASENAME}${PKG_suffix}
-        echo ::set-output name=PKG_NAME::${PKG_NAME}
+        echo "PKG_NAME=${PKG_NAME}" >> $GITHUB_OUTPUT
 
         PKG_STAGING="${{ env.CICD_INTERMEDIATES_DIR }}/package"
         ARCHIVE_DIR="${PKG_STAGING}/${PKG_BASENAME}/"
         mkdir -p "${ARCHIVE_DIR}"
 
         # Binary
-        cp "${{ steps.strip.outputs.BIN_PATH }}" "$ARCHIVE_DIR"
-
-        # Man page
-        cp "doc/${{ env.PROJECT_NAME }}.1" "$ARCHIVE_DIR"
+        cp "${{ steps.bin.outputs.BIN_PATH }}" "$ARCHIVE_DIR"
 
         # README, LICENSE and CHANGELOG files
         cp "README.md" "LICENSE-MIT" "LICENSE-APACHE" "CHANGELOG.md" "$ARCHIVE_DIR"
+
+        # Man page
+        cp "doc/${{ needs.crate_metadata.outputs.name }}.1" "$ARCHIVE_DIR"
 
         # base compressed package
         pushd "${PKG_STAGING}/" >/dev/null
@@ -206,7 +198,7 @@ jobs:
         popd >/dev/null
 
         # Let subsequent steps know where to find the compressed package
-        echo ::set-output name=PKG_PATH::"${PKG_STAGING}/${PKG_NAME}"
+        echo "PKG_PATH=${PKG_STAGING}/${PKG_NAME}" >> $GITHUB_OUTPUT
 
     - name: Create Debian package
       id: debian-package
@@ -218,10 +210,10 @@ jobs:
         DPKG_DIR="${DPKG_STAGING}/dpkg"
         mkdir -p "${DPKG_DIR}"
 
-        DPKG_BASENAME=${PROJECT_NAME}
-        DPKG_CONFLICTS=${PROJECT_NAME}-musl
-        case ${{ matrix.job.target }} in *-musl) DPKG_BASENAME=${PROJECT_NAME}-musl ; DPKG_CONFLICTS=${PROJECT_NAME} ;; esac;
-        DPKG_VERSION=${PROJECT_VERSION}
+        DPKG_BASENAME=${{ needs.crate_metadata.outputs.name }}
+        DPKG_CONFLICTS=${{ needs.crate_metadata.outputs.name }}-musl
+        case ${{ matrix.job.target }} in *-musl) DPKG_BASENAME=${{ needs.crate_metadata.outputs.name }}-musl ; DPKG_CONFLICTS=${{ needs.crate_metadata.outputs.name }} ;; esac;
+        DPKG_VERSION=${{ needs.crate_metadata.outputs.version }}
 
         unset DPKG_ARCH
         case ${{ matrix.job.target }} in
@@ -233,14 +225,14 @@ jobs:
         esac;
 
         DPKG_NAME="${DPKG_BASENAME}_${DPKG_VERSION}_${DPKG_ARCH}.deb"
-        echo ::set-output name=DPKG_NAME::${DPKG_NAME}
+        echo "DPKG_NAME=${DPKG_NAME}" >> $GITHUB_OUTPUT
 
         # Binary
-        install -Dm755 "${{ steps.strip.outputs.BIN_PATH }}" "${DPKG_DIR}/usr/bin/${{ steps.strip.outputs.BIN_NAME }}"
+        install -Dm755 "${{ steps.bin.outputs.BIN_PATH }}" "${DPKG_DIR}/usr/bin/${{ steps.bin.outputs.BIN_NAME }}"
 
         # Man page
-        install -Dm644 "doc/${{ env.PROJECT_NAME }}.1" "${DPKG_DIR}/usr/share/man/man1/${{ env.PROJECT_NAME }}.1"
-        gzip -n --best "${DPKG_DIR}/usr/share/man/man1/${{ env.PROJECT_NAME }}.1"
+        install -Dm644 'doc/${{ needs.crate_metadata.outputs.name }}.1' "${DPKG_DIR}/usr/share/man/man1/${{ needs.crate_metadata.outputs.name }}.1"
+        gzip -n --best "${DPKG_DIR}/usr/share/man/man1/${{ needs.crate_metadata.outputs.name }}.1"
 
         # README and LICENSE
         install -Dm644 "README.md" "${DPKG_DIR}/usr/share/doc/${DPKG_BASENAME}/README.md"
@@ -251,12 +243,12 @@ jobs:
 
         cat > "${DPKG_DIR}/usr/share/doc/${DPKG_BASENAME}/copyright" <<EOF
         Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-        Upstream-Name: ${{ env.PROJECT_NAME }}
-        Source: ${{ env.PROJECT_HOMEPAGE }}
+        Upstream-Name: ${{ needs.crate_metadata.outputs.name }}
+        Source: ${{ needs.crate_metadata.outputs.homepage }}
 
         Files: *
-        Copyright: ${{ env.PROJECT_MAINTAINER }}
-        Copyright: $COPYRIGHT_YEARS ${{ env.PROJECT_MAINTAINER }}
+        Copyright: ${{ needs.crate_metadata.outputs.maintainer }}
+        Copyright: $COPYRIGHT_YEARS ${{ needs.crate_metadata.outputs.maintainer }}
         License: Apache-2.0 or MIT
 
         License: Apache-2.0
@@ -297,16 +289,16 @@ jobs:
         Version: ${DPKG_VERSION}
         Section: utils
         Priority: optional
-        Maintainer: ${{ env.PROJECT_MAINTAINER }}
-        Homepage: ${{ env.PROJECT_HOMEPAGE }}
+        Maintainer: ${{ needs.crate_metadata.outputs.maintainer }}
+        Homepage: ${{ needs.crate_metadata.outputs.homepage }}
         Architecture: ${DPKG_ARCH}
-        Provides: ${{ env.PROJECT_NAME }}
+        Provides: ${{ needs.crate_metadata.outputs.name }}
         Conflicts: ${DPKG_CONFLICTS}
-        Description: colorized hex viewer for the terminal.
+        Description: A command-line benchmarking tool
         EOF
 
         DPKG_PATH="${DPKG_STAGING}/${DPKG_NAME}"
-        echo ::set-output name=DPKG_PATH::${DPKG_PATH}
+        echo "DPKG_PATH=${DPKG_PATH}" >> $GITHUB_OUTPUT
 
         # build dpkg
         fakeroot dpkg-deb --build "${DPKG_DIR}" "${DPKG_PATH}"
@@ -329,7 +321,7 @@ jobs:
       shell: bash
       run: |
         unset IS_RELEASE ; if [[ $GITHUB_REF =~ ^refs/tags/v[0-9].* ]]; then IS_RELEASE='true' ; fi
-        echo ::set-output name=IS_RELEASE::${IS_RELEASE}
+        echo "IS_RELEASE=${IS_RELEASE}" >> $GITHUB_OUTPUT
 
     - name: Publish archives and packages
       uses: softprops/action-gh-release@v1

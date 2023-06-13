@@ -1,4 +1,4 @@
-% HEXYL(1) hexyl 0.11.0 | General Commands Manual
+% HEXYL(1) hexyl 0.12.0 | General Commands Manual
 %
 % 2022-12-05
 
