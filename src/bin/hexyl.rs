@@ -214,6 +214,7 @@ fn run() -> Result<()> {
                 .long("character-table")
                 .value_name("FORMAT")
                 .value_parser(["codepage-437", "ascii-only"])
+                .default_value("ascii-only")
                 .help(
                     "The character table that should be used. 'ascii-only' \
                     will show dots for non-ASCII characters, and 'codepage-437 \
@@ -480,7 +481,7 @@ fn run() -> Result<()> {
 
     let char_table = match matches
         .get_one::<String>("character-table")
-        .unwrap_or(&String::from("ascii-only"))
+        .unwrap()
         .as_ref()
     {
         "ascii-only" => CharTable::AsciiOnly,
