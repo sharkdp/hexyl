@@ -55,7 +55,7 @@ pub enum ByteCategory {
 
 #[derive(Copy, Clone)]
 #[non_exhaustive]
-pub enum CharTable {
+pub enum CharacterTable {
     AsciiOnly,
     CP437,
 }
@@ -104,10 +104,10 @@ impl Byte {
         }
     }
 
-    fn as_char(self, char_table: CharTable) -> char {
+    fn as_char(self, character_table: CharacterTable) -> char {
         use crate::ByteCategory::*;
-        match char_table {
-            CharTable::AsciiOnly => match self.category() {
+        match character_table {
+            CharacterTable::AsciiOnly => match self.category() {
                 Null => '⋄',
                 AsciiPrintable => self.0 as char,
                 AsciiWhitespace if self.0 == 0x20 => ' ',
@@ -115,7 +115,7 @@ impl Byte {
                 AsciiOther => '•',
                 NonAscii => '×',
             },
-            CharTable::CP437 => CP437[self.0.to_ne_bytes()[0] as usize],
+            CharacterTable::CP437 => CP437[self.0.to_ne_bytes()[0] as usize],
         }
         // match self.category() {
         //     Null => '⋄',
@@ -207,7 +207,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     group_size: u8,
     base: Base,
     endianness: Endianness,
-    char_table: CharTable,
+    character_table: CharacterTable,
 }
 
 impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
@@ -223,7 +223,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             group_size: 1,
             base: Base::Hexadecimal,
             endianness: Endianness::Big,
-            char_table: CharTable::AsciiOnly,
+            character_table: CharacterTable::AsciiOnly,
         }
     }
 
@@ -272,8 +272,8 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
-    pub fn char_table(mut self, char_table: CharTable) -> Self {
-        self.char_table = char_table;
+    pub fn character_table(mut self, character_table: CharacterTable) -> Self {
+        self.character_table = character_table;
         self
     }
 
@@ -289,7 +289,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             self.group_size,
             self.base,
             self.endianness,
-            self.char_table,
+            self.character_table,
         )
     }
 }
@@ -333,7 +333,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         group_size: u8,
         base: Base,
         endianness: Endianness,
-        char_table: CharTable,
+        character_table: CharacterTable,
     ) -> Printer<'a, Writer> {
         Printer {
             idx: 0,
@@ -353,7 +353,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 })
                 .collect(),
             byte_char_panel: (0u8..=u8::MAX)
-                .map(|i| format!("{}", Byte(i).as_char(char_table)))
+                .map(|i| format!("{}", Byte(i).as_char(character_table)))
                 .collect(),
             byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{i:02x}")).collect(),
             squeezer: if use_squeeze {
@@ -781,7 +781,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
-            CharTable::AsciiOnly,
+            CharacterTable::AsciiOnly,
         );
 
         printer.print_all(input).unwrap();
@@ -837,7 +837,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
-            CharTable::AsciiOnly,
+            CharacterTable::AsciiOnly,
         );
         printer.display_offset(0xdeadbeef);
 
@@ -872,7 +872,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
-            CharTable::AsciiOnly,
+            CharacterTable::AsciiOnly,
         );
 
         printer.print_all(input).unwrap();
@@ -933,7 +933,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
-            CharTable::AsciiOnly,
+            CharacterTable::AsciiOnly,
         );
 
         printer.print_all(input).unwrap();

@@ -17,7 +17,7 @@ use thiserror::Error as ThisError;
 
 use terminal_size::terminal_size;
 
-use hexyl::{Base, BorderStyle, CharTable, Endianness, Input, PrinterBuilder};
+use hexyl::{Base, BorderStyle, CharacterTable, Endianness, Input, PrinterBuilder};
 
 #[cfg(test)]
 mod tests;
@@ -482,13 +482,13 @@ fn run() -> Result<()> {
         _ => unreachable!(),
     };
 
-    let char_table = match matches
+    let character_table = match matches
         .get_one::<String>("character-table")
         .unwrap()
         .as_ref()
     {
-        "ascii-only" => CharTable::AsciiOnly,
-        "codepage-437" => CharTable::CP437,
+        "ascii-only" => CharacterTable::AsciiOnly,
+        "codepage-437" => CharacterTable::CP437,
         _ => unreachable!(),
     };
 
@@ -505,7 +505,7 @@ fn run() -> Result<()> {
         .group_size(group_size)
         .with_base(base)
         .endianness(endianness)
-        .char_table(char_table)
+        .character_table(character_table)
         .build();
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
