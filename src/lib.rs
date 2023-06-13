@@ -21,6 +21,29 @@ const COLOR_ASCII_OTHER: &[u8] = colors::Green::ANSI_FG.as_bytes();
 const COLOR_NONASCII: &[u8] = colors::Yellow::ANSI_FG.as_bytes();
 const COLOR_RESET: &[u8] = colors::Default::ANSI_FG.as_bytes();
 
+#[rustfmt::skip]
+const CP437: [char; 256] = [
+    // use https://en.wikipedia.org/w/index.php?title=Code_page_437&oldid=978947122
+    // not ftp://ftp.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/PC/CP437.TXT
+    // because we want the graphic versions of 01h–1Fh + 7Fh
+    '⋄','☺','☻','♥','♦','♣','♠','•','◘','○','◙','♂','♀','♪','♫','☼',
+    '►','◄','↕','‼','¶','§','▬','↨','↑','↓','→','←','∟','↔','▲','▼',
+    ' ','!','"','#','$','%','&','\'','(',')','*','+',',','-','.','/',
+    '0','1','2','3','4','5','6','7','8','9',':',';','<','=','>','?',
+    '@','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O',
+    'P','Q','R','S','T','U','V','W','X','Y','Z','[','\\',']','^','_',
+    '`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o',
+    'p','q','r','s','t','u','v','w','x','y','z','{','|','}','~','⌂',
+    'Ç','ü','é','â','ä','à','å','ç','ê','ë','è','ï','î','ì','Ä','Å',
+    'É','æ','Æ','ô','ö','ò','û','ù','ÿ','Ö','Ü','¢','£','¥','₧','ƒ',
+    'á','í','ó','ú','ñ','Ñ','ª','º','¿','⌐','¬','½','¼','¡','«','»',
+    '░','▒','▓','│','┤','╡','╢','╖','╕','╣','║','╗','╝','╜','╛','┐',
+    '└','┴','┬','├','─','┼','╞','╟','╚','╔','╩','╦','╠','═','╬','╧',
+    '╨','╤','╥','╙','╘','╒','╓','╫','╪','┘','┌','█','▄','▌','▐','▀',
+    'α','ß','Γ','π','Σ','σ','µ','τ','Φ','Θ','Ω','δ','∞','φ','ε','∩',
+    '≡','±','≥','≤','⌠','⌡','÷','≈','°','∙','·','√','ⁿ','²','■',' ',
+];
+
 #[derive(Copy, Clone)]
 pub enum ByteCategory {
     Null,
@@ -28,6 +51,12 @@ pub enum ByteCategory {
     AsciiWhitespace,
     AsciiOther,
     NonAscii,
+}
+
+#[derive(Copy, Clone)]
+pub enum CharTable {
+    AsciiOnly,
+    CP437,
 }
 
 #[derive(Copy, Clone)]
@@ -74,17 +103,27 @@ impl Byte {
         }
     }
 
-    fn as_char(self) -> char {
+    fn as_char(self, char_table: CharTable) -> char {
         use crate::ByteCategory::*;
-
-        match self.category() {
-            Null => '⋄',
-            AsciiPrintable => self.0 as char,
-            AsciiWhitespace if self.0 == 0x20 => ' ',
-            AsciiWhitespace => '_',
-            AsciiOther => '•',
-            NonAscii => '×',
+        match char_table {
+            CharTable::AsciiOnly => match self.category() {
+                Null => '⋄',
+                AsciiPrintable => self.0 as char,
+                AsciiWhitespace if self.0 == 0x20 => ' ',
+                AsciiWhitespace => '_',
+                AsciiOther => '•',
+                NonAscii => '×',
+            },
+            CharTable::CP437 => CP437[self.0.to_ne_bytes()[0] as usize],
         }
+        // match self.category() {
+        //     Null => '⋄',
+        //     AsciiPrintable => self.0 as char,
+        //     AsciiWhitespace if self.0 == 0x20 => ' ',
+        //     AsciiWhitespace => '_',
+        //     AsciiOther => '•',
+        //     NonAscii => '×',
+        // }
     }
 }
 
@@ -167,6 +206,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     group_size: u8,
     base: Base,
     endianness: Endianness,
+    char_table: CharTable,
 }
 
 impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
@@ -182,6 +222,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             group_size: 1,
             base: Base::Hexadecimal,
             endianness: Endianness::Big,
+            char_table: CharTable::AsciiOnly,
         }
     }
 
@@ -230,6 +271,11 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
+    pub fn char_table(mut self, char_table: CharTable) -> Self {
+        self.char_table = char_table;
+        self
+    }
+
     pub fn build(self) -> Printer<'a, Writer> {
         Printer::new(
             self.writer,
@@ -242,6 +288,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             self.group_size,
             self.base,
             self.endianness,
+            self.char_table,
         )
     }
 }
@@ -285,6 +332,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         group_size: u8,
         base: Base,
         endianness: Endianness,
+        char_table: CharTable,
     ) -> Printer<'a, Writer> {
         Printer {
             idx: 0,
@@ -304,7 +352,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 })
                 .collect(),
             byte_char_panel: (0u8..=u8::MAX)
-                .map(|i| format!("{}", Byte(i).as_char()))
+                .map(|i| format!("{}", Byte(i).as_char(char_table)))
                 .collect(),
             byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{i:02x}")).collect(),
             squeezer: if use_squeeze {
@@ -720,6 +768,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
+            CharTable::AsciiOnly,
         );
 
         printer.print_all(input).unwrap();
@@ -775,6 +824,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
+            CharTable::AsciiOnly,
         );
         printer.display_offset(0xdeadbeef);
 
@@ -809,6 +859,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
+            CharTable::AsciiOnly,
         );
 
         printer.print_all(input).unwrap();
@@ -869,6 +920,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
+            CharTable::AsciiOnly,
         );
 
         printer.print_all(input).unwrap();
