@@ -37,7 +37,7 @@ const CP437: [char; 256] = [
     // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
     // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     //
-    // modified to use the ⋄ character instead of nul
+    // modified to use the ⋄ character instead of ␀
 
     // use https://en.wikipedia.org/w/index.php?title=Code_page_437&oldid=978947122
     // not ftp://ftp.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/PC/CP437.TXT
