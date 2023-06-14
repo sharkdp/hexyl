@@ -723,8 +723,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         if self.show_position_panel {
             match self.squeezer {
                 Squeezer::Print => {
-                    self.writer
-                        .write_all(self.byte_char_panel[b'*' as usize].as_bytes())?;
+                    self.writer.write_all(&[b'*'])?;
                     if self.show_color {
                         self.writer.write_all(COLOR_RESET)?;
                     }
