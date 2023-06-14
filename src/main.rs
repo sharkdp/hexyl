@@ -216,12 +216,13 @@ fn run() -> Result<()> {
             Arg::new("character-table")
                 .long("character-table")
                 .value_name("FORMAT")
-                .value_parser(["codepage-437", "ascii-only"])
+                .value_parser(["codepage-437", "ascii-only", "block"])
                 .default_value("ascii-only")
                 .help(
                     "The character table that should be used. 'ascii-only' \
-                    will show dots for non-ASCII characters, and 'codepage-437' \
-                    will use Code page 437 for those characters."
+                    will show dots for non-ASCII characters, 'codepage-437' \
+                    will use Code page 437 for those characters, and 'block' \
+                    will show unique colored blocks for each byte."
                 ),
         )
         .arg(
@@ -489,6 +490,7 @@ fn run() -> Result<()> {
     {
         "ascii-only" => CharacterTable::AsciiOnly,
         "codepage-437" => CharacterTable::CP437,
+        "block" => CharacterTable::Block,
         _ => unreachable!(),
     };
 
