@@ -584,7 +584,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                         is_empty = false;
                     }
                     let mut leftover = n;
-                    // loop until
+                    // loop until input is ceased
                     break loop {
                         if let Ok(n) = buf.read(&mut self.line_buf[leftover..]) {
                             leftover += n;
