@@ -585,7 +585,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     }
                     let mut leftover = n;
                     // loop until input is ceased
-                    break loop {
+                    if let Some(s) = loop {
                         if let Ok(n) = buf.read(&mut self.line_buf[leftover..]) {
                             leftover += n;
                             // there is no more input being read
@@ -595,15 +595,11 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                             }
                             // amount read has exceeded line buffer
                             if leftover >= 8 * self.panels as usize {
-                                self.print_position_panel()?;
-                                self.print_bytes()?;
-                                if self.show_char_panel {
-                                    self.print_char_panel()?;
-                                }
-                                self.writer.write_all(b"\n")?;
-                                leftover = 0;
+                                break None;
                             }
                         }
+                    } {
+                        break Some(s);
                     };
                 } else if n == 0 {
                     // if no bytes are read, that indicates end of file
