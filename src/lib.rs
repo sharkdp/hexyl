@@ -36,7 +36,7 @@ pub enum Endianness {
     Big,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 enum Squeezer {
     Print,
     Delete,
@@ -281,7 +281,8 @@ pub struct Printer<'a, Writer: Write> {
     display_offset: u64,
     /// The number of panels to draw.
     panels: u64,
-    squeeze_byte: usize,
+    squeeze_byte: Option<usize>,
+    squeeze_line: Vec<u8>,
     /// The number of octets per group.
     group_size: u8,
     /// The number of digits used to write the base.
@@ -332,7 +333,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             },
             display_offset: 0,
             panels,
-            squeeze_byte: 0x00,
+            squeeze_byte: None,
+            squeeze_line: vec![0; 8 * panels as usize],
             group_size,
             base_digits: match base {
                 Base::Binary => 8,
@@ -632,19 +634,38 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.print_header()?;
             }
 
+            // write!(self.writer, "{:?}", self.squeezer)?;
+            //write!(self.writer, "{:?}", self.squeeze_line)?;
+            // write!(
+            //     self.writer,
+            //     "{:#X} {:#X}",
+            //     self.squeeze_line[0], self.line_buf[0]
+            // )?;
+
             // squeeze is active, check if the line is the same
             // skip print if still squeezed, otherwise print and deactivate squeeze
             if matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
-                if self
-                    .line_buf
-                    .chunks_exact(std::mem::size_of::<usize>())
-                    .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == self.squeeze_byte)
-                {
+                if let Some(byte) = self.squeeze_byte {
+                    if self
+                        .line_buf
+                        .chunks_exact(std::mem::size_of::<usize>())
+                        .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == byte)
+                    {
+                        if self.squeezer == Squeezer::Delete {
+                            self.idx += 8 * self.panels;
+                            continue;
+                        }
+                    } else {
+                        self.squeeze_byte = None;
+                        self.squeezer = Squeezer::Ignore;
+                    }
+                } else if self.line_buf == self.squeeze_line {
                     if self.squeezer == Squeezer::Delete {
                         self.idx += 8 * self.panels;
                         continue;
                     }
                 } else {
+                    write!(self.writer, "self")?;
                     self.squeezer = Squeezer::Ignore;
                 }
             }
@@ -673,15 +694,24 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             // repeat the first byte in the line until it's a usize
             // compare that usize with each usize chunk in the line
             // if they are all the same, change squeezer to print
-            let repeat_byte = (self.line_buf[0] as usize) * (usize::MAX / 255);
-            if !matches!(self.squeezer, Squeezer::Disabled | Squeezer::Delete)
-                && self
+            let repeat_byte = usize::from_ne_bytes(
+                self.line_buf[0..std::mem::size_of::<usize>()]
+                    .try_into()
+                    .unwrap(),
+            );
+            if !matches!(self.squeezer, Squeezer::Disabled | Squeezer::Delete) {
+                if self
                     .line_buf
                     .chunks_exact(std::mem::size_of::<usize>())
                     .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == repeat_byte)
-            {
-                self.squeezer = Squeezer::Print;
-                self.squeeze_byte = repeat_byte;
+                {
+                    self.squeezer = Squeezer::Print;
+                    self.squeeze_byte = Some(repeat_byte);
+                } else if self.line_buf == self.squeeze_line {
+                    self.squeezer = Squeezer::Print;
+                } else {
+                    self.squeeze_line = self.line_buf.clone();
+                }
             };
         };
 
