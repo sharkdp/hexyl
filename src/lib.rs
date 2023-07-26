@@ -2,7 +2,10 @@ pub(crate) mod input;
 
 pub use input::*;
 
-use std::io::{self, BufReader, Read, Write};
+use std::io::{self, BufReader, Read, Seek, Write};
+
+#[cfg(target_os = "linux")]
+use std::os::unix::io::AsRawFd;
 
 use owo_colors::{colors, Color};
 
@@ -21,6 +24,45 @@ const COLOR_ASCII_OTHER: &[u8] = colors::Green::ANSI_FG.as_bytes();
 const COLOR_NONASCII: &[u8] = colors::Yellow::ANSI_FG.as_bytes();
 const COLOR_RESET: &[u8] = colors::Default::ANSI_FG.as_bytes();
 
+#[rustfmt::skip]
+const CP437: [char; 256] = [
+    // Copyright (c) 2016, Delan Azabani <delan@azabani.com>
+    //
+    // Permission to use, copy, modify, and/or distribute this software for any
+    // purpose with or without fee is hereby granted, provided that the above
+    // copyright notice and this permission notice appear in all copies.
+    //
+    // THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+    // WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+    // MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+    // ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+    // WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+    // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+    // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+    //
+    // modified to use the ⋄ character instead of nul
+
+    // use https://en.wikipedia.org/w/index.php?title=Code_page_437&oldid=978947122
+    // not ftp://ftp.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/PC/CP437.TXT
+    // because we want the graphic versions of 01h–1Fh + 7Fh
+    '⋄','☺','☻','♥','♦','♣','♠','•','◘','○','◙','♂','♀','♪','♫','☼',
+    '►','◄','↕','‼','¶','§','▬','↨','↑','↓','→','←','∟','↔','▲','▼',
+    ' ','!','"','#','$','%','&','\'','(',')','*','+',',','-','.','/',
+    '0','1','2','3','4','5','6','7','8','9',':',';','<','=','>','?',
+    '@','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O',
+    'P','Q','R','S','T','U','V','W','X','Y','Z','[','\\',']','^','_',
+    '`','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o',
+    'p','q','r','s','t','u','v','w','x','y','z','{','|','}','~','⌂',
+    'Ç','ü','é','â','ä','à','å','ç','ê','ë','è','ï','î','ì','Ä','Å',
+    'É','æ','Æ','ô','ö','ò','û','ù','ÿ','Ö','Ü','¢','£','¥','₧','ƒ',
+    'á','í','ó','ú','ñ','Ñ','ª','º','¿','⌐','¬','½','¼','¡','«','»',
+    '░','▒','▓','│','┤','╡','╢','╖','╕','╣','║','╗','╝','╜','╛','┐',
+    '└','┴','┬','├','─','┼','╞','╟','╚','╔','╩','╦','╠','═','╬','╧',
+    '╨','╤','╥','╙','╘','╒','╓','╫','╪','┘','┌','█','▄','▌','▐','▀',
+    'α','ß','Γ','π','Σ','σ','µ','τ','Φ','Θ','Ω','δ','∞','φ','ε','∩',
+    '≡','±','≥','≤','⌠','⌡','÷','≈','°','∙','·','√','ⁿ','²','■',' ',
+];
+
 #[derive(Copy, Clone)]
 pub enum ByteCategory {
     Null,
@@ -28,6 +70,13 @@ pub enum ByteCategory {
     AsciiWhitespace,
     AsciiOther,
     NonAscii,
+}
+
+#[derive(Copy, Clone)]
+#[non_exhaustive]
+pub enum CharacterTable {
+    AsciiOnly,
+    CP437,
 }
 
 #[derive(Copy, Clone)]
@@ -74,16 +123,18 @@ impl Byte {
         }
     }
 
-    fn as_char(self) -> char {
+    fn as_char(self, character_table: CharacterTable) -> char {
         use crate::ByteCategory::*;
-
-        match self.category() {
-            Null => '⋄',
-            AsciiPrintable => self.0 as char,
-            AsciiWhitespace if self.0 == 0x20 => ' ',
-            AsciiWhitespace => '_',
-            AsciiOther => '•',
-            NonAscii => '×',
+        match character_table {
+            CharacterTable::AsciiOnly => match self.category() {
+                Null => '⋄',
+                AsciiPrintable => self.0 as char,
+                AsciiWhitespace if self.0 == 0x20 => ' ',
+                AsciiWhitespace => '_',
+                AsciiOther => '•',
+                NonAscii => '×',
+            },
+            CharacterTable::CP437 => CP437[self.0.to_ne_bytes()[0] as usize],
         }
     }
 }
@@ -167,6 +218,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     group_size: u8,
     base: Base,
     endianness: Endianness,
+    character_table: CharacterTable,
 }
 
 impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
@@ -182,6 +234,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             group_size: 1,
             base: Base::Hexadecimal,
             endianness: Endianness::Big,
+            character_table: CharacterTable::AsciiOnly,
         }
     }
 
@@ -230,6 +283,11 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
+    pub fn character_table(mut self, character_table: CharacterTable) -> Self {
+        self.character_table = character_table;
+        self
+    }
+
     pub fn build(self) -> Printer<'a, Writer> {
         Printer::new(
             self.writer,
@@ -242,6 +300,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             self.group_size,
             self.base,
             self.endianness,
+            self.character_table,
         )
     }
 }
@@ -285,6 +344,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         group_size: u8,
         base: Base,
         endianness: Endianness,
+        character_table: CharacterTable,
     ) -> Printer<'a, Writer> {
         Printer {
             idx: 0,
@@ -304,7 +364,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 })
                 .collect(),
             byte_char_panel: (0u8..=u8::MAX)
-                .map(|i| format!("{}", Byte(i).as_char()))
+                .map(|i| format!("{}", Byte(i).as_char(character_table)))
                 .collect(),
             byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{i:02x}")).collect(),
             squeezer: if use_squeeze {
@@ -567,12 +627,39 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         Ok(())
     }
 
+    #[cfg(target_os = "linux")]
+    fn sparse_check(&mut self, file: &mut std::fs::File) -> io::Result<()> {
+        let res: i64 = unsafe {
+            libc::lseek(
+                file.as_raw_fd(),
+                self.idx.try_into().unwrap(),
+                libc::SEEK_DATA,
+            ) as i64
+        };
+        if res < 0 {
+            match io::Error::last_os_error().raw_os_error() {
+                Some(libc::EBADF) => writeln!(self.writer, "Error: fd is not an open file descriptor")?,
+                Some(libc::EINVAL) => writeln!(self.writer, "Error: whence is not valid.  Or: the resulting file offset would be negative, or beyond the end of a seekable device.")?,
+                Some(libc::ENXIO) => {
+                    // this should only happen when the rest of the file is a hole
+                    self.idx = file.seek(io::SeekFrom::End(0))?;
+                },
+                Some(libc::EOVERFLOW) => writeln!(self.writer, "Error: The resulting file offset cannot be represented in an off_t.")?,
+                Some(libc::ESPIPE) => writeln!(self.writer, "Error: fd is associated with a pipe, socket, or FIFO.")?,
+                err => writeln!(self.writer, "Error: uncategorized error: {:?}", err)?,
+            }
+        } else if res as u64 != self.idx {
+            self.idx = res as u64;
+        }
+        Ok(())
+    }
+
     /// Loop through the given `Reader`, printing until the `Reader` buffer
     /// is exhausted.
-    pub fn print_all<Reader: Read>(&mut self, reader: Reader) -> io::Result<()> {
+    pub fn print_all(&mut self, reader: Input) -> io::Result<()> {
         let mut is_empty = true;
 
-        let mut buf = BufReader::new(reader);
+        let mut buf = reader;
 
         let leftover = loop {
             // read a maximum of 8 * self.panels bytes from the reader
@@ -626,6 +713,10 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 {
                     if self.squeezer == Squeezer::Delete {
                         self.idx += 8 * self.panels;
+                        #[cfg(target_os = "linux")]
+                        if let Input::File(ref mut file) = buf {
+                            self.sparse_check(file)?;
+                        }
                         continue;
                     }
                 } else {
@@ -647,6 +738,11 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             // change from print to delete if squeeze is still active
             if self.squeezer == Squeezer::Print {
                 self.squeezer = Squeezer::Delete;
+                #[cfg(target_os = "linux")]
+                if let Input::File(ref mut file) = buf {
+                    self.sparse_check(file)?;
+                    continue;
+                };
             }
 
             // repeat the first byte in the line until it's a usize
@@ -719,7 +815,7 @@ mod tests {
 
     use super::*;
 
-    fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) {
+    fn assert_print_all_output(input: Input, expected_string: String) {
         let mut output = vec![];
         let mut printer = Printer::new(
             &mut output,
@@ -732,6 +828,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
+            CharacterTable::AsciiOnly,
         );
 
         printer.print_all(input).unwrap();
@@ -742,7 +839,7 @@ mod tests {
 
     #[test]
     fn empty_file_passes() {
-        let input = io::empty();
+        let input = Input::Generic(Box::new(io::empty()));
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 │        │ No content              │                         │        │        │
@@ -754,7 +851,7 @@ mod tests {
 
     #[test]
     fn short_input_passes() {
-        let input = io::Cursor::new(b"spam");
+        let input = Input::Generic(Box::new(io::Cursor::new(b"spam")));
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 │00000000│ 73 70 61 6d             ┊                         │spam    ┊        │
@@ -766,7 +863,7 @@ mod tests {
 
     #[test]
     fn display_offset() {
-        let input = io::Cursor::new(b"spamspamspamspamspam");
+        let input = Input::Generic(Box::new(io::Cursor::new(b"spamspamspamspamspam")));
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 │deadbeef│ 73 70 61 6d 73 70 61 6d ┊ 73 70 61 6d 73 70 61 6d │spamspam┊spamspam│
@@ -787,6 +884,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
+            CharacterTable::AsciiOnly,
         );
         printer.display_offset(0xdeadbeef);
 
@@ -798,7 +896,7 @@ mod tests {
 
     #[test]
     fn multiple_panels() {
-        let input = io::Cursor::new(b"supercalifragilisticexpialidocioussupercalifragilisticexpialidocioussupercalifragilisticexpialidocious");
+        let input = Input::Generic(Box::new(io::Cursor::new(b"supercalifragilisticexpialidocioussupercalifragilisticexpialidocioussupercalifragilisticexpialidocious")));
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬────────┬────────┬────────┬────────┐
 │00000000│ 73 75 70 65 72 63 61 6c ┊ 69 66 72 61 67 69 6c 69 ┊ 73 74 69 63 65 78 70 69 ┊ 61 6c 69 64 6f 63 69 6f │supercal┊ifragili┊sticexpi┊alidocio│
@@ -821,6 +919,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
+            CharacterTable::AsciiOnly,
         );
 
         printer.print_all(input).unwrap();
@@ -831,7 +930,7 @@ mod tests {
 
     #[test]
     fn squeeze_works() {
-        let input = io::Cursor::new(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00");
+        let input = Input::Generic(Box::new(io::Cursor::new(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")));
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 │00000000│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │⋄⋄⋄⋄⋄⋄⋄⋄┊⋄⋄⋄⋄⋄⋄⋄⋄│
@@ -845,7 +944,9 @@ mod tests {
 
     #[test]
     fn squeeze_nonzero() {
-        let input = io::Cursor::new(b"000000000000000000000000000000000");
+        let input = Input::Generic(Box::new(io::Cursor::new(
+            b"000000000000000000000000000000000",
+        )));
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 │00000000│ 30 30 30 30 30 30 30 30 ┊ 30 30 30 30 30 30 30 30 │00000000┊00000000│
@@ -859,7 +960,9 @@ mod tests {
 
     #[test]
     fn squeeze_multiple_panels() {
-        let input = io::Cursor::new(b"0000000000000000000000000000000000000000000000000");
+        let input = Input::Generic(Box::new(io::Cursor::new(
+            b"0000000000000000000000000000000000000000000000000",
+        )));
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬────────┬────────┬────────┐
 │00000000│ 30 30 30 30 30 30 30 30 ┊ 30 30 30 30 30 30 30 30 ┊ 30 30 30 30 30 30 30 30 │00000000┊00000000┊00000000│
@@ -881,6 +984,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
+            CharacterTable::AsciiOnly,
         );
 
         printer.print_all(input).unwrap();
