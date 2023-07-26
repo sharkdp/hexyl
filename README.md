@@ -45,7 +45,7 @@ If you use an older version of Ubuntu, you can download
 the latest `.deb` package from the release page and install it via:
 
 ``` bash
-sudo dpkg -i hexyl_0.13.0_amd64.deb  # adapt version number and architecture
+sudo dpkg -i hexyl_0.13.1_amd64.deb  # adapt version number and architecture
 ```
 
 ### On Debian

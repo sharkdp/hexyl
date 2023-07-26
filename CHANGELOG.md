@@ -1,3 +1,9 @@
+# v0.13.1
+
+## Bugfixes
+
+- Correctly handle discontinuous input (stdin), see #196 and #197 (@sharifhsn)
+
 # v0.13.0
 
 ## Features
