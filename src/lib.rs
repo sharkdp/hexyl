@@ -634,14 +634,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.print_header()?;
             }
 
-            // write!(self.writer, "{:?}", self.squeezer)?;
-            //write!(self.writer, "{:?}", self.squeeze_line)?;
-            // write!(
-            //     self.writer,
-            //     "{:#X} {:#X}",
-            //     self.squeeze_line[0], self.line_buf[0]
-            // )?;
-
             // squeeze is active, check if the line is the same
             // skip print if still squeezed, otherwise print and deactivate squeeze
             if matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
