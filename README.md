@@ -113,7 +113,7 @@ pkg install hexyl
 ### On OpenBSD
 
 ```
-doas pkg_add install hexyl
+doas pkg_add hexyl
 ```
 
 ### on Termux
