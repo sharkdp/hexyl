@@ -27,7 +27,7 @@ features = ["std", "suggestions", "color", "wrap_help", "cargo", "help", "usage"
 
 [dev-dependencies]
 assert_cmd = "2.0"
-predicates = "2.0"
+predicates = "3.0"
 pretty_assertions = "1.3.0"
 
 [profile.release]
