@@ -691,9 +691,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.squeezer = Squeezer::Delete;
             }
 
-            // repeat the first byte in the line until it's a usize
-            // compare that usize with each usize chunk in the line
-            // if they are all the same, change squeezer to print
             let repeat_byte = usize::from_ne_bytes(
                 self.line_buf[0..std::mem::size_of::<usize>()]
                     .try_into()
@@ -705,10 +702,13 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     .chunks_exact(std::mem::size_of::<usize>())
                     .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == repeat_byte)
                 {
+                    // fast calculation for when repeat fits in usize
                     self.squeezer = Squeezer::Print;
                     self.squeeze_byte = Some(repeat_byte);
                 } else if self.line_buf == self.squeeze_line {
+                    // slow check if entire line is identical
                     self.squeezer = Squeezer::Print;
+                    self.squeeze_byte = None;
                 } else {
                     self.squeeze_line = self.line_buf.clone();
                 }
