@@ -110,6 +110,12 @@ sudo port install hexyl
 pkg install hexyl
 ```
 
+### On NetBSD
+
+```
+pkgin install hexyl
+```
+
 ### On OpenBSD
 
 ```
