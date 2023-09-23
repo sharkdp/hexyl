@@ -2,11 +2,6 @@
 %
 % 2022-12-05
 
-<!--
-This man page is written in Pandoc's Markdown.
-See: https://pandoc.org/MANUAL.html#pandocs-markdown
--->
-
 # NAME
 
 hexyl - a command-line hex viewer
