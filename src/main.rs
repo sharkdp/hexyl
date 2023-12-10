@@ -216,7 +216,7 @@ fn run() -> Result<()> {
             Arg::new("character-table")
                 .long("character-table")
                 .value_name("FORMAT")
-                .value_parser(["codepage-437", "ascii-only", "block"])
+                .value_parser(["codepage-437", "ascii-only"])
                 .default_value("ascii-only")
                 .help(
                     "The character table that should be used. 'ascii-only' \
@@ -490,7 +490,6 @@ fn run() -> Result<()> {
     {
         "ascii-only" => CharacterTable::AsciiOnly,
         "codepage-437" => CharacterTable::CP437,
-        "block" => CharacterTable::Block,
         _ => unreachable!(),
     };
 

@@ -26,7 +26,6 @@ pub enum ByteCategory {
 #[non_exhaustive]
 pub enum CharacterTable {
     AsciiOnly,
-    Block,
     CP437,
 }
 
@@ -72,7 +71,6 @@ impl Byte {
                 AsciiOther => COLOR_ASCII_OTHER,
                 NonAscii => COLOR_NONASCII,
             },
-            CharacterTable::Block => COLORS_XTERM[self.0 as usize],
         }
     }
 
@@ -88,7 +86,6 @@ impl Byte {
                 NonAscii => '×',
             },
             CharacterTable::CP437 => CP437[self.0 as usize],
-            CharacterTable::Block => '█',
         }
     }
 }
