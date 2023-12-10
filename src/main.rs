@@ -221,8 +221,7 @@ fn run() -> Result<()> {
                 .help(
                     "The character table that should be used. 'ascii-only' \
                     will show dots for non-ASCII characters, 'codepage-437' \
-                    will use Code page 437 for those characters, and 'block' \
-                    will show unique colored blocks for each byte."
+                    will use Code page 437 for those characters."
                 ),
         )
         .arg(
