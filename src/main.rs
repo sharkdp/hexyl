@@ -145,6 +145,21 @@ fn run() -> Result<()> {
                 .help("Show the character panel on the right. This is the default, unless --no-characters has been specified."),
         )
         .arg(
+            Arg::new("character-table")
+                .long("character-table")
+                .value_name("FORMAT")
+                .value_parser(["default", "ascii", "codepage-437"])
+                .default_value("default")
+                .help(
+                    "Defines how bytes are mapped to characters:\n  \
+                    \"default\": show printable ASCII characters as-is, '⋄' for NULL bytes, \
+                    ' ' for space, '_' for other ASCII whitespace, \
+                    '•' for other ASCII characters, and '×' for non-ASCII bytes.\n  \
+                    \"ascii\": show printable ASCII as-is, ' ' for space, '.' for everything else.\n  \
+                    \"codepage-437\": uses code page 437 (for non-ASCII bytes).\n"
+                ),
+        )
+        .arg(
             Arg::new("no_position")
                 .short('P')
                 .long("no-position")
@@ -212,18 +227,6 @@ fn run() -> Result<()> {
                 .overrides_with("endianness")
                 .hide(true)
                 .help("An alias for '--endianness=little'."),
-        )
-        .arg(
-            Arg::new("character-table")
-                .long("character-table")
-                .value_name("FORMAT")
-                .value_parser(["default", "codepage-437"])
-                .default_value("default")
-                .help(
-                    "The character table that should be used. 'default' \
-                    will show dots for non-ASCII characters, 'codepage-437' \
-                    will use code page 437 for those characters."
-                ),
         )
         .arg(
             Arg::new("base")
@@ -497,6 +500,7 @@ fn run() -> Result<()> {
         .as_ref()
     {
         "default" => CharacterTable::Default,
+        "ascii" => CharacterTable::Ascii,
         "codepage-437" => CharacterTable::CP437,
         _ => unreachable!(),
     };

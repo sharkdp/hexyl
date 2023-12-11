@@ -26,6 +26,7 @@ pub enum ByteCategory {
 #[non_exhaustive]
 pub enum CharacterTable {
     Default,
+    Ascii,
     CP437,
 }
 
@@ -82,6 +83,14 @@ impl Byte {
                 AsciiWhitespace => '_',
                 AsciiOther => '•',
                 NonAscii => '×',
+            },
+            CharacterTable::Ascii => match self.category() {
+                Null => '.',
+                AsciiPrintable => self.0 as char,
+                AsciiWhitespace if self.0 == 0x20 => ' ',
+                AsciiWhitespace => '.',
+                AsciiOther => '.',
+                NonAscii => '.',
             },
             CharacterTable::CP437 => CP437[self.0 as usize],
         }
