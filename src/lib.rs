@@ -25,7 +25,7 @@ pub enum ByteCategory {
 #[derive(Copy, Clone)]
 #[non_exhaustive]
 pub enum CharacterTable {
-    AsciiOnly,
+    Default,
     CP437,
 }
 
@@ -75,7 +75,7 @@ impl Byte {
     fn as_char(self, character_table: CharacterTable) -> char {
         use crate::ByteCategory::*;
         match character_table {
-            CharacterTable::AsciiOnly => match self.category() {
+            CharacterTable::Default => match self.category() {
                 Null => '⋄',
                 AsciiPrintable => self.0 as char,
                 AsciiWhitespace if self.0 == 0x20 => ' ',
@@ -183,7 +183,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             group_size: 1,
             base: Base::Hexadecimal,
             endianness: Endianness::Big,
-            character_table: CharacterTable::AsciiOnly,
+            character_table: CharacterTable::Default,
         }
     }
 
@@ -744,7 +744,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
-            CharacterTable::AsciiOnly,
+            CharacterTable::Default,
         );
 
         printer.print_all(input).unwrap();
@@ -800,7 +800,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
-            CharacterTable::AsciiOnly,
+            CharacterTable::Default,
         );
         printer.display_offset(0xdeadbeef);
 
@@ -835,7 +835,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
-            CharacterTable::AsciiOnly,
+            CharacterTable::Default,
         );
 
         printer.print_all(input).unwrap();
@@ -896,7 +896,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
-            CharacterTable::AsciiOnly,
+            CharacterTable::Default,
         );
 
         printer.print_all(input).unwrap();

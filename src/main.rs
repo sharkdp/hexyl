@@ -217,12 +217,12 @@ fn run() -> Result<()> {
             Arg::new("character-table")
                 .long("character-table")
                 .value_name("FORMAT")
-                .value_parser(["codepage-437", "ascii-only"])
-                .default_value("ascii-only")
+                .value_parser(["default", "codepage-437"])
+                .default_value("default")
                 .help(
-                    "The character table that should be used. 'ascii-only' \
+                    "The character table that should be used. 'default' \
                     will show dots for non-ASCII characters, 'codepage-437' \
-                    will use Code page 437 for those characters."
+                    will use code page 437 for those characters."
                 ),
         )
         .arg(
@@ -496,7 +496,7 @@ fn run() -> Result<()> {
         .unwrap()
         .as_ref()
     {
-        "ascii-only" => CharacterTable::AsciiOnly,
+        "default" => CharacterTable::Default,
         "codepage-437" => CharacterTable::CP437,
         _ => unreachable!(),
     };
