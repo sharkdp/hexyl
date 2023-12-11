@@ -621,7 +621,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
             if is_empty {
                 self.print_header()?;
-                is_empty = false;
             }
 
             // squeeze is active, check if the line is the same
@@ -648,6 +647,11 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.print_char_panel()?;
             }
             self.writer.write_all(b"\n")?;
+
+            if is_empty {
+                self.writer.flush()?;
+                is_empty = false;
+            }
 
             // increment index to next line
             self.idx += 8 * self.panels;
