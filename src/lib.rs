@@ -61,16 +61,14 @@ impl Byte {
         }
     }
 
-    fn color(self, character_table: CharacterTable) -> &'static [u8] {
+    fn color(self) -> &'static [u8] {
         use crate::ByteCategory::*;
-        match character_table {
-            CharacterTable::AsciiOnly | CharacterTable::CP437 => match self.category() {
-                Null => COLOR_NULL,
-                AsciiPrintable => COLOR_ASCII_PRINTABLE,
-                AsciiWhitespace => COLOR_ASCII_WHITESPACE,
-                AsciiOther => COLOR_ASCII_OTHER,
-                NonAscii => COLOR_NONASCII,
-            },
+        match self.category() {
+            Null => COLOR_NULL,
+            AsciiPrintable => COLOR_ASCII_PRINTABLE,
+            AsciiWhitespace => COLOR_ASCII_WHITESPACE,
+            AsciiOther => COLOR_ASCII_OTHER,
+            NonAscii => COLOR_NONASCII,
         }
     }
 
