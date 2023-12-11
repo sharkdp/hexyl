@@ -1,3 +1,27 @@
+# unreleased
+
+## Features
+
+
+## Bugfixes
+
+
+## Other
+
+
+# v0.14.0
+
+## Features
+
+* New `--character-table` option, with the ability to use [codepage 437](https://www.azabani.com/2020/11/15/xd.html), see #194 and #195 (@sharifhsn)
+* New `--character-table=ascii` option for a ASCII-only character table, see #212 and #36 (@sharkdp)
+
+## Bugfixes
+
+* Show output when doing `hexyl /dev/zero`, see #211 (@sharifhsn)
+* Respect NO_COLOR environment variable, see #210 (@sharkdp)
+
+
 # v0.13.1
 
 ## Bugfixes
