@@ -279,8 +279,6 @@ pub struct Printer<'a, Writer: Write> {
     base_digits: u8,
     /// Whether to show groups in little or big endian format.
     endianness: Endianness,
-    /// The character table to reference for the character panel.
-    character_table: CharacterTable,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -334,7 +332,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 Base::Hexadecimal => 2,
             },
             endianness,
-            character_table,
         }
     }
 
