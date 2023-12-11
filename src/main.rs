@@ -17,7 +17,7 @@ use thiserror::Error as ThisError;
 
 use terminal_size::terminal_size;
 
-use hexyl::{Base, BorderStyle, Endianness, Input, PrinterBuilder};
+use hexyl::{Base, BorderStyle, CharacterTable, Endianness, Input, PrinterBuilder};
 
 #[cfg(test)]
 mod tests;
@@ -211,6 +211,18 @@ fn run() -> Result<()> {
                 .overrides_with("endianness")
                 .hide(true)
                 .help("An alias for '--endianness=little'."),
+        )
+        .arg(
+            Arg::new("character-table")
+                .long("character-table")
+                .value_name("FORMAT")
+                .value_parser(["codepage-437", "ascii-only"])
+                .default_value("ascii-only")
+                .help(
+                    "The character table that should be used. 'ascii-only' \
+                    will show dots for non-ASCII characters, 'codepage-437' \
+                    will use Code page 437 for those characters."
+                ),
         )
         .arg(
             Arg::new("base")
@@ -469,6 +481,17 @@ fn run() -> Result<()> {
         ("big", _) => Endianness::Big,
         _ => unreachable!(),
     };
+
+    let character_table = match matches
+        .get_one::<String>("character-table")
+        .unwrap()
+        .as_ref()
+    {
+        "ascii-only" => CharacterTable::AsciiOnly,
+        "codepage-437" => CharacterTable::CP437,
+        _ => unreachable!(),
+    };
+
     let stdout = io::stdout();
     let mut stdout_lock = BufWriter::new(stdout.lock());
 
@@ -482,6 +505,7 @@ fn run() -> Result<()> {
         .group_size(group_size)
         .with_base(base)
         .endianness(endianness)
+        .character_table(character_table)
         .build();
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;

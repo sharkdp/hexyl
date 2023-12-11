@@ -1,10 +1,10 @@
+pub(crate) mod colors;
 pub(crate) mod input;
 
+pub use colors::*;
 pub use input::*;
 
 use std::io::{self, BufReader, Read, Write};
-
-use owo_colors::{colors, Color};
 
 pub enum Base {
     Binary,
@@ -13,14 +13,6 @@ pub enum Base {
     Hexadecimal,
 }
 
-const COLOR_NULL: &[u8] = colors::BrightBlack::ANSI_FG.as_bytes();
-const COLOR_OFFSET: &[u8] = colors::BrightBlack::ANSI_FG.as_bytes();
-const COLOR_ASCII_PRINTABLE: &[u8] = colors::Cyan::ANSI_FG.as_bytes();
-const COLOR_ASCII_WHITESPACE: &[u8] = colors::Green::ANSI_FG.as_bytes();
-const COLOR_ASCII_OTHER: &[u8] = colors::Green::ANSI_FG.as_bytes();
-const COLOR_NONASCII: &[u8] = colors::Yellow::ANSI_FG.as_bytes();
-const COLOR_RESET: &[u8] = colors::Default::ANSI_FG.as_bytes();
-
 #[derive(Copy, Clone)]
 pub enum ByteCategory {
     Null,
@@ -28,6 +20,13 @@ pub enum ByteCategory {
     AsciiWhitespace,
     AsciiOther,
     NonAscii,
+}
+
+#[derive(Copy, Clone)]
+#[non_exhaustive]
+pub enum CharacterTable {
+    AsciiOnly,
+    CP437,
 }
 
 #[derive(Copy, Clone)]
@@ -64,7 +63,6 @@ impl Byte {
 
     fn color(self) -> &'static [u8] {
         use crate::ByteCategory::*;
-
         match self.category() {
             Null => COLOR_NULL,
             AsciiPrintable => COLOR_ASCII_PRINTABLE,
@@ -74,16 +72,18 @@ impl Byte {
         }
     }
 
-    fn as_char(self) -> char {
+    fn as_char(self, character_table: CharacterTable) -> char {
         use crate::ByteCategory::*;
-
-        match self.category() {
-            Null => '⋄',
-            AsciiPrintable => self.0 as char,
-            AsciiWhitespace if self.0 == 0x20 => ' ',
-            AsciiWhitespace => '_',
-            AsciiOther => '•',
-            NonAscii => '×',
+        match character_table {
+            CharacterTable::AsciiOnly => match self.category() {
+                Null => '⋄',
+                AsciiPrintable => self.0 as char,
+                AsciiWhitespace if self.0 == 0x20 => ' ',
+                AsciiWhitespace => '_',
+                AsciiOther => '•',
+                NonAscii => '×',
+            },
+            CharacterTable::CP437 => CP437[self.0 as usize],
         }
     }
 }
@@ -167,6 +167,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     group_size: u8,
     base: Base,
     endianness: Endianness,
+    character_table: CharacterTable,
 }
 
 impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
@@ -182,6 +183,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             group_size: 1,
             base: Base::Hexadecimal,
             endianness: Endianness::Big,
+            character_table: CharacterTable::AsciiOnly,
         }
     }
 
@@ -230,6 +232,11 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
+    pub fn character_table(mut self, character_table: CharacterTable) -> Self {
+        self.character_table = character_table;
+        self
+    }
+
     pub fn build(self) -> Printer<'a, Writer> {
         Printer::new(
             self.writer,
@@ -242,6 +249,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             self.group_size,
             self.base,
             self.endianness,
+            self.character_table,
         )
     }
 }
@@ -271,6 +279,8 @@ pub struct Printer<'a, Writer: Write> {
     base_digits: u8,
     /// Whether to show groups in little or big endian format.
     endianness: Endianness,
+    /// The character table to reference for the character panel.
+    character_table: CharacterTable,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
@@ -285,6 +295,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         group_size: u8,
         base: Base,
         endianness: Endianness,
+        character_table: CharacterTable,
     ) -> Printer<'a, Writer> {
         Printer {
             idx: 0,
@@ -304,7 +315,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 })
                 .collect(),
             byte_char_panel: (0u8..=u8::MAX)
-                .map(|i| format!("{}", Byte(i).as_char()))
+                .map(|i| format!("{}", Byte(i).as_char(character_table)))
                 .collect(),
             byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{i:02x}")).collect(),
             squeezer: if use_squeeze {
@@ -323,6 +334,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 Base::Hexadecimal => 2,
             },
             endianness,
+            character_table,
         }
     }
 
@@ -401,8 +413,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         if self.show_position_panel {
             match self.squeezer {
                 Squeezer::Print => {
-                    self.writer
-                        .write_all(self.byte_char_panel[b'*' as usize].as_bytes())?;
+                    self.writer.write_all(&[b'*'])?;
                     if self.show_color {
                         self.writer.write_all(COLOR_RESET)?;
                     }
@@ -732,6 +743,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
+            CharacterTable::AsciiOnly,
         );
 
         printer.print_all(input).unwrap();
@@ -787,6 +799,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
+            CharacterTable::AsciiOnly,
         );
         printer.display_offset(0xdeadbeef);
 
@@ -821,6 +834,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
+            CharacterTable::AsciiOnly,
         );
 
         printer.print_all(input).unwrap();
@@ -881,6 +895,7 @@ mod tests {
             1,
             Base::Hexadecimal,
             Endianness::Big,
+            CharacterTable::AsciiOnly,
         );
 
         printer.print_all(input).unwrap();
