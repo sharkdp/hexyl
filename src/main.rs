@@ -105,12 +105,13 @@ fn run() -> Result<()> {
                 .long("color")
                 .num_args(1)
                 .value_name("WHEN")
-                .value_parser(["always", "auto", "never"])
+                .value_parser(["always", "auto", "never", "force"])
                 .default_value_if("plain", ArgPredicate::IsPresent, Some("never"))
                 .default_value("always")
                 .help(
-                    "When to use colors. The auto-mode only displays colors if the output \
-                     goes to an interactive terminal",
+                    "When to use colors. The 'auto' mode only displays colors if the output \
+                     goes to an interactive terminal. 'force' can be used to override the \
+                     NO_COLOR environment variable.",
                 ),
         )
         .arg(
@@ -338,12 +339,20 @@ fn run() -> Result<()> {
         reader.into_inner()
     };
 
+    let no_color = std::env::var_os("NO_COLOR").is_some();
     let show_color = match matches.get_one::<String>("color").map(String::as_ref) {
         Some("never") => false,
-        Some("always") => true,
-        _ => supports_color::on(supports_color::Stream::Stdout)
-            .map(|level| level.has_basic)
-            .unwrap_or(false),
+        Some("always") => !no_color,
+        Some("force") => true,
+        _ => {
+            if no_color {
+                false
+            } else {
+                supports_color::on(supports_color::Stream::Stdout)
+                    .map(|level| level.has_basic)
+                    .unwrap_or(false)
+            }
+        }
     };
 
     let border_style = match matches.get_one::<String>("border").map(String::as_ref) {
