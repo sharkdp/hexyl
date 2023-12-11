@@ -449,11 +449,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             Squeezer::Print | Squeezer::Delete => self.writer.write_all(b" ")?,
             Squeezer::Ignore | Squeezer::Disabled => {
                 if let Some(&b) = self.line_buf.get(i as usize) {
-                    if self.show_color
-                        && self.curr_color != Some(Byte(b).color(self.character_table))
-                    {
-                        self.writer.write_all(Byte(b).color(self.character_table))?;
-                        self.curr_color = Some(Byte(b).color(self.character_table));
+                    if self.show_color && self.curr_color != Some(Byte(b).color()) {
+                        self.writer.write_all(Byte(b).color())?;
+                        self.curr_color = Some(Byte(b).color());
                     }
                     self.writer
                         .write_all(self.byte_char_panel[b as usize].as_bytes())?;
@@ -520,9 +518,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 if i % (self.group_size as usize) == 0 {
                     self.writer.write_all(b" ")?;
                 }
-                if self.show_color && self.curr_color != Some(Byte(b).color(self.character_table)) {
-                    self.writer.write_all(Byte(b).color(self.character_table))?;
-                    self.curr_color = Some(Byte(b).color(self.character_table));
+                if self.show_color && self.curr_color != Some(Byte(b).color()) {
+                    self.writer.write_all(Byte(b).color())?;
+                    self.curr_color = Some(Byte(b).color());
                 }
                 self.writer
                     .write_all(self.byte_hex_panel[b as usize].as_bytes())?;
