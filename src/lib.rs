@@ -36,7 +36,7 @@ pub enum Endianness {
     Big,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 enum Squeezer {
     Print,
     Delete,
@@ -657,7 +657,6 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                         continue;
                     }
                 } else {
-                    write!(self.writer, "self")?;
                     self.squeezer = Squeezer::Ignore;
                 }
             }
