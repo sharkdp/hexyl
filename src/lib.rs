@@ -934,4 +934,41 @@ mod tests {
         let actual_string: &str = str::from_utf8(&output).unwrap();
         assert_eq!(actual_string, expected_string)
     }
+
+    #[test]
+    fn identical_lines() {
+        let input = io::Cursor::new(
+            "abcdefg\ngfedcba\nhijklmn\nhijklmn\nhijklmn\nhijklmn\nopqrstu\nvwxyzab\n",
+        );
+        let expected_string = "\
+┌────────┬─────────────────────────┬────────┐
+│00000000│ 61 62 63 64 65 66 67 0a │abcdefg_│
+│00000008│ 67 66 65 64 63 62 61 0a │gfedcba_│
+│00000010│ 68 69 6a 6b 6c 6d 6e 0a │hijklmn_│
+│*       │                         │        │
+│00000030│ 6f 70 71 72 73 74 75 0a │opqrstu_│
+│00000038│ 76 77 78 79 7a 61 62 0a │vwxyzab_│
+└────────┴─────────────────────────┴────────┘
+"
+        .to_owned();
+        let mut output = vec![];
+        let mut printer: Printer<Vec<u8>> = Printer::new(
+            &mut output,
+            false,
+            true,
+            true,
+            BorderStyle::Unicode,
+            true,
+            1,
+            1,
+            Base::Hexadecimal,
+            Endianness::Big,
+            CharacterTable::Default,
+        );
+
+        printer.print_all(input).unwrap();
+
+        let actual_string: &str = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string)
+    }
 }
