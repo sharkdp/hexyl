@@ -729,8 +729,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             writeln!(self.writer)?;
         } else if let Some(n) = leftover {
             // last line is incomplete
-            self.print_position_panel()?;
             self.squeezer = Squeezer::Ignore;
+            self.print_position_panel()?;
             self.print_bytes()?;
             self.squeezer = Squeezer::Print;
             for i in n..8 * self.panels as usize {
