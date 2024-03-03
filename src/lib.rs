@@ -281,7 +281,7 @@ pub struct Printer<'a, Writer: Write> {
     display_offset: u64,
     /// The number of panels to draw.
     panels: u64,
-    squeeze_byte: usize,
+    last_line: Vec<u8>,
     /// The number of octets per group.
     group_size: u8,
     /// The number of digits used to write the base.
@@ -332,7 +332,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             },
             display_offset: 0,
             panels,
-            squeeze_byte: 0x00,
+            last_line: vec![],
             group_size,
             base_digits: match base {
                 Base::Binary => 8,
@@ -631,21 +631,18 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             if is_empty {
                 self.print_header()?;
             }
-
-            // squeeze is active, check if the line is the same
-            // skip print if still squeezed, otherwise print and deactivate squeeze
-            if matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
-                if self
-                    .line_buf
-                    .chunks_exact(std::mem::size_of::<usize>())
-                    .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == self.squeeze_byte)
-                {
-                    if self.squeezer == Squeezer::Delete {
-                        self.idx += 8 * self.panels;
-                        continue;
-                    }
-                } else {
-                    self.squeezer = Squeezer::Ignore;
+            
+            if self.line_buf == self.last_line {
+                match self.squeezer {
+                    Squeezer::Delete => {self.idx += 8 * self.panels;
+                        continue;}
+                    Squeezer::Ignore => self.squeezer = Squeezer::Print,
+                    Squeezer::Print | Squeezer::Disabled => (),
+                }
+            }else{
+                match self.squeezer {
+                    Squeezer::Delete | Squeezer::Print => self.squeezer = Squeezer::Ignore,
+                    Squeezer::Ignore | Squeezer::Disabled => (),
                 }
             }
 
@@ -670,19 +667,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.squeezer = Squeezer::Delete;
             }
 
-            // repeat the first byte in the line until it's a usize
-            // compare that usize with each usize chunk in the line
-            // if they are all the same, change squeezer to print
-            let repeat_byte = (self.line_buf[0] as usize) * (usize::MAX / 255);
-            if !matches!(self.squeezer, Squeezer::Disabled | Squeezer::Delete)
-                && self
-                    .line_buf
-                    .chunks_exact(std::mem::size_of::<usize>())
-                    .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == repeat_byte)
-            {
-                self.squeezer = Squeezer::Print;
-                self.squeeze_byte = repeat_byte;
-            };
+            self.last_line = self.line_buf.clone();
         };
 
         // special ending
@@ -859,6 +844,20 @@ mod tests {
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
 │00000000│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │⋄⋄⋄⋄⋄⋄⋄⋄┊⋄⋄⋄⋄⋄⋄⋄⋄│
+│*       │                         ┊                         │        ┊        │
+│00000020│ 00                      ┊                         │⋄       ┊        │
+└────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
+"
+        .to_owned();
+        assert_print_all_output(input, expected_string);
+    }
+
+    #[test]
+    fn squeeze_non_repeating() {
+        let input = io::Cursor::new(b"\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00\x01\x00");
+        let expected_string = "\
+┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+│00000000│ 00 01 00 01 00 01 00 01 ┊ 00 01 00 01 00 01 00 01 │⋄•⋄•⋄•⋄•┊⋄•⋄•⋄•⋄•│
 │*       │                         ┊                         │        ┊        │
 │00000020│ 00                      ┊                         │⋄       ┊        │
 └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
