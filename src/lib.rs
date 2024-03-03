@@ -631,15 +631,17 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             if is_empty {
                 self.print_header()?;
             }
-            
+
             if self.line_buf == self.last_line {
                 match self.squeezer {
-                    Squeezer::Delete => {self.idx += 8 * self.panels;
-                        continue;}
+                    Squeezer::Delete => {
+                        self.idx += 8 * self.panels;
+                        continue;
+                    }
                     Squeezer::Ignore => self.squeezer = Squeezer::Print,
                     Squeezer::Print | Squeezer::Disabled => (),
                 }
-            }else{
+            } else {
                 match self.squeezer {
                     Squeezer::Delete | Squeezer::Print => self.squeezer = Squeezer::Ignore,
                     Squeezer::Ignore | Squeezer::Disabled => (),
