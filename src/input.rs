@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::fs;
 use std::io::{self, copy, sink, Read, Seek, SeekFrom};
 
