@@ -21,23 +21,40 @@ mod tests;
 
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
+const LENGTH_HELP_TEXT: &str = "Only read N bytes from the input. The N argument can also include \
+                                a unit with a decimal prefix (kB, MB, ..) or binary prefix (kiB, \
+                                MiB, ..), or can be specified using a hex number. The short \
+                                option '-l' can be used as an alias.
+Examples: --length=64, --length=4KiB, --length=0xff";
+
+const SKIP_HELP_TEXT: &str = "Skip the first N bytes of the input. The N argument can also \
+                              include a unit (see `--length` for details).
+A negative value is valid and will seek from the end of the file.";
+
+const BLOCK_SIZE_HELP_TEXT: &str = "Sets the size of the `block` unit to SIZE.
+Examples: --block-size=1024, --block-size=4kB";
+
+const DISPLAY_OFFSET_HELP_TEXT: &str = "Add N bytes to the displayed file position. The N \
+                                        argument can also include a unit (see `--length` for \
+                                        details).
+A negative value is valid and calculates an offset relative to the end of the file.";
+
+const TERMINAL_WIDTH_HELP_TEXT: &str = "Sets the number of terminal columns to be displayed.
+Since the terminal width may not be an evenly divisible by the width per hex data column, this \
+                                        will use the greatest number of hex data panels that can \
+                                        fit in the requested width but still leave some space to \
+                                        the right.
+Cannot be used with other width-setting options.";
+
 #[derive(Debug, Parser)]
 #[command(version, about, max_term_width(90))]
 struct Opt {
-    /// The file to display.
-    ///
-    /// If no FILE argument is given, read from STDIN.
+    /// The file to display. If no FILE argument is given, read from STDIN.
     #[arg(value_name("FILE"))]
     file: Option<PathBuf>,
 
-    /// Only read N bytes from the input.
-    ///
-    /// The N argument can also include a unit with a decimal prefix (kB, MB,
-    /// ..) or binary prefix (kiB, MiB, ..), or can be specified using a hex
-    /// number. The short option '-l' can be used as an alias.  
-    /// Examples: --length=64, --length=4KiB, --length=0xff
     #[arg(
-        verbatim_doc_comment,
+        help(LENGTH_HELP_TEXT),
         short('n'),
         long,
         visible_short_alias('c'),
@@ -47,28 +64,20 @@ struct Opt {
     )]
     length: Option<String>,
 
-    /// Skip the first N bytes of the input.
-    ///
-    /// The N argument can also include a unit (see `--length` for details).  
-    /// A negative value is valid and will seek from the end of the file.
-    #[arg(verbatim_doc_comment, short, long, value_name("N"))]
+    #[arg(help(SKIP_HELP_TEXT), short, long, value_name("N"))]
     skip: Option<String>,
 
-    /// Sets the size of the `block` unit to SIZE.  
-    ///
-    /// Examples: --block-size=1024, --block-size=4kB
     #[arg(
+        help(BLOCK_SIZE_HELP_TEXT),
         long,
         default_value(formatcp!("{DEFAULT_BLOCK_SIZE}")),
         value_name("SIZE")
     )]
     block_size: String,
 
-    /// Displays all input data.
-    ///
-    /// Otherwise any number of groups of output lines which would be identical
-    /// to the preceding group of lines, are replaced with a line comprised of a
-    /// single asterisk.
+    /// Displays all input data. Otherwise any number of groups of output lines
+    /// which would be identical to the preceding group of lines, are replaced
+    /// with a line comprised of a single asterisk.
     #[arg(short('v'), long)]
     no_squeezing: bool,
 
@@ -82,8 +91,7 @@ struct Opt {
     )]
     color: ColorWhen,
 
-    /// Whether to draw a border with Unicode characters, ASCII characters, or
-    /// none at all.
+    /// Whether to draw a border.
     #[arg(
         long,
         value_enum,
@@ -102,9 +110,8 @@ struct Opt {
     #[arg(long)]
     no_characters: bool,
 
-    /// Show the character panel on the right.
-    ///
-    /// This is the default, unless --no-characters has been specified.
+    /// Show the character panel on the right. This is the default, unless
+    /// --no-characters has been specified.
     #[arg(
         short('C'),
         long,
@@ -121,13 +128,8 @@ struct Opt {
     #[arg(short('P'), long)]
     no_position: bool,
 
-    /// Add N bytes to the displayed file position.
-    ///
-    /// The N argument can also include a unit (see `--length` for details).  
-    /// A negative value is valid and calculates an offset relative to the end
-    /// of the file.
     #[arg(
-        verbatim_doc_comment,
+        help(DISPLAY_OFFSET_HELP_TEXT),
         short('o'),
         long,
         default_value("0"),
@@ -135,19 +137,16 @@ struct Opt {
     )]
     display_offset: String,
 
-    /// Sets the number of hex data panels to be displayed.
-    ///
-    /// `--panels=auto` will display the maximum number of hex data panels based
-    /// on the current terminal width. By default, hexyl will show two panels,
-    /// unless the terminal is not wide enough for that.
+    /// Sets the number of hex data panels to be displayed. `--panels=auto` will
+    /// display the maximum number of hex data panels based on the current
+    /// terminal width. By default, hexyl will show two panels, unless the
+    /// terminal is not wide enough for that.
     #[arg(long, value_name("N"))]
     panels: Option<String>,
 
-    /// Number of bytes/octets that should be grouped together.
-    ///
-    /// You can use the '--endianness' option to control the ordering of the
-    /// bytes within a group. '--groupsize' can be used as an alias
-    /// (xxd-compatibility).
+    /// Number of bytes/octets that should be grouped together. You can use the
+    /// '--endianness' option to control the ordering of the bytes within a
+    /// group. '--groupsize' can be used as an alias (xxd-compatibility).
     #[arg(
         short('g'),
         long,
@@ -158,10 +157,9 @@ struct Opt {
     )]
     group_size: GroupSize,
 
-    /// Whether to print out groups in little-endian or big-endian format.
-    ///
-    /// This option only has an effect if the '--group-size' is larger than 1.
-    /// '-e' can be used as an alias for '--endianness=little'.
+    /// Whether to print out groups in little-endian or big-endian format. This
+    /// option only has an effect if the '--group-size' is larger than 1. '-e'
+    /// can be used as an alias for '--endianness=little'.
     #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
     endianness: Endianness,
 
@@ -169,20 +167,17 @@ struct Opt {
     #[arg(short('e'), hide(true), overrides_with("endianness"))]
     little_endian_format: bool,
 
-    /// Sets the base used for the bytes.
-    ///
-    /// The possible options are binary, octal, decimal, and hexadecimal.
+    /// Sets the base used for the bytes. The possible options are binary,
+    /// octal, decimal, and hexadecimal.
     #[arg(short('b'), long, default_value("hexadecimal"), value_name("B"))]
     base: String,
 
-    /// Sets the number of terminal columns to be displayed.
-    ///
-    /// Since the terminal width may not be an evenly divisible by the width per
-    /// hex data column, this will use the greatest number of hex data panels
-    /// that can fit in the requested width but still leave some space to the
-    /// right.  
-    /// Cannot be used with other width-setting options.
-    #[arg(verbatim_doc_comment, long, value_name("N"), conflicts_with("panels"))]
+    #[arg(
+        help(TERMINAL_WIDTH_HELP_TEXT),
+        long,
+        value_name("N"),
+        conflicts_with("panels")
+    )]
     terminal_width: Option<NonZeroU64>,
 }
 
