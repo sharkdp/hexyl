@@ -6,6 +6,8 @@ pub use input::*;
 
 use std::io::{self, BufReader, Read, Write};
 
+use clap::ValueEnum;
+
 pub enum Base {
     Binary,
     Octal,
@@ -22,17 +24,30 @@ pub enum ByteCategory {
     NonAscii,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, Default, ValueEnum)]
 #[non_exhaustive]
 pub enum CharacterTable {
+    /// Show printable ASCII characters as-is, '⋄' for NULL bytes, ' ' for
+    /// space, '_' for other ASCII whitespace, '•' for other ASCII characters,
+    /// and '×' for non-ASCII bytes.
+    #[default]
     Default,
+
+    /// Show printable ASCII as-is, ' ' for space, '.' for everything else.
     Ascii,
+
+    /// Uses code page 437 (for non-ASCII bytes).
+    #[value(name = "codepage-437")]
     CP437,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, Default, ValueEnum)]
 pub enum Endianness {
+    /// Print out groups in little-endian format.
     Little,
+
+    /// Print out groups in big-endian format.
+    #[default]
     Big,
 }
 
@@ -104,10 +119,16 @@ struct BorderElements {
     right_corner: char,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Default, ValueEnum)]
 pub enum BorderStyle {
+    /// Draw a border with Unicode characters.
+    #[default]
     Unicode,
+
+    /// Draw a border with ASCII characters.
     Ascii,
+
+    /// Do not draw a border at all.
     None,
 }
 

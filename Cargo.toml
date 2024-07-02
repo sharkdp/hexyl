@@ -22,8 +22,7 @@ terminal_size = "0.2"
 
 [dependencies.clap]
 version = "4"
-default-features = false
-features = ["std", "suggestions", "color", "wrap_help", "cargo", "help", "usage", "error-context"]
+features = ["derive", "wrap_help"]
 
 [dev-dependencies]
 assert_cmd = "2.0"

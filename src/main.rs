@@ -1,13 +1,10 @@
-#[macro_use]
-extern crate clap;
-
-use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{self, prelude::*, BufWriter, SeekFrom};
-use std::num::{NonZeroI64, NonZeroU64, NonZeroU8};
+use std::num::{NonZeroI64, NonZeroU64};
+use std::path::PathBuf;
 
 use clap::builder::ArgPredicate;
-use clap::{crate_name, crate_version, Arg, ArgAction, ColorChoice, Command};
+use clap::{ArgAction, Parser, ValueEnum};
 
 use anyhow::{anyhow, Context, Result};
 
@@ -24,273 +21,247 @@ mod tests;
 
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
-fn run() -> Result<()> {
-    let command = Command::new(crate_name!())
-        .color(ColorChoice::Auto)
-        .max_term_width(90)
-        .version(crate_version!())
-        .about(crate_description!())
-        .arg(
-            Arg::new("FILE")
-                .help("The file to display. If no FILE argument is given, read from STDIN."),
-        )
-        .arg(
-            Arg::new("length")
-                .short('n')
-                .long("length")
-                .num_args(1)
-                .value_name("N")
-                .help(
-                    "Only read N bytes from the input. The N argument can also include a \
-                     unit with a decimal prefix (kB, MB, ..) or binary prefix (kiB, MiB, ..), \
-                     or can be specified using a hex number. \
-                     The short option '-l' can be used as an alias.\n\
-                     Examples: --length=64, --length=4KiB, --length=0xff",
-                ),
-        )
-        .arg(
-            Arg::new("bytes")
-                .short('c')
-                .long("bytes")
-                .num_args(1)
-                .value_name("N")
-                .conflicts_with("length")
-                .help("An alias for -n/--length"),
-        )
-        .arg(
-            Arg::new("count")
-                .short('l')
-                .num_args(1)
-                .value_name("N")
-                .conflicts_with_all(["length", "bytes"])
-                .hide(true)
-                .help("Yet another alias for -n/--length"),
-        )
-        .arg(
-            Arg::new("skip")
-                .short('s')
-                .long("skip")
-                .num_args(1)
-                .value_name("N")
-                .help(
-                    "Skip the first N bytes of the input. The N argument can also include \
-                     a unit (see `--length` for details)\n\
-                     A negative value is valid and will seek from the end of the file.",
-                ),
-        )
-        .arg(
-            Arg::new("block_size")
-                .long("block-size")
-                .num_args(1)
-                .value_name("SIZE")
-                .help(formatcp!(
-                    "Sets the size of the `block` unit to SIZE (default is {}).\n\
-                     Examples: --block-size=1024, --block-size=4kB",
-                    DEFAULT_BLOCK_SIZE
-                )),
-        )
-        .arg(
-            Arg::new("nosqueezing")
-                .short('v')
-                .long("no-squeezing")
-                .action(ArgAction::SetFalse)
-                .help(
-                    "Displays all input data. Otherwise any number of groups of output \
-                     lines which would be identical to the preceding group of lines, are \
-                     replaced with a line comprised of a single asterisk.",
-                ),
-        )
-        .arg(
-            Arg::new("color")
-                .long("color")
-                .num_args(1)
-                .value_name("WHEN")
-                .value_parser(["always", "auto", "never", "force"])
-                .default_value_if("plain", ArgPredicate::IsPresent, Some("never"))
-                .default_value("always")
-                .help(
-                    "When to use colors. The 'auto' mode only displays colors if the output \
-                     goes to an interactive terminal. 'force' can be used to override the \
-                     NO_COLOR environment variable.",
-                ),
-        )
-        .arg(
-            Arg::new("border")
-                .long("border")
-                .num_args(1)
-                .value_name("STYLE")
-                .value_parser(["unicode", "ascii", "none"])
-                .default_value_if("plain", ArgPredicate::IsPresent, Some("none"))
-                .default_value("unicode")
-                .help(
-                    "Whether to draw a border with Unicode characters, ASCII characters, \
-                    or none at all",
-                ),
-        )
-        .arg(Arg::new("plain").short('p').long("plain").action(ArgAction::SetTrue).help(
-            "Display output with --no-characters, --no-position, --border=none, and --color=never.",
-        ))
-        .arg(
-            Arg::new("no_chars")
-                .long("no-characters")
-                .action(ArgAction::SetFalse)
-                .help("Do not show the character panel on the right."),
-        )
-        .arg(
-            Arg::new("chars")
-                .short('C')
-                .long("characters")
-                .overrides_with("no_chars")
-                .action(ArgAction::SetTrue)
-                .help("Show the character panel on the right. This is the default, unless --no-characters has been specified."),
-        )
-        .arg(
-            Arg::new("character-table")
-                .long("character-table")
-                .value_name("FORMAT")
-                .value_parser(["default", "ascii", "codepage-437"])
-                .default_value("default")
-                .help(
-                    "Defines how bytes are mapped to characters:\n  \
-                    \"default\": show printable ASCII characters as-is, '⋄' for NULL bytes, \
-                    ' ' for space, '_' for other ASCII whitespace, \
-                    '•' for other ASCII characters, and '×' for non-ASCII bytes.\n  \
-                    \"ascii\": show printable ASCII as-is, ' ' for space, '.' for everything else.\n  \
-                    \"codepage-437\": uses code page 437 (for non-ASCII bytes).\n"
-                ),
-        )
-        .arg(
-            Arg::new("no_position")
-                .short('P')
-                .long("no-position")
-                .action(ArgAction::SetFalse)
-                .help("Whether to display the position panel on the left."),
-        )
-        .arg(
-            Arg::new("display_offset")
-                .short('o')
-                .long("display-offset")
-                .num_args(1)
-                .value_name("N")
-                .help(
-                    "Add N bytes to the displayed file position. The N argument can also \
-                    include a unit (see `--length` for details)\n\
-                    A negative value is valid and calculates an offset relative to the \
-                    end of the file.",
-                ),
-        )
-        .arg(
-            Arg::new("panels")
-                .long("panels")
-                .num_args(1)
-                .value_name("N")
-                .help(
-                    "Sets the number of hex data panels to be displayed. \
-                    `--panels=auto` will display the maximum number of hex data panels \
-                    based on the current terminal width. By default, hexyl will show \
-                    two panels, unless the terminal is not wide enough for that.",
-                ),
-        )
-        .arg(
-            Arg::new("group_size")
-                .short('g')
-                .long("group-size")
-                .alias("groupsize")
-                .num_args(1)
-                .value_name("N")
-                .help(
-                    "Number of bytes/octets that should be grouped together. \
-                    Possible group sizes are 1, 2, 4, 8. The default is 1. You \
-                    can use the '--endianness' option to control the ordering of \
-                    the bytes within a group. '--groupsize' can be used as an \
-                    alias (xxd-compatibility).",
-                ),
-        )
-        .arg(
-            Arg::new("endianness")
-                .long("endianness")
-                .num_args(1)
-                .value_name("FORMAT")
-                .value_parser(["big", "little"])
-                .default_value("big")
-                .help(
-                    "Whether to print out groups in little-endian or big-endian \
-                     format. This option only has an effect if the '--group-size' \
-                     is larger than 1. '-e' can be used as an alias for \
-                     '--endianness=little'.",
-                ),
-        )
-        .arg(
-            Arg::new("little_endian_format")
-                .short('e')
-                .action(ArgAction::SetTrue)
-                .overrides_with("endianness")
-                .hide(true)
-                .help("An alias for '--endianness=little'."),
-        )
-        .arg(
-            Arg::new("base")
-                .short('b')
-                .long("base")
-                .num_args(1)
-                .value_name("B")
-                .help(
-                    "Sets the base used for the bytes. The possible options are \
-                    binary, octal, decimal, and hexadecimal. The default base \
-                    is hexadecimal."
-                )
-        )
-        .arg(
-            Arg::new("terminal_width")
-                .long("terminal-width")
-                .num_args(1)
-                .value_name("N")
-                .conflicts_with("panels")
-                .help(
-                    "Sets the number of terminal columns to be displayed.\nSince the terminal \
-                    width may not be an evenly divisible by the width per hex data column, this \
-                    will use the greatest number of hex data panels that can fit in the requested \
-                    width but still leave some space to the right.\nCannot be used with other \
-                    width-setting options.",
-                ),
-        );
+const LENGTH_HELP_TEXT: &str = "Only read N bytes from the input. The N argument can also include \
+                                a unit with a decimal prefix (kB, MB, ..) or binary prefix (kiB, \
+                                MiB, ..), or can be specified using a hex number. The short \
+                                option '-l' can be used as an alias.
+Examples: --length=64, --length=4KiB, --length=0xff";
 
-    let matches = command.get_matches();
+const SKIP_HELP_TEXT: &str = "Skip the first N bytes of the input. The N argument can also \
+                              include a unit (see `--length` for details).
+A negative value is valid and will seek from the end of the file.";
+
+const BLOCK_SIZE_HELP_TEXT: &str = "Sets the size of the `block` unit to SIZE.
+Examples: --block-size=1024, --block-size=4kB";
+
+const DISPLAY_OFFSET_HELP_TEXT: &str = "Add N bytes to the displayed file position. The N \
+                                        argument can also include a unit (see `--length` for \
+                                        details).
+A negative value is valid and calculates an offset relative to the end of the file.";
+
+const TERMINAL_WIDTH_HELP_TEXT: &str = "Sets the number of terminal columns to be displayed.
+Since the terminal width may not be an evenly divisible by the width per hex data column, this \
+                                        will use the greatest number of hex data panels that can \
+                                        fit in the requested width but still leave some space to \
+                                        the right.
+Cannot be used with other width-setting options.";
+
+#[derive(Debug, Parser)]
+#[command(version, about, max_term_width(90))]
+struct Opt {
+    /// The file to display. If no FILE argument is given, read from STDIN.
+    #[arg(value_name("FILE"))]
+    file: Option<PathBuf>,
+
+    #[arg(
+        help(LENGTH_HELP_TEXT),
+        short('n'),
+        long,
+        visible_short_alias('c'),
+        visible_alias("bytes"),
+        short_alias('l'),
+        value_name("N")
+    )]
+    length: Option<String>,
+
+    #[arg(help(SKIP_HELP_TEXT), short, long, value_name("N"))]
+    skip: Option<String>,
+
+    #[arg(
+        help(BLOCK_SIZE_HELP_TEXT),
+        long,
+        default_value(formatcp!("{DEFAULT_BLOCK_SIZE}")),
+        value_name("SIZE")
+    )]
+    block_size: String,
+
+    /// Displays all input data. Otherwise any number of groups of output lines
+    /// which would be identical to the preceding group of lines, are replaced
+    /// with a line comprised of a single asterisk.
+    #[arg(short('v'), long)]
+    no_squeezing: bool,
+
+    /// When to use colors.
+    #[arg(
+        long,
+        value_enum,
+        default_value_t,
+        value_name("WHEN"),
+        default_value_if("plain", ArgPredicate::IsPresent, Some("never"))
+    )]
+    color: ColorWhen,
+
+    /// Whether to draw a border.
+    #[arg(
+        long,
+        value_enum,
+        default_value_t,
+        value_name("STYLE"),
+        default_value_if("plain", ArgPredicate::IsPresent, Some("none"))
+    )]
+    border: BorderStyle,
+
+    /// Display output with --no-characters, --no-position, --border=none, and
+    /// --color=never.
+    #[arg(short, long)]
+    plain: bool,
+
+    /// Do not show the character panel on the right.
+    #[arg(long)]
+    no_characters: bool,
+
+    /// Show the character panel on the right. This is the default, unless
+    /// --no-characters has been specified.
+    #[arg(
+        short('C'),
+        long,
+        action(ArgAction::SetTrue),
+        overrides_with("no_characters")
+    )]
+    characters: (),
+
+    /// Defines how bytes are mapped to characters.
+    #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
+    character_table: CharacterTable,
+
+    /// Whether to display the position panel on the left.
+    #[arg(short('P'), long)]
+    no_position: bool,
+
+    #[arg(
+        help(DISPLAY_OFFSET_HELP_TEXT),
+        short('o'),
+        long,
+        default_value("0"),
+        value_name("N")
+    )]
+    display_offset: String,
+
+    /// Sets the number of hex data panels to be displayed. `--panels=auto` will
+    /// display the maximum number of hex data panels based on the current
+    /// terminal width. By default, hexyl will show two panels, unless the
+    /// terminal is not wide enough for that.
+    #[arg(long, value_name("N"))]
+    panels: Option<String>,
+
+    /// Number of bytes/octets that should be grouped together. You can use the
+    /// '--endianness' option to control the ordering of the bytes within a
+    /// group. '--groupsize' can be used as an alias (xxd-compatibility).
+    #[arg(
+        short('g'),
+        long,
+        value_enum,
+        default_value_t,
+        alias("groupsize"),
+        value_name("N")
+    )]
+    group_size: GroupSize,
+
+    /// Whether to print out groups in little-endian or big-endian format. This
+    /// option only has an effect if the '--group-size' is larger than 1. '-e'
+    /// can be used as an alias for '--endianness=little'.
+    #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
+    endianness: Endianness,
+
+    /// An alias for '--endianness=little'.
+    #[arg(short('e'), hide(true), overrides_with("endianness"))]
+    little_endian_format: bool,
+
+    /// Sets the base used for the bytes. The possible options are binary,
+    /// octal, decimal, and hexadecimal.
+    #[arg(short('b'), long, default_value("hexadecimal"), value_name("B"))]
+    base: String,
+
+    #[arg(
+        help(TERMINAL_WIDTH_HELP_TEXT),
+        long,
+        value_name("N"),
+        conflicts_with("panels")
+    )]
+    terminal_width: Option<NonZeroU64>,
+}
+
+#[derive(Clone, Debug, Default, ValueEnum)]
+enum ColorWhen {
+    /// Always use colorized output.
+    #[default]
+    Always,
+
+    /// Only displays colors if the output goes to an interactive terminal.
+    Auto,
+
+    /// Do not use colorized output.
+    Never,
+
+    /// Override the NO_COLOR environment variable.
+    Force,
+}
+
+#[derive(Clone, Debug, Default, ValueEnum)]
+enum GroupSize {
+    /// Grouped together every byte/octet.
+    #[default]
+    #[value(name = "1")]
+    One,
+
+    /// Grouped together every 2 bytes/octets.
+    #[value(name = "2")]
+    Two,
+
+    /// Grouped together every 4 bytes/octets.
+    #[value(name = "4")]
+    Four,
+
+    /// Grouped together every 8 bytes/octets.
+    #[value(name = "8")]
+    Eight,
+}
+
+impl From<GroupSize> for u8 {
+    fn from(number: GroupSize) -> Self {
+        match number {
+            GroupSize::One => 1,
+            GroupSize::Two => 2,
+            GroupSize::Four => 4,
+            GroupSize::Eight => 8,
+        }
+    }
+}
+
+fn run() -> Result<()> {
+    let opt = Opt::parse();
 
     let stdin = io::stdin();
 
-    let mut reader = match matches.get_one::<String>("FILE") {
+    let mut reader = match opt.file {
         Some(filename) => Input::File(File::open(filename)?),
         None => Input::Stdin(stdin.lock()),
     };
 
-    let block_size = matches
-        .get_one::<String>("block_size")
-        .map(|bs| {
-            if let Some(hex_number) = try_parse_as_hex_number(bs) {
-                return hex_number.map_err(|e| anyhow!(e)).and_then(|x| {
-                    PositiveI64::new(x)
-                        .ok_or_else(|| anyhow!("block size argument must be positive"))
-                });
-            }
-            let (num, unit) = extract_num_and_unit_from(bs)?;
-            if let Unit::Block { custom_size: _ } = unit {
-                return Err(anyhow!(
-                    "can not use 'block(s)' as a unit to specify block size"
-                ));
-            };
-            num.checked_mul(unit.get_multiplier())
-                .ok_or_else(|| anyhow!(ByteOffsetParseError::UnitMultiplicationOverflow))
-                .and_then(|x| {
-                    PositiveI64::new(x)
-                        .ok_or_else(|| anyhow!("block size argument must be positive"))
-                })
-        })
-        .transpose()?
-        .unwrap_or_else(|| PositiveI64::new(DEFAULT_BLOCK_SIZE).unwrap());
+    if let Some(hex_number) = try_parse_as_hex_number(&opt.block_size) {
+        return hex_number
+            .map_err(|e| anyhow!(e))
+            .and_then(|x| {
+                PositiveI64::new(x).ok_or_else(|| anyhow!("block size argument must be positive"))
+            })
+            .map(|_| ());
+    }
+    let (num, unit) = extract_num_and_unit_from(&opt.block_size)?;
+    if let Unit::Block { custom_size: _ } = unit {
+        return Err(anyhow!(
+            "can not use 'block(s)' as a unit to specify block size"
+        ));
+    };
+    let block_size = num
+        .checked_mul(unit.get_multiplier())
+        .ok_or_else(|| anyhow!(ByteOffsetParseError::UnitMultiplicationOverflow))
+        .and_then(|x| {
+            PositiveI64::new(x).ok_or_else(|| anyhow!("block size argument must be positive"))
+        })?;
 
-    let skip_arg = matches
-        .get_one::<String>("skip")
+    let skip_arg = opt
+        .skip
+        .as_ref()
         .map(|s| {
             parse_byte_offset(s, block_size).context(anyhow!(
                 "failed to parse `--skip` arg {:?} as byte count",
@@ -325,29 +296,22 @@ fn run() -> Result<()> {
             .into())
     };
 
-    let mut reader = if let Some(length) = matches
-        .get_one::<String>("length")
-        .or_else(|| matches.get_one::<String>("bytes"))
-        .or_else(|| matches.get_one::<String>("count"))
-        .map(|s| {
-            parse_byte_count(s).context(anyhow!(
-                "failed to parse `--length` arg {:?} as byte count",
-                s
-            ))
-        })
-        .transpose()?
-    {
+    let mut reader = if let Some(ref length) = opt.length {
+        let length = parse_byte_count(length).context(anyhow!(
+            "failed to parse `--length` arg {:?} as byte count",
+            length
+        ))?;
         Box::new(reader.take(length))
     } else {
         reader.into_inner()
     };
 
     let no_color = std::env::var_os("NO_COLOR").is_some();
-    let show_color = match matches.get_one::<String>("color").map(String::as_ref) {
-        Some("never") => false,
-        Some("always") => !no_color,
-        Some("force") => true,
-        _ => {
+    let show_color = match opt.color {
+        ColorWhen::Never => false,
+        ColorWhen::Always => !no_color,
+        ColorWhen::Force => true,
+        ColorWhen::Auto => {
             if no_color {
                 false
             } else {
@@ -358,30 +322,18 @@ fn run() -> Result<()> {
         }
     };
 
-    let border_style = match matches.get_one::<String>("border").map(String::as_ref) {
-        Some("unicode") => BorderStyle::Unicode,
-        Some("ascii") => BorderStyle::Ascii,
-        _ => BorderStyle::None,
-    };
+    let border_style = opt.border;
 
-    let &squeeze = matches.get_one::<bool>("nosqueezing").unwrap_or(&true);
+    let &squeeze = &!opt.no_squeezing;
 
-    let show_char_panel = *matches.get_one::<bool>("no_chars").unwrap_or(&true)
-        && !matches.get_one::<bool>("plain").unwrap_or(&false);
+    let show_char_panel = !opt.no_characters && !opt.plain;
 
-    let show_position_panel = *matches.get_one::<bool>("no_position").unwrap_or(&true)
-        && !matches.get_one::<bool>("plain").unwrap_or(&false);
+    let show_position_panel = !opt.no_position && !opt.plain;
 
-    let display_offset: u64 = matches
-        .get_one::<String>("display_offset")
-        .map(|s| {
-            parse_byte_count(s).context(anyhow!(
-                "failed to parse `--display-offset` arg {:?} as byte count",
-                s
-            ))
-        })
-        .transpose()?
-        .unwrap_or(0);
+    let display_offset: u64 = parse_byte_count(&opt.display_offset).context(anyhow!(
+        "failed to parse `--display-offset` arg {:?} as byte count",
+        opt.display_offset
+    ))?;
 
     let max_panels_fn = |terminal_width: u64, base_digits: u64, group_size: u64| {
         let offset = if show_position_panel { 10 } else { 1 };
@@ -397,30 +349,27 @@ fn run() -> Result<()> {
         }
     };
 
-    let base = if let Some(base) = matches.get_one::<String>("base")
-    .map(|s| {
-        if let Ok(base_num) = s.parse::<u8>() {
-            match base_num {
-                2 => Ok(Base::Binary),
-                8 => Ok(Base::Octal),
-                10 => Ok(Base::Decimal),
-                16 => Ok(Base::Hexadecimal),
-                _ => Err(anyhow!("The number provided is not a valid base. Valid bases are 2, 8, 10, and 16.")),
-            }
-        } else {
-            match s.as_str() {
-                "b" | "bin" | "binary" => Ok(Base::Binary),
-                "o" | "oct" | "octal" => Ok(Base::Octal),
-                "d" | "dec" | "decimal" => Ok(Base::Decimal),
-                "x" | "hex" | "hexadecimal" => Ok(Base::Hexadecimal),
-                _ => Err(anyhow!("The base provided is not valid. Valid bases are \"b\", \"o\", \"d\", and \"x\"."))
-            }
+    let base = if let Ok(base_num) = opt.base.parse::<u8>() {
+        match base_num {
+            2 => Ok(Base::Binary),
+            8 => Ok(Base::Octal),
+            10 => Ok(Base::Decimal),
+            16 => Ok(Base::Hexadecimal),
+            _ => Err(anyhow!(
+                "The number provided is not a valid base. Valid bases are 2, 8, 10, and 16."
+            )),
         }
-    }).transpose()? {
-        base
     } else {
-        Base::Hexadecimal
-    };
+        match opt.base.as_str() {
+            "b" | "bin" | "binary" => Ok(Base::Binary),
+            "o" | "oct" | "octal" => Ok(Base::Octal),
+            "d" | "dec" | "decimal" => Ok(Base::Decimal),
+            "x" | "hex" | "hexadecimal" => Ok(Base::Hexadecimal),
+            _ => Err(anyhow!(
+                "The base provided is not valid. Valid bases are \"b\", \"o\", \"d\", and \"x\"."
+            )),
+        }
+    }?;
 
     let base_digits = match base {
         Base::Binary => 8,
@@ -429,53 +378,22 @@ fn run() -> Result<()> {
         Base::Hexadecimal => 2,
     };
 
-    let group_size = if let Some(group_size) = matches
-        .get_one::<String>("group_size")
-        .map(|s| {
-            s.parse::<NonZeroU8>().map(u8::from).context(anyhow!(
-                "Failed to parse `--group-size`/`-g` argument {:?} as unsigned nonzero integer",
-                s
-            ))
-        })
-        .transpose()?
-    {
-        if (group_size <= 8) && ((group_size & (group_size - 1)) == 0) {
-            group_size
-        } else {
-            return Err(anyhow!(
-                "Possible sizes for the `--group-size`/`-g` option are 1, 2, 4 or 8. "
-            ));
-        }
-    } else {
-        1
-    };
+    let group_size = u8::from(opt.group_size);
 
     let terminal_width = terminal_size().map(|s| s.0 .0 as u64).unwrap_or(80);
 
-    let panels = if matches.get_one::<String>("panels").map(String::as_ref) == Some("auto") {
+    let panels = if opt.panels.as_deref() == Some("auto") {
         max_panels_fn(terminal_width, base_digits, group_size.into())
-    } else if let Some(panels) = matches
-        .get_one::<String>("panels")
-        .map(|s| {
-            s.parse::<NonZeroU64>().map(u64::from).context(anyhow!(
-                "failed to parse `--panels` arg {:?} as unsigned nonzero integer",
-                s
-            ))
-        })
-        .transpose()?
-    {
+    } else if let Some(panels) = opt.panels {
         panels
-    } else if let Some(terminal_width) = matches
-        .get_one::<String>("terminal_width")
-        .map(|s| {
-            s.parse::<NonZeroU64>().map(u64::from).context(anyhow!(
-                "failed to parse `--terminal-width` arg {:?} as unsigned nonzero integer",
-                s
-            ))
-        })
-        .transpose()?
-    {
-        max_panels_fn(terminal_width, base_digits, group_size.into())
+            .parse::<NonZeroU64>()
+            .map(u64::from)
+            .context(anyhow!(
+                "failed to parse `--panels` arg {:?} as unsigned nonzero integer",
+                panels
+            ))?
+    } else if let Some(terminal_width) = opt.terminal_width {
+        max_panels_fn(terminal_width.into(), base_digits, group_size.into())
     } else {
         std::cmp::min(
             2,
@@ -483,27 +401,13 @@ fn run() -> Result<()> {
         )
     };
 
-    let little_endian_format = *matches.get_one::<bool>("little_endian_format").unwrap();
-    let endianness = matches.get_one::<String>("endianness");
-    let endianness = match (
-        endianness.map(|s| s.as_ref()).unwrap(),
-        little_endian_format,
-    ) {
-        (_, true) | ("little", _) => Endianness::Little,
-        ("big", _) => Endianness::Big,
-        _ => unreachable!(),
+    let endianness = if opt.little_endian_format {
+        Endianness::Little
+    } else {
+        opt.endianness
     };
 
-    let character_table = match matches
-        .get_one::<String>("character-table")
-        .unwrap()
-        .as_ref()
-    {
-        "default" => CharacterTable::Default,
-        "ascii" => CharacterTable::Ascii,
-        "codepage-437" => CharacterTable::CP437,
-        _ => unreachable!(),
-    };
+    let character_table = opt.character_table;
 
     let stdout = io::stdout();
     let mut stdout_lock = BufWriter::new(stdout.lock());
