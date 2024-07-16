@@ -8,6 +8,8 @@
 
 ## Other
 
+- Rewrite CLI using the derive API, see #225 (@sorairolake)
+
 
 # v0.14.0
 
