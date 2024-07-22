@@ -302,7 +302,8 @@ pub struct Printer<'a, Writer: Write> {
     display_offset: u64,
     /// The number of panels to draw.
     panels: u64,
-    squeeze_byte: usize,
+    squeeze_byte: Option<usize>,
+    squeeze_line: Vec<u8>,
     /// The number of octets per group.
     group_size: u8,
     /// The number of digits used to write the base.
@@ -353,7 +354,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             },
             display_offset: 0,
             panels,
-            squeeze_byte: 0x00,
+            squeeze_byte: None,
+            squeeze_line: vec![0; 8 * panels as usize],
             group_size,
             base_digits: match base {
                 Base::Binary => 8,
@@ -656,11 +658,21 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             // squeeze is active, check if the line is the same
             // skip print if still squeezed, otherwise print and deactivate squeeze
             if matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
-                if self
-                    .line_buf
-                    .chunks_exact(std::mem::size_of::<usize>())
-                    .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == self.squeeze_byte)
-                {
+                if let Some(byte) = self.squeeze_byte {
+                    if self
+                        .line_buf
+                        .chunks_exact(std::mem::size_of::<usize>())
+                        .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == byte)
+                    {
+                        if self.squeezer == Squeezer::Delete {
+                            self.idx += 8 * self.panels;
+                            continue;
+                        }
+                    } else {
+                        self.squeeze_byte = None;
+                        self.squeezer = Squeezer::Ignore;
+                    }
+                } else if self.line_buf == self.squeeze_line {
                     if self.squeezer == Squeezer::Delete {
                         self.idx += 8 * self.panels;
                         continue;
@@ -691,18 +703,27 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.squeezer = Squeezer::Delete;
             }
 
-            // repeat the first byte in the line until it's a usize
-            // compare that usize with each usize chunk in the line
-            // if they are all the same, change squeezer to print
-            let repeat_byte = (self.line_buf[0] as usize) * (usize::MAX / 255);
-            if !matches!(self.squeezer, Squeezer::Disabled | Squeezer::Delete)
-                && self
+            let repeat_byte = usize::from_ne_bytes(
+                self.line_buf[0..std::mem::size_of::<usize>()]
+                    .try_into()
+                    .unwrap(),
+            );
+            if !matches!(self.squeezer, Squeezer::Disabled | Squeezer::Delete) {
+                if self
                     .line_buf
                     .chunks_exact(std::mem::size_of::<usize>())
                     .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == repeat_byte)
-            {
-                self.squeezer = Squeezer::Print;
-                self.squeeze_byte = repeat_byte;
+                {
+                    // fast calculation for when repeat fits in usize
+                    self.squeezer = Squeezer::Print;
+                    self.squeeze_byte = Some(repeat_byte);
+                } else if self.line_buf == self.squeeze_line {
+                    // slow check if entire line is identical
+                    self.squeezer = Squeezer::Print;
+                    self.squeeze_byte = None;
+                } else {
+                    self.squeeze_line = self.line_buf.clone();
+                }
             };
         };
 
@@ -728,8 +749,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             writeln!(self.writer)?;
         } else if let Some(n) = leftover {
             // last line is incomplete
-            self.print_position_panel()?;
             self.squeezer = Squeezer::Ignore;
+            self.print_position_panel()?;
             self.print_bytes()?;
             self.squeezer = Squeezer::Print;
             for i in n..8 * self.panels as usize {
@@ -923,6 +944,43 @@ mod tests {
             BorderStyle::Unicode,
             true,
             3,
+            1,
+            Base::Hexadecimal,
+            Endianness::Big,
+            CharacterTable::Default,
+        );
+
+        printer.print_all(input).unwrap();
+
+        let actual_string: &str = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string)
+    }
+
+    #[test]
+    fn identical_lines() {
+        let input = io::Cursor::new(
+            "abcdefg\ngfedcba\nhijklmn\nhijklmn\nhijklmn\nhijklmn\nopqrstu\nvwxyzab\n",
+        );
+        let expected_string = "\
+┌────────┬─────────────────────────┬────────┐
+│00000000│ 61 62 63 64 65 66 67 0a │abcdefg_│
+│00000008│ 67 66 65 64 63 62 61 0a │gfedcba_│
+│00000010│ 68 69 6a 6b 6c 6d 6e 0a │hijklmn_│
+│*       │                         │        │
+│00000030│ 6f 70 71 72 73 74 75 0a │opqrstu_│
+│00000038│ 76 77 78 79 7a 61 62 0a │vwxyzab_│
+└────────┴─────────────────────────┴────────┘
+"
+        .to_owned();
+        let mut output = vec![];
+        let mut printer: Printer<Vec<u8>> = Printer::new(
+            &mut output,
+            false,
+            true,
+            true,
+            BorderStyle::Unicode,
+            true,
+            1,
             1,
             Base::Hexadecimal,
             Endianness::Big,
