@@ -36,6 +36,10 @@ pub enum CharacterTable {
     /// Show printable ASCII as-is, ' ' for space, '.' for everything else.
     Ascii,
 
+    /// Show printable EBCDIC as-is, ' ' for space, '.' for everything else.
+    #[value(name = "codepage-1047")]
+    CP1047,
+
     /// Uses code page 437 (for non-ASCII bytes).
     #[value(name = "codepage-437")]
     CP437,
@@ -107,6 +111,7 @@ impl Byte {
                 AsciiOther => '.',
                 NonAscii => '.',
             },
+            CharacterTable::CP1047 => CP1047[self.0 as usize],
             CharacterTable::CP437 => CP437[self.0 as usize],
         }
     }
