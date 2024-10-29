@@ -1,10 +1,8 @@
-# unreleased
+# v0.15.0
 
 ## Features
 
-
-## Bugfixes
-
+- Add codepage 1047 for EBCDIC, see #226 (@v1gnesh)
 
 ## Other
 

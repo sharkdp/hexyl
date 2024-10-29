@@ -7,7 +7,7 @@ license = "MIT/Apache-2.0"
 name = "hexyl"
 readme = "README.md"
 repository = "https://github.com/sharkdp/hexyl"
-version = "0.14.0"
+version = "0.15.0"
 edition = "2021"
 rust-version = "1.66"
 
@@ -15,10 +15,10 @@ rust-version = "1.66"
 anyhow = "1.0"
 const_format = "0.2"
 libc = "0.2"
-owo-colors = "3"
-supports-color = "2"
+owo-colors = "4"
+supports-color = "3"
 thiserror = "1.0"
-terminal_size = "0.2"
+terminal_size = "0.4"
 
 [dependencies.clap]
 version = "4"
@@ -27,7 +27,7 @@ features = ["derive", "wrap_help"]
 [dev-dependencies]
 assert_cmd = "2.0"
 predicates = "3.0"
-pretty_assertions = "1.3.0"
+pretty_assertions = "1.4.0"
 
 [profile.release]
 lto = true
