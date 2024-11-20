@@ -1,3 +1,9 @@
+# unreleased
+
+## Bugfixes
+
+- Throw an error when try to view a directory, see #234 (@Integral-Tech)
+
 # v0.15.0
 
 ## Features

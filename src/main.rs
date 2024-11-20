@@ -234,7 +234,14 @@ fn run() -> Result<()> {
     let stdin = io::stdin();
 
     let mut reader = match opt.file {
-        Some(filename) => Input::File(File::open(filename)?),
+        Some(filename) => {
+            let file = File::open(&filename)?;
+            if file.metadata()?.is_dir() {
+                return Err(anyhow!("{} is a directory.", filename.display()));
+            }
+
+            Input::File(file)
+        }
         None => Input::Stdin(stdin.lock()),
     };
 
