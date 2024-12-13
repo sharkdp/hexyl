@@ -16,6 +16,8 @@ use terminal_size::terminal_size;
 
 use hexyl::{Base, BorderStyle, CharacterTable, Endianness, Input, PrinterBuilder};
 
+use hexyl::{COLOR_NULL, COLOR_RESET, COLOR_ASCII_PRINTABLE, COLOR_ASCII_WHITESPACE, COLOR_ASCII_OTHER, COLOR_NONASCII};
+
 #[cfg(test)]
 mod tests;
 
@@ -179,6 +181,10 @@ struct Opt {
         conflicts_with("panels")
     )]
     terminal_width: Option<NonZeroU64>,
+
+    /// Print a table showing how different types of bytes are colored.
+    #[arg(short('t'), long)]
+    print_color_table: bool,
 }
 
 #[derive(Clone, Debug, Default, ValueEnum)]
@@ -230,6 +236,10 @@ impl From<GroupSize> for u8 {
 
 fn run() -> Result<()> {
     let opt = Opt::parse();
+
+    if opt.print_color_table {
+        return print_color_table().map_err(|e| anyhow!(e));
+    }
 
     let stdin = io::stdin();
 
@@ -473,6 +483,40 @@ impl From<NonNegativeI64> for u64 {
         u64::try_from(x.0)
             .expect("invariant broken: NonNegativeI64 should contain a non-negative i64 value")
     }
+}
+
+fn print_color_table() -> io::Result<()> {
+    let stdout = io::stdout();
+    let mut stdout_lock = BufWriter::new(stdout.lock());
+
+    writeln!(stdout_lock, "hexyl color reference:\n")?;
+
+    // NULL bytes
+    stdout_lock.write_all(COLOR_NULL)?;
+    writeln!(stdout_lock, "⋄ NULL bytes (0x00)")?;
+    stdout_lock.write_all(COLOR_RESET)?;
+
+    // ASCII printable
+    stdout_lock.write_all(COLOR_ASCII_PRINTABLE)?;
+    writeln!(stdout_lock, "a ASCII printable characters (0x20 - 0x7E)")?;
+    stdout_lock.write_all(COLOR_RESET)?;
+
+    // ASCII whitespace
+    stdout_lock.write_all(COLOR_ASCII_WHITESPACE)?;
+    writeln!(stdout_lock, "_ ASCII whitespace (0x09 - 0x0D, 0x20)")?;
+    stdout_lock.write_all(COLOR_RESET)?;
+
+    // ASCII other
+    stdout_lock.write_all(COLOR_ASCII_OTHER)?;
+    writeln!(stdout_lock, "• ASCII control characters (except NULL and whitespace)")?;
+    stdout_lock.write_all(COLOR_RESET)?;
+
+    // Non-ASCII
+    stdout_lock.write_all(COLOR_NONASCII)?;
+    writeln!(stdout_lock, "× Non-ASCII bytes (0x80 - 0xFF)")?;
+    stdout_lock.write_all(COLOR_RESET)?;
+
+    Ok(())
 }
 
 #[derive(Clone, Copy, Debug, Default, Hash, Eq, Ord, PartialEq, PartialOrd)]
