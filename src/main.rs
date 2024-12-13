@@ -16,7 +16,10 @@ use terminal_size::terminal_size;
 
 use hexyl::{Base, BorderStyle, CharacterTable, Endianness, Input, PrinterBuilder};
 
-use hexyl::{COLOR_NULL, COLOR_RESET, COLOR_ASCII_PRINTABLE, COLOR_ASCII_WHITESPACE, COLOR_ASCII_OTHER, COLOR_NONASCII};
+use hexyl::{
+    COLOR_ASCII_OTHER, COLOR_ASCII_PRINTABLE, COLOR_ASCII_WHITESPACE, COLOR_NONASCII, COLOR_NULL,
+    COLOR_RESET,
+};
 
 #[cfg(test)]
 mod tests;
@@ -508,7 +511,10 @@ fn print_color_table() -> io::Result<()> {
 
     // ASCII other
     stdout_lock.write_all(COLOR_ASCII_OTHER)?;
-    writeln!(stdout_lock, "• ASCII control characters (except NULL and whitespace)")?;
+    writeln!(
+        stdout_lock,
+        "• ASCII control characters (except NULL and whitespace)"
+    )?;
     stdout_lock.write_all(COLOR_RESET)?;
 
     // Non-ASCII
