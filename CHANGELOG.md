@@ -2,6 +2,13 @@
 
 ## Features
 
+## Bugfixes
+
+
+# v0.16.0
+
+## Features
+
 * New `--print-color-table` option, see #229 (@sahinfalcon)
 
 ## Bugfixes
