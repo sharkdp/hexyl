@@ -186,7 +186,7 @@ struct Opt {
     terminal_width: Option<NonZeroU64>,
 
     /// Print a table showing how different types of bytes are colored.
-    #[arg(short('t'), long)]
+    #[arg(long)]
     print_color_table: bool,
 }
 
@@ -429,10 +429,9 @@ fn run() -> Result<()> {
 
     let character_table = opt.character_table;
 
-    let stdout = io::stdout();
-    let mut stdout_lock = BufWriter::new(stdout.lock());
+    let mut stdout = BufWriter::new(io::stdout().lock());
 
-    let mut printer = PrinterBuilder::new(&mut stdout_lock)
+    let mut printer = PrinterBuilder::new(&mut stdout)
         .show_color(show_color)
         .show_char_panel(show_char_panel)
         .show_position_panel(show_position_panel)
@@ -489,38 +488,37 @@ impl From<NonNegativeI64> for u64 {
 }
 
 fn print_color_table() -> io::Result<()> {
-    let stdout = io::stdout();
-    let mut stdout_lock = BufWriter::new(stdout.lock());
+    let mut stdout = BufWriter::new(io::stdout().lock());
 
-    writeln!(stdout_lock, "hexyl color reference:\n")?;
+    writeln!(stdout, "hexyl color reference:\n")?;
 
     // NULL bytes
-    stdout_lock.write_all(COLOR_NULL)?;
-    writeln!(stdout_lock, "⋄ NULL bytes (0x00)")?;
-    stdout_lock.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_NULL)?;
+    writeln!(stdout, "⋄ NULL bytes (0x00)")?;
+    stdout.write_all(COLOR_RESET)?;
 
     // ASCII printable
-    stdout_lock.write_all(COLOR_ASCII_PRINTABLE)?;
-    writeln!(stdout_lock, "a ASCII printable characters (0x20 - 0x7E)")?;
-    stdout_lock.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_ASCII_PRINTABLE)?;
+    writeln!(stdout, "a ASCII printable characters (0x20 - 0x7E)")?;
+    stdout.write_all(COLOR_RESET)?;
 
     // ASCII whitespace
-    stdout_lock.write_all(COLOR_ASCII_WHITESPACE)?;
-    writeln!(stdout_lock, "_ ASCII whitespace (0x09 - 0x0D, 0x20)")?;
-    stdout_lock.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_ASCII_WHITESPACE)?;
+    writeln!(stdout, "_ ASCII whitespace (0x09 - 0x0D, 0x20)")?;
+    stdout.write_all(COLOR_RESET)?;
 
     // ASCII other
-    stdout_lock.write_all(COLOR_ASCII_OTHER)?;
+    stdout.write_all(COLOR_ASCII_OTHER)?;
     writeln!(
-        stdout_lock,
+        stdout,
         "• ASCII control characters (except NULL and whitespace)"
     )?;
-    stdout_lock.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_RESET)?;
 
     // Non-ASCII
-    stdout_lock.write_all(COLOR_NONASCII)?;
-    writeln!(stdout_lock, "× Non-ASCII bytes (0x80 - 0xFF)")?;
-    stdout_lock.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_NONASCII)?;
+    writeln!(stdout, "× Non-ASCII bytes (0x80 - 0xFF)")?;
+    stdout.write_all(COLOR_RESET)?;
 
     Ok(())
 }
