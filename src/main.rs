@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use clap::builder::ArgPredicate;
 use clap::{ArgAction, Parser, ValueEnum};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 
 use const_format::formatcp;
 
@@ -235,10 +235,10 @@ fn run() -> Result<()> {
 
     let mut reader = match opt.file {
         Some(filename) => {
-            let file = File::open(&filename)?;
-            if file.metadata()?.is_dir() {
-                return Err(anyhow!("{} is a directory.", filename.display()));
+            if filename.is_dir() {
+                bail!("'{}' is a directory.", filename.to_string_lossy());
             }
+            let file = File::open(&filename)?;
 
             Input::File(file)
         }
