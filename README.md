@@ -189,6 +189,10 @@ sudo snap install hexyl
 scoop install hexyl
 ```
 
+### Via [X-CMD](https://x-cmd.com)
+```
+x env use hexyl
+```
 
 ## License
 
