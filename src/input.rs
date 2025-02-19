@@ -6,7 +6,7 @@ pub enum Input<'a> {
     Stdin(io::StdinLock<'a>),
 }
 
-impl<'a> Read for Input<'a> {
+impl Read for Input<'_> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match *self {
             Input::File(ref mut file) => file.read(buf),
@@ -15,7 +15,7 @@ impl<'a> Read for Input<'a> {
     }
 }
 
-impl<'a> Seek for Input<'a> {
+impl Seek for Input<'_> {
     fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         fn try_skip<R>(reader: R, pos: SeekFrom, err_desc: &'static str) -> io::Result<u64>
         where
