@@ -733,8 +733,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             writeln!(self.writer)?;
         } else if let Some(n) = leftover {
             // last line is incomplete
-            self.print_position_panel()?;
             self.squeezer = Squeezer::Ignore;
+            self.print_position_panel()?;
             self.print_bytes()?;
             self.squeezer = Squeezer::Print;
             for i in n..8 * self.panels as usize {
@@ -938,5 +938,19 @@ mod tests {
 
         let actual_string: &str = str::from_utf8(&output).unwrap();
         assert_eq!(actual_string, expected_string)
+    }
+
+    // issue#238
+    #[test]
+    fn display_offset_in_last_line() {
+        let input = io::Cursor::new(b"AAAAAAAAAAAAAAAACCCC");
+        let expected_string = "\
+┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+│00000000│ 41 41 41 41 41 41 41 41 ┊ 41 41 41 41 41 41 41 41 │AAAAAAAA┊AAAAAAAA│
+│00000010│ 43 43 43 43             ┊                         │CCCC    ┊        │
+└────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
+"
+        .to_owned();
+        assert_print_all_output(input, expected_string);
     }
 }
