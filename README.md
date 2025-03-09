@@ -7,6 +7,18 @@
 `hexyl` is a hex viewer for the terminal. It uses a colored output to distinguish different categories
 of bytes (NULL bytes, printable ASCII characters, ASCII whitespace characters, other ASCII characters and non-ASCII).
 
+### Sponsors
+
+A special *thank you* goes to our biggest <a href="doc/sponsors.md">sponsor</a>:<br>
+
+<a href="https://www.warp.dev/hexyl">
+  <img src="doc/sponsors/warp-logo.png" width="200" alt="Warp">
+  <br>
+  <strong>Warp, the intelligent terminal</strong>
+  <br>
+  <sub>Available on MacOS, Linux, Windows</sub>
+</a>
+
 ## Preview
 
 ![](https://i.imgur.com/MWO9uSL.png)
