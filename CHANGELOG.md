@@ -3,7 +3,7 @@
 ## Features
 
 ## Bugfixes
-
+- Now also squeezes identical lines that are not a single repeating byte, see #186 (@Taraxtix)
 
 # v0.16.0
 
