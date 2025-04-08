@@ -364,8 +364,10 @@ fn run() -> Result<()> {
         };
 
         if terminal_width < offset {
-            1
-        } else if (terminal_width - offset) / col_width < 1 {
+            return 1;
+        }
+
+        if (terminal_width - offset) / col_width < 1 {
             1
         } else {
             (terminal_width - offset) / col_width
