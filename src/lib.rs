@@ -642,55 +642,26 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             // Input from a file
             // Output like `unsigned char <filename>[] = { ... }; unsigned int <filename>_len = ...;`
             IncludeMode::File(filename) => {
-                let mut data = Vec::new();
-                buf.read_to_end(&mut data)?;
                 // convert non-alphanumeric characters to '_'
                 let var_name = filename
                     .chars()
                     .map(|c| if c.is_alphanumeric() { c } else { '_' })
                     .collect::<String>();
+
                 writeln!(self.writer, "unsigned char {}[] = {{", var_name)?;
 
-                for (i, byte) in data.iter().enumerate() {
-                    if i % 12 == 0 {
-                        if i > 0 {
-                            writeln!(self.writer, ",")?;
-                        }
-                        // first line
-                        write!(self.writer, "  ")?;
-                    } else {
-                        write!(self.writer, ", ")?;
-                    }
-                    write!(self.writer, "0x{:02x}", byte)?;
-                }
-                writeln!(self.writer, "\n}};")?;
+                let total_bytes = self.print_bytes_in_include_style(&mut buf)?;
+
+                writeln!(self.writer, "}};")?;
                 writeln!(
                     self.writer,
                     "unsigned int {}_len = {};",
-                    var_name,
-                    data.len()
+                    var_name, total_bytes
                 )?;
                 return Ok(());
             }
             IncludeMode::Stdin | IncludeMode::Slice => {
-                let mut data = Vec::new();
-                buf.read_to_end(&mut data)?;
-                for (i, byte) in data.iter().enumerate() {
-                    if i % 12 == 0 {
-                        if i > 0 {
-                            if i < data.len() {
-                                write!(self.writer, ",")?;
-                            }
-                            writeln!(self.writer)?;
-                        }
-                        // first line
-                        write!(self.writer, "  ")?;
-                    } else {
-                        write!(self.writer, ", ")?;
-                    }
-                    write!(self.writer, "0x{:02x}", byte)?;
-                }
-                writeln!(self.writer)?;
+                self.print_bytes_in_include_style(&mut buf)?;
                 return Ok(());
             }
             IncludeMode::Off => {}
@@ -835,6 +806,44 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         self.writer.flush()?;
 
         Ok(())
+    }
+
+    /// Print the bytes in C include file style
+    /// Return the number of bytes read  
+    fn print_bytes_in_include_style<Reader: Read>(
+        &mut self,
+        buf: &mut BufReader<Reader>,
+    ) -> Result<usize, io::Error> {
+        let mut buffer = [0; 1024];
+        let mut total_bytes = 0;
+        let mut is_first_chunk = true;
+        let mut line_counter = 0;
+        loop {
+            match buf.read(&mut buffer) {
+                Ok(0) => break, // EOF
+                Ok(bytes_read) => {
+                    total_bytes += bytes_read;
+
+                    for &byte in &buffer[..bytes_read] {
+                        if line_counter % 12 == 0 {
+                            if !is_first_chunk || line_counter > 0 {
+                                writeln!(self.writer, ",")?;
+                            }
+                            // indentation of first line
+                            write!(self.writer, "  ")?;
+                            is_first_chunk = false;
+                        } else {
+                            write!(self.writer, ", ")?;
+                        }
+                        write!(self.writer, "0x{:02x}", byte)?;
+                        line_counter += 1;
+                    }
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        writeln!(self.writer)?;
+        Ok(total_bytes)
     }
 }
 
@@ -1035,5 +1044,67 @@ mod tests {
 "
         .to_owned();
         assert_print_all_output(input, expected_string);
+    }
+
+    #[test]
+    fn include_mode_from_file() {
+        let input = io::Cursor::new(b"spamspamspamspamspam");
+        let expected_string = "unsigned char test_txt[] = {
+  0x73, 0x70, 0x61, 0x6d, 0x73, 0x70, 0x61, 0x6d, 0x73, 0x70, 0x61, 0x6d,
+  0x73, 0x70, 0x61, 0x6d, 0x73, 0x70, 0x61, 0x6d
+};
+unsigned int test_txt_len = 20;
+"
+        .to_owned();
+        let mut output = vec![];
+        let mut printer: Printer<Vec<u8>> = Printer::new(
+            &mut output,
+            false,
+            true,
+            true,
+            BorderStyle::Unicode,
+            true,
+            2,
+            1,
+            Base::Hexadecimal,
+            Endianness::Big,
+            CharacterTable::Default,
+            IncludeMode::File("test.txt".to_owned()),
+        );
+
+        printer.print_all(input).unwrap();
+
+        let actual_string: &str = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string)
+    }
+
+    #[test]
+    fn include_mode_from_stdin() {
+        let input = io::Cursor::new(b"spamspamspamspamspam");
+        let expected_string =
+            "  0x73, 0x70, 0x61, 0x6d, 0x73, 0x70, 0x61, 0x6d, 0x73, 0x70, 0x61, 0x6d,
+  0x73, 0x70, 0x61, 0x6d, 0x73, 0x70, 0x61, 0x6d
+"
+            .to_owned();
+        let mut output = vec![];
+        let mut printer: Printer<Vec<u8>> = Printer::new(
+            &mut output,
+            false,
+            true,
+            true,
+            BorderStyle::Unicode,
+            true,
+            2,
+            1,
+            Base::Hexadecimal,
+            Endianness::Big,
+            CharacterTable::Default,
+            IncludeMode::Stdin,
+        );
+
+        printer.print_all(input).unwrap();
+
+        let actual_string: &str = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string)
     }
 }

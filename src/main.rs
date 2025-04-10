@@ -189,11 +189,13 @@ struct Opt {
     #[arg(long)]
     print_color_table: bool,
 
-    /// Output in C/Rust-style array format (similar to xxd -i).
+    /// Output in C include file style (similar to xxd -i).
     #[arg(
         short('i'),
         long("include"),
-        help = "Output in a format suitable for including in a C/Rust program"
+        help = "Output in C include file style",
+        conflicts_with("little_endian_format"),
+        conflicts_with("endianness")
     )]
     include_mode: bool,
 }
