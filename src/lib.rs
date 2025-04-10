@@ -334,6 +334,7 @@ pub struct Printer<'a, Writer: Write> {
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
+    #![allow(clippy::too_many_arguments)]
     fn new(
         writer: &'a mut Writer,
         show_color: bool,
