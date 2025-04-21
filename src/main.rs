@@ -14,7 +14,7 @@ use thiserror::Error as ThisError;
 
 use terminal_size::terminal_size;
 
-use hexyl::{Base, BorderStyle, CharacterTable, Endianness, Input, PrinterBuilder};
+use hexyl::{Base, BorderStyle, CharacterTable, ColorScheme, Endianness, Input, PrinterBuilder};
 
 use hexyl::{
     COLOR_ASCII_OTHER, COLOR_ASCII_PRINTABLE, COLOR_ASCII_WHITESPACE, COLOR_NONASCII, COLOR_NULL,
@@ -128,6 +128,10 @@ struct Opt {
     /// Defines how bytes are mapped to characters.
     #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
     character_table: CharacterTable,
+
+    /// Defines the color scheme for the characters.
+    #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
+    color_scheme: ColorScheme,
 
     /// Whether to display the position panel on the left.
     #[arg(short('P'), long)]
@@ -429,6 +433,8 @@ fn run() -> Result<()> {
 
     let character_table = opt.character_table;
 
+    let color_scheme = opt.color_scheme;
+
     let mut stdout = BufWriter::new(io::stdout().lock());
 
     let mut printer = PrinterBuilder::new(&mut stdout)
@@ -442,6 +448,7 @@ fn run() -> Result<()> {
         .with_base(base)
         .endianness(endianness)
         .character_table(character_table)
+        .color_scheme(color_scheme)
         .build();
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;

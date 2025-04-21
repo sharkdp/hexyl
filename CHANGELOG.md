@@ -2,6 +2,9 @@
 
 ## Features
 
+- Add `--color-scheme` option, see #247 (@aticu)
+- Add `braille` character table, see #247 (@aticu)
+
 ## Bugfixes
 
 
