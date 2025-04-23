@@ -151,7 +151,8 @@ impl Byte {
                 Null => '⋄',
                 AsciiPrintable => self.0 as char,
                 AsciiWhitespace if self.0 == b' ' => ' ',
-                // \n and \r are important enough to get their own symbols
+                // `\t`, `\n` and `\r` are important enough to get their own symbols
+                AsciiWhitespace if self.0 == b'\t' => '→',
                 AsciiWhitespace if self.0 == b'\n' => '↵',
                 AsciiWhitespace if self.0 == b'\r' => '←',
                 AsciiWhitespace | AsciiOther | NonAscii => {

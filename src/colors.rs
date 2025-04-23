@@ -10,7 +10,7 @@ pub const COLOR_RESET: &[u8] = colors::Default::ANSI_FG.as_bytes();
 
 pub const COLOR_NULL_RGB: &[u8] = &rgb_bytes(100, 100, 100);
 
-pub const COLOR_DEL: &[u8] = &rgb_bytes(0, 255, 255);
+pub const COLOR_DEL: &[u8] = &rgb_bytes(64, 128, 0);
 
 pub const COLOR_GRADIENT_NONASCII: [[u8; 19]; 128] =
     generate_color_gradient(&[(255, 0, 0, 0.0), (255, 255, 0, 0.66), (255, 255, 255, 1.0)]);
