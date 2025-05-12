@@ -1,12 +1,39 @@
-use owo_colors::{colors, Color};
+use owo_colors::{colors, AnsiColors, Color, DynColors, OwoColorize};
+use std::str::FromStr;
+use std::sync::LazyLock;
 
-pub const COLOR_NULL: &[u8] = colors::BrightBlack::ANSI_FG.as_bytes();
-pub const COLOR_OFFSET: &[u8] = colors::BrightBlack::ANSI_FG.as_bytes();
-pub const COLOR_ASCII_PRINTABLE: &[u8] = colors::Cyan::ANSI_FG.as_bytes();
-pub const COLOR_ASCII_WHITESPACE: &[u8] = colors::Green::ANSI_FG.as_bytes();
-pub const COLOR_ASCII_OTHER: &[u8] = colors::Green::ANSI_FG.as_bytes();
-pub const COLOR_NONASCII: &[u8] = colors::Yellow::ANSI_FG.as_bytes();
-pub const COLOR_RESET: &[u8] = colors::Default::ANSI_FG.as_bytes();
+pub static COLOR_NULL: LazyLock<String> =
+    LazyLock::new(|| init_color("NULL", AnsiColors::BrightBlack));
+pub static COLOR_OFFSET: LazyLock<String> =
+    LazyLock::new(|| init_color("OFFSET", AnsiColors::BrightBlack));
+pub static COLOR_ASCII_PRINTABLE: LazyLock<String> =
+    LazyLock::new(|| init_color("ASCII_PRINTABLE", AnsiColors::Cyan));
+pub static COLOR_ASCII_WHITESPACE: LazyLock<String> =
+    LazyLock::new(|| init_color("ASCII_WHITESPACE", AnsiColors::Green));
+pub static COLOR_ASCII_OTHER: LazyLock<String> =
+    LazyLock::new(|| init_color("ASCII_OTHER", AnsiColors::Green));
+pub static COLOR_NONASCII: LazyLock<String> =
+    LazyLock::new(|| init_color("NONASCII", AnsiColors::Yellow));
+pub const COLOR_RESET: &str = colors::Default::ANSI_FG;
+
+fn init_color(name: &str, default_ansi: AnsiColors) -> String {
+    let default = DynColors::Ansi(default_ansi);
+    let env_var = format!("HEXYL_{}", name);
+    let color = match std::env::var(env_var).as_deref() {
+        Ok(color) => match DynColors::from_str(color) {
+            Ok(color) => color,
+            _ => default,
+        },
+        _ => default,
+    };
+    // owo_colors' API isn't designed to get the terminal codes directly for
+    // dynamic colors, so we use this hack to get them from the LHS of some text.
+    format!("{}", "|".color(color))
+        .split_once("|")
+        .unwrap()
+        .0
+        .to_owned()
+}
 
 #[rustfmt::skip]
 pub const CP437: [char; 256] = [
