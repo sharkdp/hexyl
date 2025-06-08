@@ -24,6 +24,13 @@ pub enum ByteCategory {
     NonAscii,
 }
 
+pub enum IncludeMode {
+    File(String), // filename
+    Stdin,
+    Slice,
+    Off,
+}
+
 #[derive(Copy, Clone, Debug, Default, ValueEnum)]
 #[non_exhaustive]
 pub enum CharacterTable {
@@ -203,6 +210,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     base: Base,
     endianness: Endianness,
     character_table: CharacterTable,
+    include_mode: IncludeMode,
 }
 
 impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
@@ -219,6 +227,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             base: Base::Hexadecimal,
             endianness: Endianness::Big,
             character_table: CharacterTable::Default,
+            include_mode: IncludeMode::Off,
         }
     }
 
@@ -272,6 +281,11 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
+    pub fn include_mode(mut self, include: IncludeMode) -> Self {
+        self.include_mode = include;
+        self
+    }
+
     pub fn build(self) -> Printer<'a, Writer> {
         Printer::new(
             self.writer,
@@ -285,6 +299,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             self.base,
             self.endianness,
             self.character_table,
+            self.include_mode,
         )
     }
 }
@@ -314,9 +329,12 @@ pub struct Printer<'a, Writer: Write> {
     base_digits: u8,
     /// Whether to show groups in little or big endian format.
     endianness: Endianness,
+    /// Whether to output in C include file style.
+    include_mode: IncludeMode,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
+    #![allow(clippy::too_many_arguments)]
     fn new(
         writer: &'a mut Writer,
         show_color: bool,
@@ -329,6 +347,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         base: Base,
         endianness: Endianness,
         character_table: CharacterTable,
+        include_mode: IncludeMode,
     ) -> Printer<'a, Writer> {
         Printer {
             idx: 0,
@@ -367,6 +386,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 Base::Hexadecimal => 2,
             },
             endianness,
+            include_mode,
         }
     }
 
@@ -617,6 +637,36 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         let mut buf = BufReader::new(reader);
 
+        // special handler for include mode
+        match &self.include_mode {
+            // Input from a file
+            // Output like `unsigned char <filename>[] = { ... }; unsigned int <filename>_len = ...;`
+            IncludeMode::File(filename) => {
+                // convert non-alphanumeric characters to '_'
+                let var_name = filename
+                    .chars()
+                    .map(|c| if c.is_alphanumeric() { c } else { '_' })
+                    .collect::<String>();
+
+                writeln!(self.writer, "unsigned char {}[] = {{", var_name)?;
+
+                let total_bytes = self.print_bytes_in_include_style(&mut buf)?;
+
+                writeln!(self.writer, "}};")?;
+                writeln!(
+                    self.writer,
+                    "unsigned int {}_len = {};",
+                    var_name, total_bytes
+                )?;
+                return Ok(());
+            }
+            IncludeMode::Stdin | IncludeMode::Slice => {
+                self.print_bytes_in_include_style(&mut buf)?;
+                return Ok(());
+            }
+            IncludeMode::Off => {}
+        }
+
         let leftover = loop {
             // read a maximum of 8 * self.panels bytes from the reader
             if let Ok(n) = buf.read(&mut self.line_buf) {
@@ -757,6 +807,44 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         Ok(())
     }
+
+    /// Print the bytes in C include file style
+    /// Return the number of bytes read  
+    fn print_bytes_in_include_style<Reader: Read>(
+        &mut self,
+        buf: &mut BufReader<Reader>,
+    ) -> Result<usize, io::Error> {
+        let mut buffer = [0; 1024];
+        let mut total_bytes = 0;
+        let mut is_first_chunk = true;
+        let mut line_counter = 0;
+        loop {
+            match buf.read(&mut buffer) {
+                Ok(0) => break, // EOF
+                Ok(bytes_read) => {
+                    total_bytes += bytes_read;
+
+                    for &byte in &buffer[..bytes_read] {
+                        if line_counter % 12 == 0 {
+                            if !is_first_chunk || line_counter > 0 {
+                                writeln!(self.writer, ",")?;
+                            }
+                            // indentation of first line
+                            write!(self.writer, "  ")?;
+                            is_first_chunk = false;
+                        } else {
+                            write!(self.writer, ", ")?;
+                        }
+                        write!(self.writer, "0x{:02x}", byte)?;
+                        line_counter += 1;
+                    }
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        writeln!(self.writer)?;
+        Ok(total_bytes)
+    }
 }
 
 #[cfg(test)]
@@ -780,6 +868,7 @@ mod tests {
             Base::Hexadecimal,
             Endianness::Big,
             CharacterTable::Default,
+            IncludeMode::Off,
         );
 
         printer.print_all(input).unwrap();
@@ -836,6 +925,7 @@ mod tests {
             Base::Hexadecimal,
             Endianness::Big,
             CharacterTable::Default,
+            IncludeMode::Off,
         );
         printer.display_offset(0xdeadbeef);
 
@@ -871,6 +961,7 @@ mod tests {
             Base::Hexadecimal,
             Endianness::Big,
             CharacterTable::Default,
+            IncludeMode::Off,
         );
 
         printer.print_all(input).unwrap();
@@ -932,6 +1023,7 @@ mod tests {
             Base::Hexadecimal,
             Endianness::Big,
             CharacterTable::Default,
+            IncludeMode::Off,
         );
 
         printer.print_all(input).unwrap();
@@ -952,5 +1044,67 @@ mod tests {
 "
         .to_owned();
         assert_print_all_output(input, expected_string);
+    }
+
+    #[test]
+    fn include_mode_from_file() {
+        let input = io::Cursor::new(b"spamspamspamspamspam");
+        let expected_string = "unsigned char test_txt[] = {
+  0x73, 0x70, 0x61, 0x6d, 0x73, 0x70, 0x61, 0x6d, 0x73, 0x70, 0x61, 0x6d,
+  0x73, 0x70, 0x61, 0x6d, 0x73, 0x70, 0x61, 0x6d
+};
+unsigned int test_txt_len = 20;
+"
+        .to_owned();
+        let mut output = vec![];
+        let mut printer: Printer<Vec<u8>> = Printer::new(
+            &mut output,
+            false,
+            true,
+            true,
+            BorderStyle::Unicode,
+            true,
+            2,
+            1,
+            Base::Hexadecimal,
+            Endianness::Big,
+            CharacterTable::Default,
+            IncludeMode::File("test.txt".to_owned()),
+        );
+
+        printer.print_all(input).unwrap();
+
+        let actual_string: &str = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string)
+    }
+
+    #[test]
+    fn include_mode_from_stdin() {
+        let input = io::Cursor::new(b"spamspamspamspamspam");
+        let expected_string =
+            "  0x73, 0x70, 0x61, 0x6d, 0x73, 0x70, 0x61, 0x6d, 0x73, 0x70, 0x61, 0x6d,
+  0x73, 0x70, 0x61, 0x6d, 0x73, 0x70, 0x61, 0x6d
+"
+            .to_owned();
+        let mut output = vec![];
+        let mut printer: Printer<Vec<u8>> = Printer::new(
+            &mut output,
+            false,
+            true,
+            true,
+            BorderStyle::Unicode,
+            true,
+            2,
+            1,
+            Base::Hexadecimal,
+            Endianness::Big,
+            CharacterTable::Default,
+            IncludeMode::Stdin,
+        );
+
+        printer.print_all(input).unwrap();
+
+        let actual_string: &str = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string)
     }
 }

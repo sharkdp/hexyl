@@ -4,6 +4,8 @@
 
 ## Features
 
+- Add option to output result in C include file style, see #242 (@wpcwzy)
+
 ## Bugfixes
 
 
