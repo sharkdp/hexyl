@@ -493,32 +493,32 @@ fn print_color_table() -> io::Result<()> {
     writeln!(stdout, "hexyl color reference:\n")?;
 
     // NULL bytes
-    stdout.write_all(COLOR_NULL)?;
+    stdout.write_all(COLOR_NULL.as_bytes())?;
     writeln!(stdout, "⋄ NULL bytes (0x00)")?;
-    stdout.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_RESET.as_bytes())?;
 
     // ASCII printable
-    stdout.write_all(COLOR_ASCII_PRINTABLE)?;
+    stdout.write_all(COLOR_ASCII_PRINTABLE.as_bytes())?;
     writeln!(stdout, "a ASCII printable characters (0x20 - 0x7E)")?;
-    stdout.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_RESET.as_bytes())?;
 
     // ASCII whitespace
-    stdout.write_all(COLOR_ASCII_WHITESPACE)?;
+    stdout.write_all(COLOR_ASCII_WHITESPACE.as_bytes())?;
     writeln!(stdout, "_ ASCII whitespace (0x09 - 0x0D, 0x20)")?;
-    stdout.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_RESET.as_bytes())?;
 
     // ASCII other
-    stdout.write_all(COLOR_ASCII_OTHER)?;
+    stdout.write_all(COLOR_ASCII_OTHER.as_bytes())?;
     writeln!(
         stdout,
         "• ASCII control characters (except NULL and whitespace)"
     )?;
-    stdout.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_RESET.as_bytes())?;
 
     // Non-ASCII
-    stdout.write_all(COLOR_NONASCII)?;
+    stdout.write_all(COLOR_NONASCII.as_bytes())?;
     writeln!(stdout, "× Non-ASCII bytes (0x80 - 0xFF)")?;
-    stdout.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_RESET.as_bytes())?;
 
     Ok(())
 }

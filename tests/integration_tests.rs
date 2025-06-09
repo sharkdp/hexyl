@@ -785,3 +785,180 @@ mod character_table {
             );
     }
 }
+
+mod colors {
+    use super::hexyl;
+    use owo_colors::{colors, Color};
+    use std::collections::HashMap;
+
+    // This is a helper for testing color in output. Writing tests to expect
+    // raw color codes is ugly and hard to look at. Loading expected output
+    // from files works fine, but you end up with a lot of files for all the
+    // tests, and you have to cross-reference the file with the test that uses
+    // it. The files also suffer from the same problem of being hard to
+    // visually inspect. Just catting the file to see the colorized output
+    // loses the nuance of where exactly the color codes appear (before or
+    // after spaces, for example), or whether there are redundant codes.
+    //
+    // So this ColorMap solves the problem neatly by having two inputs:
+    // - the easy to read expected output in plain format without any colors
+    // - a mapping with identical structure except some characters replaced
+    //   with single character color codes.
+    // This makes it easy to reference the output and expected colors side by
+    // side, and provides fairly precise control over exactly where color codes
+    // are expected (the only caveat being you can't have two color codes back
+    // to back). ColorMap combines these into the actual expected output.
+    //
+    // The color mapping needs to be identical to the expected output, except
+    // it has some chars replaced by color code stand ins. These are replaced
+    // with the actual color codes by the colorize method. The '.' character
+    // is also ignored (it doesn't need to match the input). This makes the
+    // color map more readable and avoids input characters from conflicting
+    // with color chars.
+    struct ColorMap {
+        text_map: &'static str,
+        char_to_color: HashMap<char, &'static str>,
+    }
+
+    impl ColorMap {
+        fn from(text_map: &'static str) -> Self {
+            ColorMap {
+                text_map,
+                char_to_color: HashMap::new(),
+            }
+        }
+
+        fn with<C: Color>(&mut self, c: char) -> &mut Self {
+            self.char_to_color.insert(c, C::ANSI_FG);
+            self
+        }
+
+        fn colorize(&self, input: &str) -> String {
+            let mut output = String::new();
+            let mut input_chars = input.chars();
+            for c in self.text_map.chars() {
+                let next_input = input_chars.next().expect("input and color map don't match");
+                if let Some(color) = self.char_to_color.get(&c) {
+                    output.push_str(color);
+                } else if c != '.' {
+                    // ignore '.' in the mapping for readability
+                    assert_eq!(c, next_input, "input and color map don't match");
+                }
+                output.push(next_input);
+            }
+            output
+        }
+    }
+
+    #[test]
+    fn hex_colors() {
+        let input = b"He\x11\0 \xff\0\xdd";
+        let expected_text = "\
+            ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐\n\
+            │00000000│ 48 65 11 00 20 ff 00 dd ┊                         │He•⋄ ×⋄×┊        │\n\
+            └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘\n";
+        let expected = ColorMap::from(
+            "\
+            ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐\n\
+            │r.......d y. .. b. c. g. m. c. m.d┊                        d│y.bcgmcmd        d\n\
+            └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘\n",
+        )
+        .with::<colors::Red>('r')
+        .with::<colors::Default>('d')
+        .with::<colors::Yellow>('y')
+        .with::<colors::Blue>('b')
+        .with::<colors::Green>('g')
+        .with::<colors::BrightMagenta>('m')
+        .with::<colors::CustomColor<0xab, 0xcd, 0xef>>('c')
+        .colorize(expected_text);
+
+        hexyl()
+            .write_stdin(input)
+            .arg("--color=always")
+            .env("HEXYL_COLOR_OFFSET", "red")
+            .env("HEXYL_COLOR_ASCII_PRINTABLE", "yellow")
+            .env("HEXYL_COLOR_ASCII_WHITESPACE", "green")
+            .env("HEXYL_COLOR_ASCII_OTHER", "blue")
+            .env("HEXYL_COLOR_NONASCII", "bright magenta")
+            .env("HEXYL_COLOR_NULL", "#abcdef")
+            .assert()
+            .success()
+            .stdout(expected);
+    }
+
+    #[test]
+    fn binary_colors() {
+        let input = b"He\x11\0 \xff\0\xdd";
+        let expected_text = "\
+            ┌────────┬─────────────────────────────────────────────────────────────────────────┬────────┐\n\
+            │00000000│ 01001000 01100101 00010001 00000000 00100000 11111111 00000000 11011101 │He•⋄ ×⋄×│\n\
+            └────────┴─────────────────────────────────────────────────────────────────────────┴────────┘\n";
+        let expected = ColorMap::from(
+            "\
+            ┌────────┬─────────────────────────────────────────────────────────────────────────┬────────┐\n\
+            │r.......d y....... ........ b....... c....... g....... m....... c....... m.......d│y.bcgmcmd\n\
+            └────────┴─────────────────────────────────────────────────────────────────────────┴────────┘\n"
+        )
+        .with::<colors::Red>('r')
+        .with::<colors::Default>('d')
+        .with::<colors::Yellow>('y')
+        .with::<colors::Blue>('b')
+        .with::<colors::Green>('g')
+        .with::<colors::BrightMagenta>('m')
+        .with::<colors::CustomColor<0xab, 0xcd, 0xef>>('c')
+        .colorize(expected_text);
+
+        hexyl()
+            .write_stdin(input)
+            .arg("--color=always")
+            .arg("--panels=1")
+            .arg("--base=binary")
+            .env("HEXYL_COLOR_OFFSET", "red")
+            .env("HEXYL_COLOR_ASCII_PRINTABLE", "yellow")
+            .env("HEXYL_COLOR_ASCII_WHITESPACE", "green")
+            .env("HEXYL_COLOR_ASCII_OTHER", "blue")
+            .env("HEXYL_COLOR_NONASCII", "bright magenta")
+            .env("HEXYL_COLOR_NULL", "#abcdef")
+            .assert()
+            .success()
+            .stdout(expected);
+    }
+
+    #[test]
+    fn groupsize_colors() {
+        let input = b"He\x11\0 \xff\0\xdd";
+        let expected_text = "\
+            ┌────────┬─────────────────────┬────────┐\n\
+            │00000000│ 4865 1100 20ff 00dd │He•⋄ ×⋄×│\n\
+            └────────┴─────────────────────┴────────┘\n";
+        let expected = ColorMap::from(
+            "\
+            ┌────────┬─────────────────────┬────────┐\n\
+            │r.......d y... b.c. g.m. c.m.d│y.bcgmcmd\n\
+            └────────┴─────────────────────┴────────┘\n",
+        )
+        .with::<colors::Red>('r')
+        .with::<colors::Default>('d')
+        .with::<colors::Yellow>('y')
+        .with::<colors::Blue>('b')
+        .with::<colors::Green>('g')
+        .with::<colors::BrightMagenta>('m')
+        .with::<colors::CustomColor<0xab, 0xcd, 0xef>>('c')
+        .colorize(expected_text);
+
+        hexyl()
+            .write_stdin(input)
+            .arg("--color=always")
+            .arg("--panels=1")
+            .arg("--groupsize=2")
+            .env("HEXYL_COLOR_OFFSET", "red")
+            .env("HEXYL_COLOR_ASCII_PRINTABLE", "yellow")
+            .env("HEXYL_COLOR_ASCII_WHITESPACE", "green")
+            .env("HEXYL_COLOR_ASCII_OTHER", "blue")
+            .env("HEXYL_COLOR_NONASCII", "bright magenta")
+            .env("HEXYL_COLOR_NULL", "#abcdef")
+            .assert()
+            .success()
+            .stdout(expected);
+    }
+}
