@@ -197,16 +197,17 @@ x env use hexyl
 
 `hexyl` colors can be configured via environment variables. The variables used are as follows:
 
- * `HEXYL_ASCII_PRINTABLE`: Any non-whitespace printable ASCII character
- * `HEXYL_ASCII_WHITESPACE`: Whitespace such as space or newline (only visible in middle panel with byte values)
- * `HEXYL_ASCII_OTHER`: Any other ASCII character (< `0x80`) besides null
- * `HEXYL_NULL`: The null byte (`0x00`)
- * `HEXYL_NONASCII`: Any non-ASCII byte (> `0x7F`)
- * `HEXYL_OFFSET`: The lefthand file offset
+ * `HEXYL_COLOR_ASCII_PRINTABLE`: Any non-whitespace printable ASCII character
+ * `HEXYL_COLOR_ASCII_WHITESPACE`: Whitespace such as space or newline (only visible in middle panel with byte values)
+ * `HEXYL_COLOR_ASCII_OTHER`: Any other ASCII character (< `0x80`) besides null
+ * `HEXYL_COLOR_NULL`: The null byte (`0x00`)
+ * `HEXYL_COLOR_NONASCII`: Any non-ASCII byte (> `0x7F`)
+ * `HEXYL_COLOR_OFFSET`: The lefthand file offset
 
 The colors can be any of the 8 standard terminal colors: `black`, `blue`, `cyan`, `green`, `magenta`, `red`,
 `yellow` and `white`. The "bright" variants are also supported (e.g., `bright blue`). Additionally, you can use
-the RGB hex format, `#abcdef`. For example, `HEXYL_ASCII_PRINTABLE=blue HEXYL_ASCII_WHITESPACE="bright green" HEXYL_ASCII_OTHER="#ff7f99"`.
+the RGB hex format, `#abcdef`. For example, `HEXYL_COLOR_ASCII_PRINTABLE=blue HEXYL_COLOR_ASCII_WHITESPACE="bright green"
+HEXYL_COLOR_ASCII_OTHER="#ff7f99"`.
 
 ## License
 

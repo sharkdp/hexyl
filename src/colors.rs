@@ -18,7 +18,7 @@ pub const COLOR_RESET: &str = colors::Default::ANSI_FG;
 
 fn init_color(name: &str, default_ansi: AnsiColors) -> String {
     let default = DynColors::Ansi(default_ansi);
-    let env_var = format!("HEXYL_{}", name);
+    let env_var = format!("HEXYL_COLOR_{}", name);
     let color = match std::env::var(env_var).as_deref() {
         Ok(color) => match DynColors::from_str(color) {
             Ok(color) => color,
