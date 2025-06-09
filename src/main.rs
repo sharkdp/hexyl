@@ -362,7 +362,7 @@ fn run() -> Result<()> {
         } else {
             ((8 / group_size) * (base_digits * group_size + 1)) + 2
         };
-        if (terminal_width - offset) / col_width < 1 {
+        if (terminal_width.saturating_sub(offset)) / col_width < 1 {
             1
         } else {
             (terminal_width - offset) / col_width
