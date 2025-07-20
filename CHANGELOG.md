@@ -1,6 +1,7 @@
-# unreleased 
+# unreleased
 
 - Fix memory allocation bug when terminal width is less than 10, see #244 (@selfup)
+- Add `--character-table control-pictures` to use [Unicode Control Pictures](https://en.wikipedia.org/wiki/Control_Pictures), e.g. '␀', '␊', '␠', for printing whitespace and non-printable ASCII characters, see #250 (@PaulJuliusMartinez)
 
 ## Features
 

@@ -36,6 +36,12 @@ pub enum CharacterTable {
     /// Show printable ASCII as-is, ' ' for space, '.' for everything else.
     Ascii,
 
+    /// Use Unicode Control Pictures, e.g. '␀', '␈', '␊', '␍', '␠', '␡', etc. for
+    /// whitespace and other non-printable ASCII values, and '.' for non-ASCII
+    /// bytes.
+    #[value(name = "control-pictures")]
+    ControlPictures,
+
     /// Show printable EBCDIC as-is, ' ' for space, '.' for everything else.
     #[value(name = "codepage-1047")]
     CP1047,
@@ -109,6 +115,24 @@ impl Byte {
                 AsciiWhitespace if self.0 == 0x20 => ' ',
                 AsciiWhitespace => '.',
                 AsciiOther => '.',
+                NonAscii => '.',
+            },
+            CharacterTable::ControlPictures => match self.category() {
+                Null => '␀',
+                AsciiPrintable => self.0 as char,
+                AsciiOther if self.0 == 0x7F => '␡',
+                AsciiWhitespace | AsciiOther => {
+                    // https://unicode.org/charts/nameslist/n_2400.html
+                    // The Unicode Pictures code block starts at U+2400.
+                    //
+                    // This simple offset calculation to get the corresponding
+                    // Unicode codepoint only works in the range below. `AsciiWhitespace`
+                    // and `AsciiOther` characters (other than 0x7f, handled above) should
+                    // only fall in this range. This is checked by the character table
+                    // test that prints every possible u8 value.
+                    debug_assert!(self.0 <= 0x20);
+                    char::from_u32(0x2400 + (self.0 as u32)).unwrap()
+                }
                 NonAscii => '.',
             },
             CharacterTable::CP1047 => CP1047[self.0 as usize],
@@ -952,5 +976,171 @@ mod tests {
 "
         .to_owned();
         assert_print_all_output(input, expected_string);
+    }
+
+    fn print_character_table(character_table: CharacterTable) -> String {
+        let mut output = vec![];
+        let mut printer = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .show_position_panel(false)
+            .show_char_panel(true)
+            .character_table(character_table)
+            .build();
+
+        let all_u8_values = Vec::from_iter(0u8..=255);
+        let input = io::Cursor::new(all_u8_values.as_slice());
+        printer.print_all(input).unwrap();
+
+        String::from_utf8(output).unwrap()
+    }
+
+    #[test]
+    fn default_character_table() {
+        let expected_string = "\
+┌─────────────────────────┬─────────────────────────┬────────┬────────┐
+│ 00 01 02 03 04 05 06 07 ┊ 08 09 0a 0b 0c 0d 0e 0f │⋄•••••••┊•__•__••│
+│ 10 11 12 13 14 15 16 17 ┊ 18 19 1a 1b 1c 1d 1e 1f │••••••••┊••••••••│
+│ 20 21 22 23 24 25 26 27 ┊ 28 29 2a 2b 2c 2d 2e 2f │ !\"#$%&'┊()*+,-./│
+│ 30 31 32 33 34 35 36 37 ┊ 38 39 3a 3b 3c 3d 3e 3f │01234567┊89:;<=>?│
+│ 40 41 42 43 44 45 46 47 ┊ 48 49 4a 4b 4c 4d 4e 4f │@ABCDEFG┊HIJKLMNO│
+│ 50 51 52 53 54 55 56 57 ┊ 58 59 5a 5b 5c 5d 5e 5f │PQRSTUVW┊XYZ[\\]^_│
+│ 60 61 62 63 64 65 66 67 ┊ 68 69 6a 6b 6c 6d 6e 6f │`abcdefg┊hijklmno│
+│ 70 71 72 73 74 75 76 77 ┊ 78 79 7a 7b 7c 7d 7e 7f │pqrstuvw┊xyz{|}~•│
+│ 80 81 82 83 84 85 86 87 ┊ 88 89 8a 8b 8c 8d 8e 8f │××××××××┊××××××××│
+│ 90 91 92 93 94 95 96 97 ┊ 98 99 9a 9b 9c 9d 9e 9f │××××××××┊××××××××│
+│ a0 a1 a2 a3 a4 a5 a6 a7 ┊ a8 a9 aa ab ac ad ae af │××××××××┊××××××××│
+│ b0 b1 b2 b3 b4 b5 b6 b7 ┊ b8 b9 ba bb bc bd be bf │××××××××┊××××××××│
+│ c0 c1 c2 c3 c4 c5 c6 c7 ┊ c8 c9 ca cb cc cd ce cf │××××××××┊××××××××│
+│ d0 d1 d2 d3 d4 d5 d6 d7 ┊ d8 d9 da db dc dd de df │××××××××┊××××××××│
+│ e0 e1 e2 e3 e4 e5 e6 e7 ┊ e8 e9 ea eb ec ed ee ef │××××××××┊××××××××│
+│ f0 f1 f2 f3 f4 f5 f6 f7 ┊ f8 f9 fa fb fc fd fe ff │××××××××┊××××××××│
+└─────────────────────────┴─────────────────────────┴────────┴────────┘
+"
+        .to_owned();
+
+        assert_eq!(
+            print_character_table(CharacterTable::Default),
+            expected_string,
+        );
+    }
+
+    #[test]
+    fn ascii_character_table() {
+        let expected_string = "\
+┌─────────────────────────┬─────────────────────────┬────────┬────────┐
+│ 00 01 02 03 04 05 06 07 ┊ 08 09 0a 0b 0c 0d 0e 0f │........┊........│
+│ 10 11 12 13 14 15 16 17 ┊ 18 19 1a 1b 1c 1d 1e 1f │........┊........│
+│ 20 21 22 23 24 25 26 27 ┊ 28 29 2a 2b 2c 2d 2e 2f │ !\"#$%&'┊()*+,-./│
+│ 30 31 32 33 34 35 36 37 ┊ 38 39 3a 3b 3c 3d 3e 3f │01234567┊89:;<=>?│
+│ 40 41 42 43 44 45 46 47 ┊ 48 49 4a 4b 4c 4d 4e 4f │@ABCDEFG┊HIJKLMNO│
+│ 50 51 52 53 54 55 56 57 ┊ 58 59 5a 5b 5c 5d 5e 5f │PQRSTUVW┊XYZ[\\]^_│
+│ 60 61 62 63 64 65 66 67 ┊ 68 69 6a 6b 6c 6d 6e 6f │`abcdefg┊hijklmno│
+│ 70 71 72 73 74 75 76 77 ┊ 78 79 7a 7b 7c 7d 7e 7f │pqrstuvw┊xyz{|}~.│
+│ 80 81 82 83 84 85 86 87 ┊ 88 89 8a 8b 8c 8d 8e 8f │........┊........│
+│ 90 91 92 93 94 95 96 97 ┊ 98 99 9a 9b 9c 9d 9e 9f │........┊........│
+│ a0 a1 a2 a3 a4 a5 a6 a7 ┊ a8 a9 aa ab ac ad ae af │........┊........│
+│ b0 b1 b2 b3 b4 b5 b6 b7 ┊ b8 b9 ba bb bc bd be bf │........┊........│
+│ c0 c1 c2 c3 c4 c5 c6 c7 ┊ c8 c9 ca cb cc cd ce cf │........┊........│
+│ d0 d1 d2 d3 d4 d5 d6 d7 ┊ d8 d9 da db dc dd de df │........┊........│
+│ e0 e1 e2 e3 e4 e5 e6 e7 ┊ e8 e9 ea eb ec ed ee ef │........┊........│
+│ f0 f1 f2 f3 f4 f5 f6 f7 ┊ f8 f9 fa fb fc fd fe ff │........┊........│
+└─────────────────────────┴─────────────────────────┴────────┴────────┘
+"
+        .to_owned();
+
+        assert_eq!(
+            print_character_table(CharacterTable::Ascii),
+            expected_string,
+        );
+    }
+
+    #[test]
+    fn control_pictures_character_table() {
+        let expected_string = "\
+┌─────────────────────────┬─────────────────────────┬────────┬────────┐
+│ 00 01 02 03 04 05 06 07 ┊ 08 09 0a 0b 0c 0d 0e 0f │␀␁␂␃␄␅␆␇┊␈␉␊␋␌␍␎␏│
+│ 10 11 12 13 14 15 16 17 ┊ 18 19 1a 1b 1c 1d 1e 1f │␐␑␒␓␔␕␖␗┊␘␙␚␛␜␝␞␟│
+│ 20 21 22 23 24 25 26 27 ┊ 28 29 2a 2b 2c 2d 2e 2f │␠!\"#$%&'┊()*+,-./│
+│ 30 31 32 33 34 35 36 37 ┊ 38 39 3a 3b 3c 3d 3e 3f │01234567┊89:;<=>?│
+│ 40 41 42 43 44 45 46 47 ┊ 48 49 4a 4b 4c 4d 4e 4f │@ABCDEFG┊HIJKLMNO│
+│ 50 51 52 53 54 55 56 57 ┊ 58 59 5a 5b 5c 5d 5e 5f │PQRSTUVW┊XYZ[\\]^_│
+│ 60 61 62 63 64 65 66 67 ┊ 68 69 6a 6b 6c 6d 6e 6f │`abcdefg┊hijklmno│
+│ 70 71 72 73 74 75 76 77 ┊ 78 79 7a 7b 7c 7d 7e 7f │pqrstuvw┊xyz{|}~␡│
+│ 80 81 82 83 84 85 86 87 ┊ 88 89 8a 8b 8c 8d 8e 8f │........┊........│
+│ 90 91 92 93 94 95 96 97 ┊ 98 99 9a 9b 9c 9d 9e 9f │........┊........│
+│ a0 a1 a2 a3 a4 a5 a6 a7 ┊ a8 a9 aa ab ac ad ae af │........┊........│
+│ b0 b1 b2 b3 b4 b5 b6 b7 ┊ b8 b9 ba bb bc bd be bf │........┊........│
+│ c0 c1 c2 c3 c4 c5 c6 c7 ┊ c8 c9 ca cb cc cd ce cf │........┊........│
+│ d0 d1 d2 d3 d4 d5 d6 d7 ┊ d8 d9 da db dc dd de df │........┊........│
+│ e0 e1 e2 e3 e4 e5 e6 e7 ┊ e8 e9 ea eb ec ed ee ef │........┊........│
+│ f0 f1 f2 f3 f4 f5 f6 f7 ┊ f8 f9 fa fb fc fd fe ff │........┊........│
+└─────────────────────────┴─────────────────────────┴────────┴────────┘
+"
+        .to_owned();
+
+        assert_eq!(
+            print_character_table(CharacterTable::ControlPictures),
+            expected_string,
+        );
+    }
+
+    #[test]
+    fn cp1047_character_table() {
+        let expected_string = "\
+┌─────────────────────────┬─────────────────────────┬────────┬────────┐
+│ 00 01 02 03 04 05 06 07 ┊ 08 09 0a 0b 0c 0d 0e 0f │........┊........│
+│ 10 11 12 13 14 15 16 17 ┊ 18 19 1a 1b 1c 1d 1e 1f │........┊........│
+│ 20 21 22 23 24 25 26 27 ┊ 28 29 2a 2b 2c 2d 2e 2f │........┊........│
+│ 30 31 32 33 34 35 36 37 ┊ 38 39 3a 3b 3c 3d 3e 3f │........┊........│
+│ 40 41 42 43 44 45 46 47 ┊ 48 49 4a 4b 4c 4d 4e 4f │ .......┊..$.<(+|│
+│ 50 51 52 53 54 55 56 57 ┊ 58 59 5a 5b 5c 5d 5e 5f │&.......┊..!$*);.│
+│ 60 61 62 63 64 65 66 67 ┊ 68 69 6a 6b 6c 6d 6e 6f │-/......┊...,%_>?│
+│ 70 71 72 73 74 75 76 77 ┊ 78 79 7a 7b 7c 7d 7e 7f │........┊..:#@'=.│
+│ 80 81 82 83 84 85 86 87 ┊ 88 89 8a 8b 8c 8d 8e 8f │.abcdefg┊hi.{.(+.│
+│ 90 91 92 93 94 95 96 97 ┊ 98 99 9a 9b 9c 9d 9e 9f │.jklmnop┊qr.}.)..│
+│ a0 a1 a2 a3 a4 a5 a6 a7 ┊ a8 a9 aa ab ac ad ae af │.~stuvwx┊yz......│
+│ b0 b1 b2 b3 b4 b5 b6 b7 ┊ b8 b9 ba bb bc bd be bf │........┊..[]...-│
+│ c0 c1 c2 c3 c4 c5 c6 c7 ┊ c8 c9 ca cb cc cd ce cf │{ABCDEFG┊HI......│
+│ d0 d1 d2 d3 d4 d5 d6 d7 ┊ d8 d9 da db dc dd de df │}JKLMNOP┊QR......│
+│ e0 e1 e2 e3 e4 e5 e6 e7 ┊ e8 e9 ea eb ec ed ee ef │..STUVWX┊YZ......│
+│ f0 f1 f2 f3 f4 f5 f6 f7 ┊ f8 f9 fa fb fc fd fe ff │01234567┊89......│
+└─────────────────────────┴─────────────────────────┴────────┴────────┘
+"
+        .to_owned();
+
+        assert_eq!(
+            print_character_table(CharacterTable::CP1047),
+            expected_string,
+        );
+    }
+
+    #[test]
+    fn cp437_character_table() {
+        let expected_string = "\
+┌─────────────────────────┬─────────────────────────┬────────┬────────┐
+│ 00 01 02 03 04 05 06 07 ┊ 08 09 0a 0b 0c 0d 0e 0f │⋄☺☻♥♦♣♠•┊◘○◙♂♀♪♫☼│
+│ 10 11 12 13 14 15 16 17 ┊ 18 19 1a 1b 1c 1d 1e 1f │►◄↕‼¶§▬↨┊↑↓→←∟↔▲▼│
+│ 20 21 22 23 24 25 26 27 ┊ 28 29 2a 2b 2c 2d 2e 2f │ !\"#$%&'┊()*+,-./│
+│ 30 31 32 33 34 35 36 37 ┊ 38 39 3a 3b 3c 3d 3e 3f │01234567┊89:;<=>?│
+│ 40 41 42 43 44 45 46 47 ┊ 48 49 4a 4b 4c 4d 4e 4f │@ABCDEFG┊HIJKLMNO│
+│ 50 51 52 53 54 55 56 57 ┊ 58 59 5a 5b 5c 5d 5e 5f │PQRSTUVW┊XYZ[\\]^_│
+│ 60 61 62 63 64 65 66 67 ┊ 68 69 6a 6b 6c 6d 6e 6f │`abcdefg┊hijklmno│
+│ 70 71 72 73 74 75 76 77 ┊ 78 79 7a 7b 7c 7d 7e 7f │pqrstuvw┊xyz{|}~⌂│
+│ 80 81 82 83 84 85 86 87 ┊ 88 89 8a 8b 8c 8d 8e 8f │Çüéâäàåç┊êëèïîìÄÅ│
+│ 90 91 92 93 94 95 96 97 ┊ 98 99 9a 9b 9c 9d 9e 9f │ÉæÆôöòûù┊ÿÖÜ¢£¥₧ƒ│
+│ a0 a1 a2 a3 a4 a5 a6 a7 ┊ a8 a9 aa ab ac ad ae af │áíóúñÑªº┊¿⌐¬½¼¡«»│
+│ b0 b1 b2 b3 b4 b5 b6 b7 ┊ b8 b9 ba bb bc bd be bf │░▒▓│┤╡╢╖┊╕╣║╗╝╜╛┐│
+│ c0 c1 c2 c3 c4 c5 c6 c7 ┊ c8 c9 ca cb cc cd ce cf │└┴┬├─┼╞╟┊╚╔╩╦╠═╬╧│
+│ d0 d1 d2 d3 d4 d5 d6 d7 ┊ d8 d9 da db dc dd de df │╨╤╥╙╘╒╓╫┊╪┘┌█▄▌▐▀│
+│ e0 e1 e2 e3 e4 e5 e6 e7 ┊ e8 e9 ea eb ec ed ee ef │αßΓπΣσµτ┊ΦΘΩδ∞φε∩│
+│ f0 f1 f2 f3 f4 f5 f6 f7 ┊ f8 f9 fa fb fc fd fe ff │≡±≥≤⌠⌡÷≈┊°∙·√ⁿ²■ﬀ│
+└─────────────────────────┴─────────────────────────┴────────┴────────┘
+"
+        .to_owned();
+
+        assert_eq!(
+            print_character_table(CharacterTable::CP437),
+            expected_string,
+        );
     }
 }
