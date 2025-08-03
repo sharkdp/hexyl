@@ -195,10 +195,7 @@ struct Opt {
     print_color_table: bool,
 
     /// Generate a shell completion and print it to stdout.
-    #[arg(
-        long,
-        value_name("SHELL"),
-    )]
+    #[arg(long, value_name("SHELL"))]
     shell_completion: Option<Shell>,
 }
 
