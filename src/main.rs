@@ -4,7 +4,8 @@ use std::num::{NonZeroI64, NonZeroU64};
 use std::path::PathBuf;
 
 use clap::builder::ArgPredicate;
-use clap::{ArgAction, Parser, ValueEnum};
+use clap::{ArgAction, CommandFactory, Parser, ValueEnum};
+use clap_complete::aot::{generate, Shell};
 
 use anyhow::{anyhow, bail, Context, Result};
 
@@ -192,6 +193,13 @@ struct Opt {
     /// Print a table showing how different types of bytes are colored.
     #[arg(long)]
     print_color_table: bool,
+
+    /// Generate a shell completion and print it to stdout.
+    #[arg(
+        long,
+        value_name("SHELL"),
+    )]
+    shell_completion: Option<Shell>,
 }
 
 #[derive(Clone, Debug, Default, ValueEnum)]
@@ -246,6 +254,13 @@ fn run() -> Result<()> {
 
     if opt.print_color_table {
         return print_color_table().map_err(|e| anyhow!(e));
+    }
+
+    if let Some(sh) = opt.shell_completion {
+        let mut cmd = Opt::command();
+        let name = cmd.get_name().to_string();
+        generate(sh, &mut cmd, name, &mut io::stdout());
+        return Ok(());
     }
 
     let stdin = io::stdin();
