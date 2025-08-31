@@ -1,5 +1,7 @@
 # unreleased 
 
+- Fix memory allocation bug when terminal width is less than 10, see #244 (@selfup)
+
 ## Features
 
 - Add `--color-scheme` option, see #247 (@aticu)
