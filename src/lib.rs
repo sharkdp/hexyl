@@ -344,20 +344,45 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
     }
 
     pub fn build(self) -> Printer<'a, Writer> {
-        Printer::new(
-            self.writer,
-            self.show_color,
-            self.show_char_panel,
-            self.show_position_panel,
-            self.border_style,
-            self.use_squeeze,
-            self.panels,
-            self.group_size,
-            self.base,
-            self.endianness,
-            self.character_table,
-            self.color_scheme,
-        )
+        Printer {
+            idx: 0,
+            line_buf: vec![0x0; 8 * self.panels as usize],
+            writer: self.writer,
+            show_char_panel: self.show_char_panel,
+            show_position_panel: self.show_position_panel,
+            show_color: self.show_color,
+            curr_color: None,
+            color_scheme: self.color_scheme,
+            border_style: self.border_style,
+            byte_hex_panel: (0u8..=u8::MAX)
+                .map(|i| match self.base {
+                    Base::Binary => format!("{i:08b}"),
+                    Base::Octal => format!("{i:03o}"),
+                    Base::Decimal => format!("{i:03}"),
+                    Base::Hexadecimal => format!("{i:02x}"),
+                })
+                .collect(),
+            byte_char_panel: (0u8..=u8::MAX)
+                .map(|i| format!("{}", Byte(i).as_char(self.character_table)))
+                .collect(),
+            byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{i:02x}")).collect(),
+            squeezer: if self.use_squeeze {
+                Squeezer::Ignore
+            } else {
+                Squeezer::Disabled
+            },
+            display_offset: 0,
+            panels: self.panels,
+            squeeze_byte: 0x00,
+            group_size: self.group_size,
+            base_digits: match self.base {
+                Base::Binary => 8,
+                Base::Octal => 3,
+                Base::Decimal => 3,
+                Base::Hexadecimal => 2,
+            },
+            endianness: self.endianness,
+        }
     }
 }
 
@@ -390,60 +415,6 @@ pub struct Printer<'a, Writer: Write> {
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
-    fn new(
-        writer: &'a mut Writer,
-        show_color: bool,
-        show_char_panel: bool,
-        show_position_panel: bool,
-        border_style: BorderStyle,
-        use_squeeze: bool,
-        panels: u64,
-        group_size: u8,
-        base: Base,
-        endianness: Endianness,
-        character_table: CharacterTable,
-        color_scheme: ColorScheme,
-    ) -> Printer<'a, Writer> {
-        Printer {
-            idx: 0,
-            line_buf: vec![0x0; 8 * panels as usize],
-            writer,
-            show_char_panel,
-            show_position_panel,
-            show_color,
-            curr_color: None,
-            color_scheme,
-            border_style,
-            byte_hex_panel: (0u8..=u8::MAX)
-                .map(|i| match base {
-                    Base::Binary => format!("{i:08b}"),
-                    Base::Octal => format!("{i:03o}"),
-                    Base::Decimal => format!("{i:03}"),
-                    Base::Hexadecimal => format!("{i:02x}"),
-                })
-                .collect(),
-            byte_char_panel: (0u8..=u8::MAX)
-                .map(|i| format!("{}", Byte(i).as_char(character_table)))
-                .collect(),
-            byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{i:02x}")).collect(),
-            squeezer: if use_squeeze {
-                Squeezer::Ignore
-            } else {
-                Squeezer::Disabled
-            },
-            display_offset: 0,
-            panels,
-            squeeze_byte: 0x00,
-            group_size,
-            base_digits: match base {
-                Base::Binary => 8,
-                Base::Octal => 3,
-                Base::Decimal => 3,
-                Base::Hexadecimal => 2,
-            },
-            endianness,
-        }
-    }
 
     pub fn display_offset(&mut self, display_offset: u64) -> &mut Self {
         self.display_offset = display_offset;
@@ -844,20 +815,19 @@ mod tests {
 
     fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) {
         let mut output = vec![];
-        let mut printer = Printer::new(
-            &mut output,
-            false,
-            true,
-            true,
-            BorderStyle::Unicode,
-            true,
-            2,
-            1,
-            Base::Hexadecimal,
-            Endianness::Big,
-            CharacterTable::Default,
-            ColorScheme::Default,
-        );
+        let mut printer = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .show_char_panel(true)
+            .show_position_panel(true)
+            .with_border_style(BorderStyle::Unicode)
+            .enable_squeezing(true)
+            .num_panels(2)
+            .group_size(1)
+            .with_base(Base::Hexadecimal)
+            .endianness(Endianness::Big)
+            .character_table(CharacterTable::Default)
+            .color_scheme(ColorScheme::Default)
+            .build();
 
         printer.print_all(input).unwrap();
 
@@ -901,20 +871,19 @@ mod tests {
         .to_owned();
 
         let mut output = vec![];
-        let mut printer: Printer<Vec<u8>> = Printer::new(
-            &mut output,
-            false,
-            true,
-            true,
-            BorderStyle::Unicode,
-            true,
-            2,
-            1,
-            Base::Hexadecimal,
-            Endianness::Big,
-            CharacterTable::Default,
-            ColorScheme::Default,
-        );
+        let mut printer: Printer<Vec<u8>> = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .show_char_panel(true)
+            .show_position_panel(true)
+            .with_border_style(BorderStyle::Unicode)
+            .enable_squeezing(true)
+            .num_panels(2)
+            .group_size(1)
+            .with_base(Base::Hexadecimal)
+            .endianness(Endianness::Big)
+            .character_table(CharacterTable::Default)
+            .color_scheme(ColorScheme::Default)
+            .build();
         printer.display_offset(0xdeadbeef);
 
         printer.print_all(input).unwrap();
@@ -937,20 +906,19 @@ mod tests {
         .to_owned();
 
         let mut output = vec![];
-        let mut printer: Printer<Vec<u8>> = Printer::new(
-            &mut output,
-            false,
-            true,
-            true,
-            BorderStyle::Unicode,
-            true,
-            4,
-            1,
-            Base::Hexadecimal,
-            Endianness::Big,
-            CharacterTable::Default,
-            ColorScheme::Default,
-        );
+        let mut printer: Printer<Vec<u8>> = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .show_char_panel(true)
+            .show_position_panel(true)
+            .with_border_style(BorderStyle::Unicode)
+            .enable_squeezing(true)
+            .num_panels(4)
+            .group_size(1)
+            .with_base(Base::Hexadecimal)
+            .endianness(Endianness::Big)
+            .character_table(CharacterTable::Default)
+            .color_scheme(ColorScheme::Default)
+            .build();
 
         printer.print_all(input).unwrap();
 
@@ -999,20 +967,19 @@ mod tests {
         .to_owned();
 
         let mut output = vec![];
-        let mut printer: Printer<Vec<u8>> = Printer::new(
-            &mut output,
-            false,
-            true,
-            true,
-            BorderStyle::Unicode,
-            true,
-            3,
-            1,
-            Base::Hexadecimal,
-            Endianness::Big,
-            CharacterTable::Default,
-            ColorScheme::Default,
-        );
+        let mut printer: Printer<Vec<u8>> = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .show_char_panel(true)
+            .show_position_panel(true)
+            .with_border_style(BorderStyle::Unicode)
+            .enable_squeezing(true)
+            .num_panels(3)
+            .group_size(1)
+            .with_base(Base::Hexadecimal)
+            .endianness(Endianness::Big)
+            .character_table(CharacterTable::Default)
+            .color_scheme(ColorScheme::Default)
+            .build();
 
         printer.print_all(input).unwrap();
 
