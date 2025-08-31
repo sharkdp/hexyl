@@ -415,7 +415,6 @@ pub struct Printer<'a, Writer: Write> {
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
-
     pub fn display_offset(&mut self, display_offset: u64) -> &mut Self {
         self.display_offset = display_offset;
         self
