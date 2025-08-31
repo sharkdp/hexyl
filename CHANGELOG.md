@@ -1,6 +1,7 @@
 # unreleased 
 
 - Fix memory allocation bug when terminal width is less than 10, see #244 (@selfup)
+- Add command line argument to generate shell completion, see #155 (@friedz)
 
 ## Features
 
