@@ -9,7 +9,7 @@ readme = "README.md"
 repository = "https://github.com/sharkdp/hexyl"
 version = "0.16.0"
 edition = "2021"
-rust-version = "1.74"
+rust-version = "1.88"
 
 [dependencies]
 anyhow = "1.0"
@@ -19,6 +19,7 @@ owo-colors = "4"
 supports-color = "3"
 thiserror = "1.0"
 terminal_size = "0.4"
+clap_complete = "4"
 
 [dependencies.clap]
 version = "4"

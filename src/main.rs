@@ -4,7 +4,8 @@ use std::num::{NonZeroI64, NonZeroU64};
 use std::path::PathBuf;
 
 use clap::builder::ArgPredicate;
-use clap::{ArgAction, Parser, ValueEnum};
+use clap::{ArgAction, CommandFactory, Parser, ValueEnum};
+use clap_complete::aot::{generate, Shell};
 
 use anyhow::{anyhow, bail, Context, Result};
 
@@ -14,7 +15,9 @@ use thiserror::Error as ThisError;
 
 use terminal_size::terminal_size;
 
-use hexyl::{Base, BorderStyle, CharacterTable, Endianness, IncludeMode, Input, PrinterBuilder};
+use hexyl::{
+    Base, BorderStyle, CharacterTable, ColorScheme, Endianness, IncludeMode, Input, PrinterBuilder,
+};
 
 use hexyl::{
     COLOR_ASCII_OTHER, COLOR_ASCII_PRINTABLE, COLOR_ASCII_WHITESPACE, COLOR_NONASCII, COLOR_NULL,
@@ -129,6 +132,10 @@ struct Opt {
     #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
     character_table: CharacterTable,
 
+    /// Defines the color scheme for the characters.
+    #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
+    color_scheme: ColorScheme,
+
     /// Whether to display the position panel on the left.
     #[arg(short('P'), long)]
     no_position: bool,
@@ -198,6 +205,10 @@ struct Opt {
         conflicts_with("endianness")
     )]
     include_mode: bool,
+
+    /// Show shell completion for a certain shell
+    #[arg(long, value_name("SHELL"))]
+    completion: Option<Shell>,
 }
 
 #[derive(Clone, Debug, Default, ValueEnum)]
@@ -252,6 +263,13 @@ fn run() -> Result<()> {
 
     if opt.print_color_table {
         return print_color_table().map_err(|e| anyhow!(e));
+    }
+
+    if let Some(sh) = opt.completion {
+        let mut cmd = Opt::command();
+        let name = cmd.get_name().to_string();
+        generate(sh, &mut cmd, name, &mut io::stdout());
+        return Ok(());
     }
 
     let stdin = io::stdin();
@@ -372,7 +390,7 @@ fn run() -> Result<()> {
         } else {
             ((8 / group_size) * (base_digits * group_size + 1)) + 2
         };
-        if (terminal_width - offset) / col_width < 1 {
+        if (terminal_width.saturating_sub(offset)) / col_width < 1 {
             1
         } else {
             (terminal_width - offset) / col_width
@@ -439,6 +457,8 @@ fn run() -> Result<()> {
 
     let character_table = opt.character_table;
 
+    let color_scheme = opt.color_scheme;
+
     let mut stdout = BufWriter::new(io::stdout().lock());
 
     let include_mode = match opt.include_mode {
@@ -476,6 +496,7 @@ fn run() -> Result<()> {
         .endianness(endianness)
         .character_table(character_table)
         .include_mode(include_mode)
+        .color_scheme(color_scheme)
         .build();
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
@@ -527,32 +548,32 @@ fn print_color_table() -> io::Result<()> {
     writeln!(stdout, "hexyl color reference:\n")?;
 
     // NULL bytes
-    stdout.write_all(COLOR_NULL)?;
+    stdout.write_all(COLOR_NULL.as_bytes())?;
     writeln!(stdout, "⋄ NULL bytes (0x00)")?;
-    stdout.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_RESET.as_bytes())?;
 
     // ASCII printable
-    stdout.write_all(COLOR_ASCII_PRINTABLE)?;
+    stdout.write_all(COLOR_ASCII_PRINTABLE.as_bytes())?;
     writeln!(stdout, "a ASCII printable characters (0x20 - 0x7E)")?;
-    stdout.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_RESET.as_bytes())?;
 
     // ASCII whitespace
-    stdout.write_all(COLOR_ASCII_WHITESPACE)?;
+    stdout.write_all(COLOR_ASCII_WHITESPACE.as_bytes())?;
     writeln!(stdout, "_ ASCII whitespace (0x09 - 0x0D, 0x20)")?;
-    stdout.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_RESET.as_bytes())?;
 
     // ASCII other
-    stdout.write_all(COLOR_ASCII_OTHER)?;
+    stdout.write_all(COLOR_ASCII_OTHER.as_bytes())?;
     writeln!(
         stdout,
         "• ASCII control characters (except NULL and whitespace)"
     )?;
-    stdout.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_RESET.as_bytes())?;
 
     // Non-ASCII
-    stdout.write_all(COLOR_NONASCII)?;
+    stdout.write_all(COLOR_NONASCII.as_bytes())?;
     writeln!(stdout, "× Non-ASCII bytes (0x80 - 0xFF)")?;
-    stdout.write_all(COLOR_RESET)?;
+    stdout.write_all(COLOR_RESET.as_bytes())?;
 
     Ok(())
 }

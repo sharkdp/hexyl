@@ -3,8 +3,13 @@
 ## Features
 
 - Add option to output result in C include file style, see #242 (@wpcwzy)
+- Add `--color-scheme` option, see #247 (@aticu)
+- Add `braille` character table, see #247 (@aticu)
+- Add command line argument to generate shell completion, see #155 (@friedz)
 
 ## Bugfixes
+
+- Fix memory allocation bug when terminal width is less than 10, see #244 (@selfup)
 
 
 # v0.16.0

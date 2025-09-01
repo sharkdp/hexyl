@@ -50,6 +50,24 @@ pub enum CharacterTable {
     /// Uses code page 437 (for non-ASCII bytes).
     #[value(name = "codepage-437")]
     CP437,
+
+    /// Uses braille characters for non-printable bytes.
+    Braille,
+}
+
+#[derive(Copy, Clone, Debug, Default, ValueEnum)]
+#[non_exhaustive]
+pub enum ColorScheme {
+    /// Show the default colors: bright black for NULL bytes, green for ASCII
+    /// space characters and non-printable ASCII, cyan for printable ASCII characters,
+    /// and yellow for non-ASCII bytes.
+    #[default]
+    Default,
+
+    /// Show bright black for NULL bytes, cyan for printable ASCII characters, a gradient
+    /// from pink to violet for non-printable ASCII characters and a heatmap-like gradient
+    /// from red to yellow to white for non-ASCII bytes.
+    Gradient,
 }
 
 #[derive(Copy, Clone, Debug, Default, ValueEnum)]
@@ -88,14 +106,29 @@ impl Byte {
         }
     }
 
-    fn color(self) -> &'static [u8] {
+    fn color(self, color_scheme: ColorScheme) -> &'static [u8] {
         use crate::ByteCategory::*;
-        match self.category() {
-            Null => COLOR_NULL,
-            AsciiPrintable => COLOR_ASCII_PRINTABLE,
-            AsciiWhitespace => COLOR_ASCII_WHITESPACE,
-            AsciiOther => COLOR_ASCII_OTHER,
-            NonAscii => COLOR_NONASCII,
+        match color_scheme {
+            ColorScheme::Default => match self.category() {
+                Null => COLOR_NULL.as_bytes(),
+                AsciiPrintable => COLOR_ASCII_PRINTABLE.as_bytes(),
+                AsciiWhitespace => COLOR_ASCII_WHITESPACE.as_bytes(),
+                AsciiOther => COLOR_ASCII_OTHER.as_bytes(),
+                NonAscii => COLOR_NONASCII.as_bytes(),
+            },
+            ColorScheme::Gradient => match self.category() {
+                Null => COLOR_NULL_RGB,
+                AsciiWhitespace if self.0 == b' ' => &COLOR_GRADIENT_ASCII_PRINTABLE[0],
+                AsciiPrintable => &COLOR_GRADIENT_ASCII_PRINTABLE[(self.0 - b' ') as usize],
+                AsciiWhitespace | AsciiOther => {
+                    if self.0 == 0x7f {
+                        COLOR_DEL
+                    } else {
+                        &COLOR_GRADIENT_ASCII_NONPRINTABLE[self.0 as usize - 1]
+                    }
+                }
+                NonAscii => &COLOR_GRADIENT_NONASCII[(self.0 - 128) as usize],
+            },
         }
     }
 
@@ -120,6 +153,37 @@ impl Byte {
             },
             CharacterTable::CP1047 => CP1047[self.0 as usize],
             CharacterTable::CP437 => CP437[self.0 as usize],
+            CharacterTable::Braille => match self.category() {
+                // null is important enough to get its own symbol
+                Null => '⋄',
+                AsciiPrintable => self.0 as char,
+                AsciiWhitespace if self.0 == b' ' => ' ',
+                // `\t`, `\n` and `\r` are important enough to get their own symbols
+                AsciiWhitespace if self.0 == b'\t' => '→',
+                AsciiWhitespace if self.0 == b'\n' => '↵',
+                AsciiWhitespace if self.0 == b'\r' => '←',
+                AsciiWhitespace | AsciiOther | NonAscii => {
+                    /// Adjust the bits from the original number to a new number.
+                    ///
+                    /// Bit positions in braille are adjusted as follows:
+                    ///
+                    /// ```text
+                    /// 0 3 => 0 1
+                    /// 1 4 => 2 3
+                    /// 2 5 => 4 5
+                    /// 6 7 => 6 7
+                    /// ```
+                    fn to_braille_bits(byte: u8) -> u8 {
+                        let mut out = 0;
+                        for (from, to) in [0, 3, 1, 4, 2, 5, 6, 7].into_iter().enumerate() {
+                            out |= (byte >> from & 1) << to;
+                        }
+                        out
+                    }
+
+                    char::from_u32(0x2800 + to_braille_bits(self.0) as u32).unwrap()
+                }
+            },
         }
     }
 }
@@ -211,6 +275,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     endianness: Endianness,
     character_table: CharacterTable,
     include_mode: IncludeMode,
+    color_scheme: ColorScheme,
 }
 
 impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
@@ -228,6 +293,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             endianness: Endianness::Big,
             character_table: CharacterTable::Default,
             include_mode: IncludeMode::Off,
+            color_scheme: ColorScheme::Default,
         }
     }
 
@@ -286,21 +352,52 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
+    pub fn color_scheme(mut self, color_scheme: ColorScheme) -> Self {
+        self.color_scheme = color_scheme;
+        self
+    }
+
     pub fn build(self) -> Printer<'a, Writer> {
-        Printer::new(
-            self.writer,
-            self.show_color,
-            self.show_char_panel,
-            self.show_position_panel,
-            self.border_style,
-            self.use_squeeze,
-            self.panels,
-            self.group_size,
-            self.base,
-            self.endianness,
-            self.character_table,
-            self.include_mode,
-        )
+        Printer {
+            idx: 0,
+            line_buf: vec![0x0; 8 * self.panels as usize],
+            writer: self.writer,
+            show_char_panel: self.show_char_panel,
+            show_position_panel: self.show_position_panel,
+            show_color: self.show_color,
+            curr_color: None,
+            color_scheme: self.color_scheme,
+            border_style: self.border_style,
+            byte_hex_panel: (0u8..=u8::MAX)
+                .map(|i| match self.base {
+                    Base::Binary => format!("{i:08b}"),
+                    Base::Octal => format!("{i:03o}"),
+                    Base::Decimal => format!("{i:03}"),
+                    Base::Hexadecimal => format!("{i:02x}"),
+                })
+                .collect(),
+            byte_char_panel: (0u8..=u8::MAX)
+                .map(|i| format!("{}", Byte(i).as_char(self.character_table)))
+                .collect(),
+            byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{i:02x}")).collect(),
+            squeezer: if self.use_squeeze {
+                Squeezer::Ignore
+            } else {
+                Squeezer::Disabled
+            },
+            display_offset: 0,
+            panels: self.panels,
+            squeeze_byte: 0x00,
+            group_size: self.group_size,
+            base_digits: match self.base {
+                Base::Binary => 8,
+                Base::Octal => 3,
+                Base::Decimal => 3,
+                Base::Hexadecimal => 2,
+            },
+            endianness: self.endianness,
+            include_mode: self.include_mode,
+        }
     }
 }
 
@@ -313,6 +410,7 @@ pub struct Printer<'a, Writer: Write> {
     show_position_panel: bool,
     show_color: bool,
     curr_color: Option<&'static [u8]>,
+    color_scheme: ColorScheme,
     border_style: BorderStyle,
     byte_hex_panel: Vec<String>,
     byte_char_panel: Vec<String>,
@@ -334,62 +432,6 @@ pub struct Printer<'a, Writer: Write> {
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
-    #![allow(clippy::too_many_arguments)]
-    fn new(
-        writer: &'a mut Writer,
-        show_color: bool,
-        show_char_panel: bool,
-        show_position_panel: bool,
-        border_style: BorderStyle,
-        use_squeeze: bool,
-        panels: u64,
-        group_size: u8,
-        base: Base,
-        endianness: Endianness,
-        character_table: CharacterTable,
-        include_mode: IncludeMode,
-    ) -> Printer<'a, Writer> {
-        Printer {
-            idx: 0,
-            line_buf: vec![0x0; 8 * panels as usize],
-            writer,
-            show_char_panel,
-            show_position_panel,
-            show_color,
-            curr_color: None,
-            border_style,
-            byte_hex_panel: (0u8..=u8::MAX)
-                .map(|i| match base {
-                    Base::Binary => format!("{i:08b}"),
-                    Base::Octal => format!("{i:03o}"),
-                    Base::Decimal => format!("{i:03}"),
-                    Base::Hexadecimal => format!("{i:02x}"),
-                })
-                .collect(),
-            byte_char_panel: (0u8..=u8::MAX)
-                .map(|i| format!("{}", Byte(i).as_char(character_table)))
-                .collect(),
-            byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{i:02x}")).collect(),
-            squeezer: if use_squeeze {
-                Squeezer::Ignore
-            } else {
-                Squeezer::Disabled
-            },
-            display_offset: 0,
-            panels,
-            squeeze_byte: 0x00,
-            group_size,
-            base_digits: match base {
-                Base::Binary => 8,
-                Base::Octal => 3,
-                Base::Decimal => 3,
-                Base::Hexadecimal => 2,
-            },
-            endianness,
-            include_mode,
-        }
-    }
-
     pub fn display_offset(&mut self, display_offset: u64) -> &mut Self {
         self.display_offset = display_offset;
         self
@@ -460,14 +502,14 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 .as_bytes(),
         )?;
         if self.show_color {
-            self.writer.write_all(COLOR_OFFSET)?;
+            self.writer.write_all(COLOR_OFFSET.as_bytes())?;
         }
         if self.show_position_panel {
             match self.squeezer {
                 Squeezer::Print => {
                     self.writer.write_all(b"*")?;
                     if self.show_color {
-                        self.writer.write_all(COLOR_RESET)?;
+                        self.writer.write_all(COLOR_RESET.as_bytes())?;
                     }
                     self.writer.write_all(b"       ")?;
                 }
@@ -482,7 +524,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                             .write_all(self.byte_hex_panel_g[byte as usize].as_bytes())?;
                     }
                     if self.show_color {
-                        self.writer.write_all(COLOR_RESET)?;
+                        self.writer.write_all(COLOR_RESET.as_bytes())?;
                     }
                 }
             }
@@ -501,9 +543,10 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             Squeezer::Print | Squeezer::Delete => self.writer.write_all(b" ")?,
             Squeezer::Ignore | Squeezer::Disabled => {
                 if let Some(&b) = self.line_buf.get(i as usize) {
-                    if self.show_color && self.curr_color != Some(Byte(b).color()) {
-                        self.writer.write_all(Byte(b).color())?;
-                        self.curr_color = Some(Byte(b).color());
+                    if self.show_color && self.curr_color != Some(Byte(b).color(self.color_scheme))
+                    {
+                        self.writer.write_all(Byte(b).color(self.color_scheme))?;
+                        self.curr_color = Some(Byte(b).color(self.color_scheme));
                     }
                     self.writer
                         .write_all(self.byte_char_panel[b as usize].as_bytes())?;
@@ -514,7 +557,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
         if i == 8 * self.panels - 1 {
             if self.show_color {
-                self.writer.write_all(COLOR_RESET)?;
+                self.writer.write_all(COLOR_RESET.as_bytes())?;
                 self.curr_color = None;
             }
             self.writer.write_all(
@@ -525,7 +568,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             )?;
         } else if i % 8 == 7 {
             if self.show_color {
-                self.writer.write_all(COLOR_RESET)?;
+                self.writer.write_all(COLOR_RESET.as_bytes())?;
                 self.curr_color = None;
             }
             self.writer.write_all(
@@ -551,12 +594,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             Squeezer::Print => {
                 if !self.show_position_panel && i == 0 {
                     if self.show_color {
-                        self.writer.write_all(COLOR_OFFSET)?;
+                        self.writer.write_all(COLOR_OFFSET.as_bytes())?;
                     }
                     self.writer
                         .write_all(self.byte_char_panel[b'*' as usize].as_bytes())?;
                     if self.show_color {
-                        self.writer.write_all(COLOR_RESET)?;
+                        self.writer.write_all(COLOR_RESET.as_bytes())?;
                     }
                 } else if i % (self.group_size as usize) == 0 {
                     self.writer.write_all(b" ")?;
@@ -570,9 +613,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 if i % (self.group_size as usize) == 0 {
                     self.writer.write_all(b" ")?;
                 }
-                if self.show_color && self.curr_color != Some(Byte(b).color()) {
-                    self.writer.write_all(Byte(b).color())?;
-                    self.curr_color = Some(Byte(b).color());
+                if self.show_color && self.curr_color != Some(Byte(b).color(self.color_scheme)) {
+                    self.writer.write_all(Byte(b).color(self.color_scheme))?;
+                    self.curr_color = Some(Byte(b).color(self.color_scheme));
                 }
                 self.writer
                     .write_all(self.byte_hex_panel[b as usize].as_bytes())?;
@@ -582,7 +625,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         if i % 8 == 7 {
             if self.show_color {
                 self.curr_color = None;
-                self.writer.write_all(COLOR_RESET)?;
+                self.writer.write_all(COLOR_RESET.as_bytes())?;
             }
             self.writer.write_all(b" ")?;
             // byte is last in last panel
@@ -856,20 +899,20 @@ mod tests {
 
     fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) {
         let mut output = vec![];
-        let mut printer = Printer::new(
-            &mut output,
-            false,
-            true,
-            true,
-            BorderStyle::Unicode,
-            true,
-            2,
-            1,
-            Base::Hexadecimal,
-            Endianness::Big,
-            CharacterTable::Default,
-            IncludeMode::Off,
-        );
+        let mut printer = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .show_char_panel(true)
+            .show_position_panel(true)
+            .with_border_style(BorderStyle::Unicode)
+            .enable_squeezing(true)
+            .num_panels(2)
+            .group_size(1)
+            .with_base(Base::Hexadecimal)
+            .endianness(Endianness::Big)
+            .character_table(CharacterTable::Default)
+            .include_mode(IncludeMode::Off)
+            .color_scheme(ColorScheme::Default)
+            .build();
 
         printer.print_all(input).unwrap();
 
@@ -913,20 +956,20 @@ mod tests {
         .to_owned();
 
         let mut output = vec![];
-        let mut printer: Printer<Vec<u8>> = Printer::new(
-            &mut output,
-            false,
-            true,
-            true,
-            BorderStyle::Unicode,
-            true,
-            2,
-            1,
-            Base::Hexadecimal,
-            Endianness::Big,
-            CharacterTable::Default,
-            IncludeMode::Off,
-        );
+        let mut printer: Printer<Vec<u8>> = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .show_char_panel(true)
+            .show_position_panel(true)
+            .with_border_style(BorderStyle::Unicode)
+            .enable_squeezing(true)
+            .num_panels(2)
+            .group_size(1)
+            .with_base(Base::Hexadecimal)
+            .endianness(Endianness::Big)
+            .character_table(CharacterTable::Default)
+            .include_mode(IncludeMode::Off)
+            .color_scheme(ColorScheme::Default)
+            .build();
         printer.display_offset(0xdeadbeef);
 
         printer.print_all(input).unwrap();
@@ -949,20 +992,20 @@ mod tests {
         .to_owned();
 
         let mut output = vec![];
-        let mut printer: Printer<Vec<u8>> = Printer::new(
-            &mut output,
-            false,
-            true,
-            true,
-            BorderStyle::Unicode,
-            true,
-            4,
-            1,
-            Base::Hexadecimal,
-            Endianness::Big,
-            CharacterTable::Default,
-            IncludeMode::Off,
-        );
+        let mut printer: Printer<Vec<u8>> = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .show_char_panel(true)
+            .show_position_panel(true)
+            .with_border_style(BorderStyle::Unicode)
+            .enable_squeezing(true)
+            .num_panels(4)
+            .group_size(1)
+            .with_base(Base::Hexadecimal)
+            .endianness(Endianness::Big)
+            .character_table(CharacterTable::Default)
+            .include_mode(IncludeMode::Off)
+            .color_scheme(ColorScheme::Default)
+            .build();
 
         printer.print_all(input).unwrap();
 
@@ -1011,20 +1054,20 @@ mod tests {
         .to_owned();
 
         let mut output = vec![];
-        let mut printer: Printer<Vec<u8>> = Printer::new(
-            &mut output,
-            false,
-            true,
-            true,
-            BorderStyle::Unicode,
-            true,
-            3,
-            1,
-            Base::Hexadecimal,
-            Endianness::Big,
-            CharacterTable::Default,
-            IncludeMode::Off,
-        );
+        let mut printer: Printer<Vec<u8>> = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .show_char_panel(true)
+            .show_position_panel(true)
+            .with_border_style(BorderStyle::Unicode)
+            .enable_squeezing(true)
+            .num_panels(3)
+            .group_size(1)
+            .with_base(Base::Hexadecimal)
+            .endianness(Endianness::Big)
+            .character_table(CharacterTable::Default)
+            .include_mode(IncludeMode::Off)
+            .color_scheme(ColorScheme::Default)
+            .build();
 
         printer.print_all(input).unwrap();
 
@@ -1057,20 +1100,20 @@ unsigned int test_txt_len = 20;
 "
         .to_owned();
         let mut output = vec![];
-        let mut printer: Printer<Vec<u8>> = Printer::new(
-            &mut output,
-            false,
-            true,
-            true,
-            BorderStyle::Unicode,
-            true,
-            2,
-            1,
-            Base::Hexadecimal,
-            Endianness::Big,
-            CharacterTable::Default,
-            IncludeMode::File("test.txt".to_owned()),
-        );
+        let mut printer: Printer<Vec<u8>> = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .show_char_panel(true)
+            .show_position_panel(true)
+            .with_border_style(BorderStyle::Unicode)
+            .enable_squeezing(true)
+            .num_panels(2)
+            .group_size(1)
+            .with_base(Base::Hexadecimal)
+            .endianness(Endianness::Big)
+            .character_table(CharacterTable::Default)
+            .include_mode(IncludeMode::File("test.txt".to_owned()))
+            .color_scheme(ColorScheme::Default)
+            .build();
 
         printer.print_all(input).unwrap();
 
@@ -1087,20 +1130,20 @@ unsigned int test_txt_len = 20;
 "
             .to_owned();
         let mut output = vec![];
-        let mut printer: Printer<Vec<u8>> = Printer::new(
-            &mut output,
-            false,
-            true,
-            true,
-            BorderStyle::Unicode,
-            true,
-            2,
-            1,
-            Base::Hexadecimal,
-            Endianness::Big,
-            CharacterTable::Default,
-            IncludeMode::Stdin,
-        );
+        let mut printer: Printer<Vec<u8>> = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .show_char_panel(true)
+            .show_position_panel(true)
+            .with_border_style(BorderStyle::Unicode)
+            .enable_squeezing(true)
+            .num_panels(2)
+            .group_size(1)
+            .with_base(Base::Hexadecimal)
+            .endianness(Endianness::Big)
+            .character_table(CharacterTable::Default)
+            .include_mode(IncludeMode::Stdin)
+            .color_scheme(ColorScheme::Default)
+            .build();
 
         printer.print_all(input).unwrap();
 

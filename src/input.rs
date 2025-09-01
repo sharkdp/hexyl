@@ -21,7 +21,7 @@ impl Seek for Input<'_> {
         where
             R: Read,
         {
-            let cant_seek_abs_err = || Err(io::Error::new(io::ErrorKind::Other, err_desc));
+            let cant_seek_abs_err = || Err(io::Error::other(err_desc));
 
             let offset = match pos {
                 SeekFrom::Current(o) => u64::try_from(o).or_else(|_e| cant_seek_abs_err())?,
