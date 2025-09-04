@@ -15,7 +15,9 @@ use thiserror::Error as ThisError;
 
 use terminal_size::terminal_size;
 
-use hexyl::{Base, BorderStyle, CharacterTable, ColorScheme, Endianness, Input, PrinterBuilder};
+use hexyl::{
+    Base, BorderStyle, CharacterTable, ColorScheme, Endianness, IncludeMode, Input, PrinterBuilder,
+};
 
 use hexyl::{
     COLOR_ASCII_OTHER, COLOR_ASCII_PRINTABLE, COLOR_ASCII_WHITESPACE, COLOR_NONASCII, COLOR_NULL,
@@ -194,6 +196,16 @@ struct Opt {
     #[arg(long)]
     print_color_table: bool,
 
+    /// Output in C include file style (similar to xxd -i).
+    #[arg(
+        short('i'),
+        long("include"),
+        help = "Output in C include file style",
+        conflicts_with("little_endian_format"),
+        conflicts_with("endianness")
+    )]
+    include_mode: bool,
+
     /// Show shell completion for a certain shell
     #[arg(long, value_name("SHELL"))]
     completion: Option<Shell>,
@@ -262,12 +274,12 @@ fn run() -> Result<()> {
 
     let stdin = io::stdin();
 
-    let mut reader = match opt.file {
+    let mut reader = match &opt.file {
         Some(filename) => {
             if filename.is_dir() {
                 bail!("'{}' is a directory.", filename.to_string_lossy());
             }
-            let file = File::open(&filename)?;
+            let file = File::open(filename)?;
 
             Input::File(file)
         }
@@ -449,6 +461,29 @@ fn run() -> Result<()> {
 
     let mut stdout = BufWriter::new(io::stdout().lock());
 
+    let include_mode = match opt.include_mode {
+        // include mode on
+        true => {
+            if opt.file.is_some() {
+                // input from a file
+                IncludeMode::File(
+                    opt.file
+                        .as_ref()
+                        .unwrap()
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("file")
+                        .to_string(),
+                )
+            } else {
+                // input from stdin
+                IncludeMode::Stdin
+            }
+        }
+        // include mode off
+        false => IncludeMode::Off,
+    };
+
     let mut printer = PrinterBuilder::new(&mut stdout)
         .show_color(show_color)
         .show_char_panel(show_char_panel)
@@ -460,6 +495,7 @@ fn run() -> Result<()> {
         .with_base(base)
         .endianness(endianness)
         .character_table(character_table)
+        .include_mode(include_mode)
         .color_scheme(color_scheme)
         .build();
     printer.display_offset(skip_offset + display_offset);
