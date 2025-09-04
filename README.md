@@ -9,7 +9,7 @@ of bytes (NULL bytes, printable ASCII characters, ASCII whitespace characters, o
 
 ### Sponsors
 
-A special *thank you* goes to our biggest <a href="doc/sponsors.md">sponsor</a>:<br>
+A special *thank you* goes to our biggest <a href="doc/sponsors.md">sponsors</a>:<br>
 
 <a href="https://www.warp.dev/hexyl">
   <img src="doc/sponsors/warp-logo.png" width="200" alt="Warp">
@@ -18,6 +18,18 @@ A special *thank you* goes to our biggest <a href="doc/sponsors.md">sponsor</a>:
   <br>
   <sub>Available on MacOS, Linux, Windows</sub>
 </a>
+
+<br>
+<br>
+
+<a href="https://tuple.app/hexyl">
+  <img src="doc/sponsors/tuple-logo.png" width="200" alt="Tuple">
+  <br>
+  <strong>Tuple, the premier screen sharing app for developers</strong>
+  <br>
+  <sub>Available for MacOS &amp; Windows</sub>
+</a>
+
 
 ## Preview
 
