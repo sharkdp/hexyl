@@ -461,12 +461,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let r = border_elements.right_corner;
         let (_, len) = self.get_byte_index();
         let hex_len = (size_of::<u64>() - len) * 2;
-        let header_offset = h.to_string().repeat(hex_len);
+        let header_len = h.to_string().repeat(hex_len);
         let h8 = h.to_string().repeat(8);
         let h_repeat = h.to_string().repeat(self.panel_sz());
 
         if self.show_position_panel {
-            write!(self.writer, "{l}{header_offset}{c}")?;
+            write!(self.writer, "{l}{header_len}{c}")?;
         } else {
             write!(self.writer, "{l}")?;
         }
