@@ -445,8 +445,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         1 + group_sz * group_per_panel
     }
 
-    fn get_byte_index(&self) -> ([u8; 8], usize) {
-        let byte_index: [u8; 8] = (self.idx + self.display_offset).to_be_bytes();
+    fn get_byte_index(&self) -> ([u8; size_of::<u64>()], usize) {
+        let byte_index: [u8; size_of::<u64>()] = (self.idx + self.display_offset).to_be_bytes();
         let mut i = 0;
         while i < 4 && byte_index[i] == 0x00 {
             i += 1;
@@ -460,8 +460,8 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let l = border_elements.left_corner;
         let r = border_elements.right_corner;
         let (_, len) = self.get_byte_index();
-        let len = (8 - len) * 2;
-        let header_offset = h.to_string().repeat(len);
+        let hex_len = (size_of::<u64>() - len) * 2;
+        let header_offset = h.to_string().repeat(hex_len);
         let h8 = h.to_string().repeat(8);
         let h_repeat = h.to_string().repeat(self.panel_sz());
 
