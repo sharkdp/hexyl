@@ -276,12 +276,16 @@ fn run() -> Result<()> {
 
     let mut reader = match &opt.file {
         Some(filename) => {
-            if filename.is_dir() {
-                bail!("'{}' is a directory.", filename.to_string_lossy());
-            }
-            let file = File::open(filename)?;
+            if filename == "-" {
+                Input::Stdin(stdin.lock())
+            } else {
+                if filename.is_dir() {
+                    bail!("'{}' is a directory.", filename.to_string_lossy());
+                }
+                let file = File::open(filename)?;
 
-            Input::File(file)
+                Input::File(file)
+            }
         }
         None => Input::Stdin(stdin.lock()),
     };
@@ -464,12 +468,9 @@ fn run() -> Result<()> {
     let include_mode = match opt.include_mode {
         // include mode on
         true => {
-            if opt.file.is_some() {
-                // input from a file
+            if let Some(include_file) = opt.file {
                 IncludeMode::File(
-                    opt.file
-                        .as_ref()
-                        .unwrap()
+                    include_file
                         .file_name()
                         .and_then(|n| n.to_str())
                         .unwrap_or("file")
