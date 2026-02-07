@@ -469,6 +469,7 @@ fn run() -> Result<()> {
         // include mode on
         true => {
             if let Some(include_file) = opt.file {
+                // input from a file
                 if include_file.as_os_str() == "-" {
                     IncludeMode::File("stdin".to_string())
                 } else {
