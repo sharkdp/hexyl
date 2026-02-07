@@ -276,7 +276,7 @@ fn run() -> Result<()> {
 
     let mut reader = match &opt.file {
         Some(filename) => {
-            if filename == "-" {
+            if filename.as_os_str() == "-" {
                 Input::Stdin(stdin.lock())
             } else {
                 if filename.is_dir() {
@@ -469,13 +469,17 @@ fn run() -> Result<()> {
         // include mode on
         true => {
             if let Some(include_file) = opt.file {
-                IncludeMode::File(
-                    include_file
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or("file")
-                        .to_string(),
-                )
+                if include_file.as_os_str() == "-" {
+                    IncludeMode::File("stdin".to_string())
+                } else {
+                    IncludeMode::File(
+                        include_file
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("file")
+                            .to_string(),
+                    )
+                }
             } else {
                 // input from stdin
                 IncludeMode::Stdin
