@@ -601,7 +601,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     if self.show_color {
                         self.writer.write_all(COLOR_RESET.as_bytes())?;
                     }
-                } else if i % (self.group_size as usize) == 0 {
+                } else if i.is_multiple_of(self.group_size as usize) {
                     self.writer.write_all(b" ")?;
                 }
                 for _ in 0..self.base_digits {
@@ -610,7 +610,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
             Squeezer::Delete => self.writer.write_all(b"   ")?,
             Squeezer::Ignore | Squeezer::Disabled => {
-                if i % (self.group_size as usize) == 0 {
+                if i.is_multiple_of(self.group_size as usize) {
                     self.writer.write_all(b" ")?;
                 }
                 if self.show_color && self.curr_color != Some(Byte(b).color(self.color_scheme)) {
