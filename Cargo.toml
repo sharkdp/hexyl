@@ -27,7 +27,7 @@ version = "4"
 features = ["derive", "wrap_help"]
 
 [dev-dependencies]
-assert_cmd = "2.0"
+assert_cmd = "2.1"
 predicates = "3.0"
 pretty_assertions = "1.4.0"
 

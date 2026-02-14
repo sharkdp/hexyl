@@ -1,7 +1,7 @@
 use assert_cmd::Command;
 
 fn hexyl() -> Command {
-    let mut cmd = Command::cargo_bin("hexyl").unwrap();
+    let mut cmd = Command::new(assert_cmd::cargo_bin!("hexyl"));
     cmd.current_dir("tests/examples");
     cmd
 }
