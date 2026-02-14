@@ -1,13 +1,14 @@
 [package]
 authors = ["David Peter <mail@david-peter.de>"]
 categories = ["command-line-utilities"]
+keywords = ["hex", "viewer"]
 description = "A command-line hex viewer"
 homepage = "https://github.com/sharkdp/hexyl"
 license = "MIT/Apache-2.0"
 name = "hexyl"
 readme = "README.md"
 repository = "https://github.com/sharkdp/hexyl"
-version = "0.16.0"
+version = "0.17.0"
 edition = "2021"
 rust-version = "1.88"
 
@@ -26,7 +27,7 @@ version = "4"
 features = ["derive", "wrap_help"]
 
 [dev-dependencies]
-assert_cmd = "2.0"
+assert_cmd = "2.1"
 predicates = "3.0"
 pretty_assertions = "1.4.0"
 

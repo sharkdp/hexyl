@@ -3,7 +3,9 @@ use std::io::{self, prelude::*, BufWriter, SeekFrom};
 use std::num::{NonZeroI64, NonZeroU64};
 use std::path::PathBuf;
 
+use clap::builder::styling::{AnsiColor, Effects};
 use clap::builder::ArgPredicate;
+use clap::builder::Styles;
 use clap::{ArgAction, CommandFactory, Parser, ValueEnum};
 use clap_complete::aot::{generate, Shell};
 
@@ -54,8 +56,14 @@ Since the terminal width may not be an evenly divisible by the width per hex dat
                                         the right.
 Cannot be used with other width-setting options.";
 
+const STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Green.on_default().effects(Effects::BOLD))
+    .usage(AnsiColor::Green.on_default().effects(Effects::BOLD))
+    .literal(AnsiColor::Cyan.on_default().effects(Effects::BOLD))
+    .placeholder(AnsiColor::Cyan.on_default());
+
 #[derive(Debug, Parser)]
-#[command(version, about, max_term_width(90))]
+#[command(version, about, max_term_width(90), styles = STYLES)]
 struct Opt {
     /// The file to display. If no FILE argument is given, read from STDIN.
     #[arg(value_name("FILE"))]
@@ -276,12 +284,16 @@ fn run() -> Result<()> {
 
     let mut reader = match &opt.file {
         Some(filename) => {
-            if filename.is_dir() {
-                bail!("'{}' is a directory.", filename.to_string_lossy());
-            }
-            let file = File::open(filename)?;
+            if filename.as_os_str() == "-" {
+                Input::Stdin(stdin.lock())
+            } else {
+                if filename.is_dir() {
+                    bail!("'{}' is a directory.", filename.to_string_lossy());
+                }
+                let file = File::open(filename)?;
 
-            Input::File(file)
+                Input::File(file)
+            }
         }
         None => Input::Stdin(stdin.lock()),
     };
@@ -464,17 +476,19 @@ fn run() -> Result<()> {
     let include_mode = match opt.include_mode {
         // include mode on
         true => {
-            if opt.file.is_some() {
+            if let Some(include_file) = opt.file {
                 // input from a file
-                IncludeMode::File(
-                    opt.file
-                        .as_ref()
-                        .unwrap()
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or("file")
-                        .to_string(),
-                )
+                if include_file.as_os_str() == "-" {
+                    IncludeMode::File("stdin".to_string())
+                } else {
+                    IncludeMode::File(
+                        include_file
+                            .file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("file")
+                            .to_string(),
+                    )
+                }
             } else {
                 // input from stdin
                 IncludeMode::Stdin
