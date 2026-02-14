@@ -25,7 +25,7 @@ default-features = false
 features = ["std", "suggestions", "color", "wrap_help", "cargo"]
 
 [dev-dependencies]
-assert_cmd = "2.0"
+assert_cmd = "2.1"
 predicates = "2.0"
 
 [profile.release]
