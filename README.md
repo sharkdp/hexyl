@@ -121,7 +121,7 @@ pkgin install hexyl
 doas pkg_add hexyl
 ```
 
-### on Termux
+### On Termux
 ```
 pkg install hexyl
 ```
