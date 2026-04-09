@@ -1,3 +1,10 @@
+# Unreleased
+
+## Features
+
+- Add Unicode Control Pictures block Character Table
+
+
 # v0.17.0
 
 ## Features

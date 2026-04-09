@@ -53,6 +53,11 @@ pub enum CharacterTable {
 
     /// Uses braille characters for non-printable bytes.
     Braille,
+
+    /// Uses Unicode Control Pictures Block and '×' for non-ASCII bytes
+    /// Not all monospace fonts support this
+    #[value(name = "unicode")]
+    UnicodeControlPictures,
 }
 
 #[derive(Copy, Clone, Debug, Default, ValueEnum)]
@@ -183,6 +188,12 @@ impl Byte {
 
                     char::from_u32(0x2800 + to_braille_bits(self.0) as u32).unwrap()
                 }
+            },
+            CharacterTable::UnicodeControlPictures => match self.category() {
+                AsciiPrintable => self.0 as char,
+                NonAscii => '×',
+                _ if self.0 == 0x7F => '\u{2421}', // DEL
+                _ => char::from_u32(self.0 as u32 + 0x2400).unwrap(),
             },
         }
     }
@@ -852,7 +863,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     }
 
     /// Print the bytes in C include file style
-    /// Return the number of bytes read  
+    /// Return the number of bytes read
     fn print_bytes_in_include_style<Reader: Read>(
         &mut self,
         buf: &mut BufReader<Reader>,
