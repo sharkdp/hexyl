@@ -53,6 +53,9 @@ pub enum CharacterTable {
 
     /// Uses braille characters for non-printable bytes.
     Braille,
+
+    /// ASCII Chart
+    AsciiChart,
 }
 
 #[derive(Copy, Clone, Debug, Default, ValueEnum)]
@@ -184,6 +187,7 @@ impl Byte {
                     char::from_u32(0x2800 + to_braille_bits(self.0) as u32).unwrap()
                 }
             },
+            CharacterTable::AsciiChart => ASCII_CHART[self.0 as usize],
         }
     }
 }
