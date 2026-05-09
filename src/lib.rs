@@ -445,16 +445,28 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         1 + group_sz * group_per_panel
     }
 
+    fn get_byte_index(&self) -> ([u8; size_of::<u64>()], usize) {
+        let byte_index: [u8; size_of::<u64>()] = (self.idx + self.display_offset).to_be_bytes();
+        let mut i = 0;
+        while i < 4 && byte_index[i] == 0x00 {
+            i += 1;
+        }
+        (byte_index, i)
+    }
+
     fn write_border(&mut self, border_elements: BorderElements) -> io::Result<()> {
         let h = border_elements.horizontal_line;
         let c = border_elements.column_separator;
         let l = border_elements.left_corner;
         let r = border_elements.right_corner;
+        let (_, len) = self.get_byte_index();
+        let hex_len = (size_of::<u64>() - len) * 2;
+        let header_len = h.to_string().repeat(hex_len);
         let h8 = h.to_string().repeat(8);
         let h_repeat = h.to_string().repeat(self.panel_sz());
 
         if self.show_position_panel {
-            write!(self.writer, "{l}{h8}{c}")?;
+            write!(self.writer, "{l}{header_len}{c}")?;
         } else {
             write!(self.writer, "{l}")?;
         }
@@ -514,11 +526,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     self.writer.write_all(b"       ")?;
                 }
                 Squeezer::Ignore | Squeezer::Disabled | Squeezer::Delete => {
-                    let byte_index: [u8; 8] = (self.idx + self.display_offset).to_be_bytes();
-                    let mut i = 0;
-                    while byte_index[i] == 0x0 && i < 4 {
-                        i += 1;
-                    }
+                    let (byte_index, i) = self.get_byte_index();
                     for &byte in byte_index.iter().skip(i) {
                         self.writer
                             .write_all(self.byte_hex_panel_g[byte as usize].as_bytes())?;
