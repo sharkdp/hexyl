@@ -1,3 +1,10 @@
+# Unreleased
+
+## Bugfixes
+
+- Drop stale `--display-offset` help text claim about negative values, see #112 (@eyupcanakman)
+
+
 # v0.17.0
 
 ## Features

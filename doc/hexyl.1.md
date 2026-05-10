@@ -97,8 +97,6 @@ _FILE_
 **-o**, **\--display-offset** _N_
 :   Add _N_ bytes to the displayed file position.
     The _N_ argument can also include a unit (see **\--length** for details).
-    A negative value is valid and calculates an offset relative to the end of
-    the file.
 
 **-h**, **\--help**
 :   Prints help information.
