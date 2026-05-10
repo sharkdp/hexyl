@@ -46,8 +46,7 @@ Examples: --block-size=1024, --block-size=4kB";
 
 const DISPLAY_OFFSET_HELP_TEXT: &str = "Add N bytes to the displayed file position. The N \
                                         argument can also include a unit (see `--length` for \
-                                        details).
-A negative value is valid and calculates an offset relative to the end of the file.";
+                                        details).";
 
 const TERMINAL_WIDTH_HELP_TEXT: &str = "Sets the number of terminal columns to be displayed.
 Since the terminal width may not be an evenly divisible by the width per hex data column, this \
