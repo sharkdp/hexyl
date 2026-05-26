@@ -11,6 +11,7 @@
 ## Bugfixes
 
 - Fix memory allocation bug when terminal width is less than 10, see #244 (@selfup)
+- Squeeze identical lines even when they are not filled with a single repeated byte, see #186 (@leno23)
 
 
 # v0.16.0
