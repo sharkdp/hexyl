@@ -34,13 +34,13 @@ pub enum IncludeMode {
 #[derive(Copy, Clone, Debug, Default, ValueEnum)]
 #[non_exhaustive]
 pub enum CharacterTable {
-    /// Show printable ASCII characters as-is, '⋄' for NULL bytes, ' ' for
-    /// space, '_' for other ASCII whitespace, '•' for other ASCII characters,
-    /// and '×' for non-ASCII bytes.
+    /// Show printable 7-bit ASCII characters (0x20-0x7E) as-is, '⋄' for NULL bytes, ' '
+    /// for space, '_' for other ASCII whitespace, '•' for other 7-bit bytes, and '×' for
+    /// bytes outside ASCII (0x80-0xFF). Use `codepage-437` to render extended Latin bytes.
     #[default]
     Default,
 
-    /// Show printable ASCII as-is, ' ' for space, '.' for everything else.
+    /// Show printable 7-bit ASCII (0x20-0x7E) as-is, ' ' for space, '.' for everything else.
     Ascii,
 
     /// Show printable EBCDIC as-is, ' ' for space, '.' for everything else.
@@ -59,14 +59,14 @@ pub enum CharacterTable {
 #[non_exhaustive]
 pub enum ColorScheme {
     /// Show the default colors: bright black for NULL bytes, green for ASCII
-    /// space characters and non-printable ASCII, cyan for printable ASCII characters,
-    /// and yellow for non-ASCII bytes.
+    /// space characters and non-printable 7-bit bytes, cyan for printable 7-bit ASCII
+    /// characters, and yellow for bytes outside ASCII (0x80-0xFF).
     #[default]
     Default,
 
-    /// Show bright black for NULL bytes, cyan for printable ASCII characters, a gradient
-    /// from pink to violet for non-printable ASCII characters and a heatmap-like gradient
-    /// from red to yellow to white for non-ASCII bytes.
+    /// Show bright black for NULL bytes, cyan for printable 7-bit ASCII characters, a gradient
+    /// from pink to violet for non-printable 7-bit bytes and a heatmap-like gradient
+    /// from red to yellow to white for bytes outside ASCII (0x80-0xFF).
     Gradient,
 }
 
