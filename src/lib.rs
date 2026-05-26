@@ -506,18 +506,22 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             return Ok(());
         }
 
-        if self.curr_color.is_some() || self.curr_emphasis != Emphasis::None {
-            self.writer
-                .write_all(if self.emphasize == Emphasize::Nothing {
-                    COLOR_RESET.as_bytes()
-                } else {
-                    STYLE_RESET.as_bytes()
-                })?;
+        if self.emphasize == Emphasize::Nothing {
+            // Match legacy coloring: switch ANSI color codes without resetting between
+            // bytes in the same panel. Resets only happen in `clear_byte_style`.
+            if let Some(c) = color {
+                self.writer.write_all(c)?;
+            }
+            self.curr_color = color;
+            self.curr_emphasis = emphasis;
+            return Ok(());
         }
 
-        if self.emphasize != Emphasize::Nothing {
-            emphasis.write_codes(&mut self.writer)?;
+        if self.curr_color.is_some() || self.curr_emphasis != Emphasis::None {
+            self.writer.write_all(STYLE_RESET.as_bytes())?;
         }
+
+        emphasis.write_codes(&mut self.writer)?;
         if let Some(c) = color {
             self.writer.write_all(c)?;
         }
@@ -529,12 +533,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
     fn clear_byte_style(&mut self) -> io::Result<()> {
         if self.curr_color.is_some() || self.curr_emphasis != Emphasis::None {
-            self.writer
-                .write_all(if self.emphasize == Emphasize::Nothing {
-                    COLOR_RESET.as_bytes()
-                } else {
-                    STYLE_RESET.as_bytes()
-                })?;
+            let reset = if self.emphasize == Emphasize::Nothing {
+                COLOR_RESET.as_bytes()
+            } else {
+                STYLE_RESET.as_bytes()
+            };
+            self.writer.write_all(reset)?;
             self.curr_color = None;
             self.curr_emphasis = Emphasis::None;
         }
