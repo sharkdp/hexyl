@@ -962,3 +962,52 @@ mod colors {
             .stdout(expected);
     }
 }
+
+mod bytes_per_line {
+    use super::{hexyl, PrettyAssert};
+
+    #[test]
+    fn single_panel_with_sixteen_bytes() {
+        hexyl()
+            .write_stdin(b"@echo off\r\nif %1")
+            .arg("--color=never")
+            .arg("--panels=1")
+            .arg("--bytes-per-line=16")
+            .assert()
+            .success()
+            .pretty_stdout(
+                "\
+┌────────┬─────────────────────────────────────────────────┬────────────────┐
+│00000000│ 40 65 63 68 6f 20 6f 66 66 0d 0a 69 66 20 25 31 │@echo off__if %1│
+└────────┴─────────────────────────────────────────────────┴────────────────┘
+",
+            );
+    }
+
+    #[test]
+    fn rejects_indivisible_bytes_per_line() {
+        hexyl()
+            .write_stdin(b"test")
+            .arg("--panels=2")
+            .arg("--bytes-per-line=15")
+            .assert()
+            .failure()
+            .stderr(predicates::str::contains(
+                "--bytes-per-line (15) must be divisible by the number of panels (2)",
+            ));
+    }
+
+    #[test]
+    fn rejects_bytes_per_line_incompatible_with_group_size() {
+        hexyl()
+            .write_stdin(b"test")
+            .arg("--panels=1")
+            .arg("--group-size=4")
+            .arg("--bytes-per-line=6")
+            .assert()
+            .failure()
+            .stderr(predicates::str::contains(
+                "--bytes-per-line must be divisible by --group-size (4)",
+            ));
+    }
+}
