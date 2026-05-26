@@ -103,6 +103,7 @@ struct Opt {
         value_enum,
         default_value_t,
         value_name("WHEN"),
+        env = "HEXYL_COLOR",
         default_value_if("plain", ArgPredicate::IsPresent, Some("never"))
     )]
     color: ColorWhen,
@@ -137,11 +138,17 @@ struct Opt {
     characters: (),
 
     /// Defines how bytes are mapped to characters.
-    #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
+    #[arg(long, value_enum, default_value_t, value_name("FORMAT"), env = "HEXYL_CHARACTER_TABLE")]
     character_table: CharacterTable,
 
     /// Defines the color scheme for the characters.
-    #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
+    #[arg(
+        long,
+        value_enum,
+        default_value_t,
+        value_name("FORMAT"),
+        env = "HEXYL_COLOR_SCHEME"
+    )]
     color_scheme: ColorScheme,
 
     /// Whether to display the position panel on the left.
@@ -161,7 +168,11 @@ struct Opt {
     /// display the maximum number of hex data panels based on the current
     /// terminal width. By default, hexyl will show two panels, unless the
     /// terminal is not wide enough for that.
-    #[arg(long, value_name("N"))]
+    #[arg(
+        long,
+        value_name("N"),
+        env = "HEXYL_PANELS"
+    )]
     panels: Option<String>,
 
     /// Number of bytes/octets that should be grouped together. You can use the
