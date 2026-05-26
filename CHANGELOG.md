@@ -7,6 +7,7 @@
 - Add `braille` character table, see #247 (@aticu)
 - Add command line argument to generate shell completion, see #155 (@friedz)
 - Add colors to `--help`/`-h`, see #253 (@starsep)
+- Add `--character-table-file` option for user-provided JSON character tables, see #262 (@leno23)
 
 ## Bugfixes
 

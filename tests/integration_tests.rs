@@ -117,6 +117,45 @@ mod length {
     }
 }
 
+mod character_table_file {
+    use super::hexyl;
+
+    #[test]
+    fn loads_custom_table_from_file() {
+        hexyl()
+            .arg("ascii")
+            .arg("--color=never")
+            .arg("--character-table-file=custom-char-table.json")
+            .assert()
+            .success()
+            .stdout(
+                "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐\n\
+                 │00000000│ 30 31 32 33 34 35 36 37 ┊ 38 39 61 62 63 64 65 0a │X.......┊........│\n\
+                 └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘\n",
+            );
+    }
+
+    #[test]
+    fn rejects_invalid_table_length() {
+        hexyl()
+            .arg("ascii")
+            .arg("--color=never")
+            .arg("--character-table-file=invalid-char-table.json")
+            .assert()
+            .failure()
+            .stderr(predicates::str::contains("256"));
+    }
+
+    #[test]
+    fn conflicts_with_character_table_option() {
+        hexyl()
+            .arg("--character-table-file=custom-char-table.json")
+            .arg("--character-table=ascii")
+            .assert()
+            .failure();
+    }
+}
+
 mod bytes {
     use super::hexyl;
 
