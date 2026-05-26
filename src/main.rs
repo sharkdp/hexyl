@@ -1,3 +1,4 @@
+use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*, BufWriter, SeekFrom};
 use std::num::{NonZeroI64, NonZeroU64};
@@ -28,6 +29,8 @@ use hexyl::{
 
 #[cfg(test)]
 mod tests;
+
+mod config;
 
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
@@ -80,14 +83,21 @@ struct Opt {
     )]
     length: Option<String>,
 
-    #[arg(help(SKIP_HELP_TEXT), short, long, value_name("N"))]
+    #[arg(
+        help(SKIP_HELP_TEXT),
+        short,
+        long,
+        value_name("N"),
+        overrides_with("skip")
+    )]
     skip: Option<String>,
 
     #[arg(
         help(BLOCK_SIZE_HELP_TEXT),
         long,
         default_value(formatcp!("{DEFAULT_BLOCK_SIZE}")),
-        value_name("SIZE")
+        value_name("SIZE"),
+        overrides_with("block_size")
     )]
     block_size: String,
 
@@ -103,7 +113,8 @@ struct Opt {
         value_enum,
         default_value_t,
         value_name("WHEN"),
-        default_value_if("plain", ArgPredicate::IsPresent, Some("never"))
+        default_value_if("plain", ArgPredicate::IsPresent, Some("never")),
+        overrides_with("color")
     )]
     color: ColorWhen,
 
@@ -113,7 +124,8 @@ struct Opt {
         value_enum,
         default_value_t,
         value_name("STYLE"),
-        default_value_if("plain", ArgPredicate::IsPresent, Some("none"))
+        default_value_if("plain", ArgPredicate::IsPresent, Some("none")),
+        overrides_with("border")
     )]
     border: BorderStyle,
 
@@ -153,7 +165,8 @@ struct Opt {
         short('o'),
         long,
         default_value("0"),
-        value_name("N")
+        value_name("N"),
+        overrides_with("display_offset")
     )]
     display_offset: String,
 
@@ -161,7 +174,7 @@ struct Opt {
     /// display the maximum number of hex data panels based on the current
     /// terminal width. By default, hexyl will show two panels, unless the
     /// terminal is not wide enough for that.
-    #[arg(long, value_name("N"))]
+    #[arg(long, value_name("N"), overrides_with("panels"))]
     panels: Option<String>,
 
     /// Number of bytes/octets that should be grouped together. You can use the
@@ -173,14 +186,21 @@ struct Opt {
         value_enum,
         default_value_t,
         alias("groupsize"),
-        value_name("N")
+        value_name("N"),
+        overrides_with("group_size")
     )]
     group_size: GroupSize,
 
     /// Whether to print out groups in little-endian or big-endian format. This
     /// option only has an effect if the '--group-size' is larger than 1. '-e'
     /// can be used as an alias for '--endianness=little'.
-    #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
+    #[arg(
+        long,
+        value_enum,
+        default_value_t,
+        value_name("FORMAT"),
+        overrides_with("endianness")
+    )]
     endianness: Endianness,
 
     /// An alias for '--endianness=little'.
@@ -189,7 +209,13 @@ struct Opt {
 
     /// Sets the base used for the bytes. The possible options are binary,
     /// octal, decimal, and hexadecimal.
-    #[arg(short('b'), long, default_value("hexadecimal"), value_name("B"))]
+    #[arg(
+        short('b'),
+        long,
+        default_value("hexadecimal"),
+        value_name("B"),
+        overrides_with("base")
+    )]
     base: String,
 
     #[arg(
@@ -217,6 +243,10 @@ struct Opt {
     /// Show shell completion for a certain shell
     #[arg(long, value_name("SHELL"))]
     completion: Option<Shell>,
+
+    /// Do not load options from the configuration file or `HEXYL_OPTS`.
+    #[arg(long, hide(true))]
+    no_config: bool,
 }
 
 #[derive(Clone, Debug, Default, ValueEnum)]
@@ -267,7 +297,7 @@ impl From<GroupSize> for u8 {
 }
 
 fn run() -> Result<()> {
-    let opt = Opt::parse();
+    let opt = parse_opts()?;
 
     if opt.print_color_table {
         return print_color_table().map_err(|e| anyhow!(e));
@@ -516,6 +546,37 @@ fn run() -> Result<()> {
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
 
     Ok(())
+}
+
+fn parse_opts() -> Result<Opt> {
+    use std::ffi::OsString;
+
+    use config::{get_args_from_config_file, get_args_from_env_opts_var};
+
+    let mut cli_args: Vec<OsString> = env::args_os().collect();
+    let no_config = cli_args.iter().any(|arg| arg == "--no-config");
+    if no_config {
+        return Ok(Opt::parse());
+    }
+
+    let help_requested = cli_args.iter().any(|arg| arg == "--help" || arg == "-h");
+
+    let config_args = match get_args_from_env_opts_var() {
+        Some(result) => result,
+        None => get_args_from_config_file(),
+    };
+
+    let mut args = if help_requested {
+        config_args.unwrap_or_default()
+    } else {
+        config_args.context("Could not parse configuration file")?
+    };
+
+    let program = cli_args.remove(0);
+    args.insert(0, program);
+    args.extend(cli_args);
+
+    Opt::try_parse_from(args).map_err(|e| anyhow!(e))
 }
 
 fn main() {
