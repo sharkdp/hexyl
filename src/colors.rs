@@ -2,10 +2,9 @@ use owo_colors::{colors, AnsiColors, Color, DynColors, OwoColorize};
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-pub static COLOR_NULL: LazyLock<String> =
-    LazyLock::new(|| init_color("NULL", AnsiColors::BrightBlack));
+pub static COLOR_NULL: LazyLock<String> = LazyLock::new(|| init_color("NULL", AnsiColors::Blue));
 pub static COLOR_OFFSET: LazyLock<String> =
-    LazyLock::new(|| init_color("OFFSET", AnsiColors::BrightBlack));
+    LazyLock::new(|| init_color("OFFSET", AnsiColors::Blue));
 pub static COLOR_ASCII_PRINTABLE: LazyLock<String> =
     LazyLock::new(|| init_color("ASCII_PRINTABLE", AnsiColors::Cyan));
 pub static COLOR_ASCII_WHITESPACE: LazyLock<String> =
@@ -35,7 +34,7 @@ fn init_color(name: &str, default_ansi: AnsiColors) -> String {
         .to_owned()
 }
 
-pub const COLOR_NULL_RGB: &[u8] = &rgb_bytes(100, 100, 100);
+pub const COLOR_NULL_RGB: &[u8] = &rgb_bytes(0, 135, 255);
 
 pub const COLOR_DEL: &[u8] = &rgb_bytes(64, 128, 0);
 
@@ -126,12 +125,12 @@ pub const CP437: [char; 256] = [
     // ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
     // OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
     //
-    // modified to use the ⋄ character instead of ␀
+    // modified to use the subscript zero character instead of ␀
 
     // use https://en.wikipedia.org/w/index.php?title=Code_page_437&oldid=978947122
     // not ftp://ftp.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/PC/CP437.TXT
     // because we want the graphic versions of 01h–1Fh + 7Fh
-    '⋄','☺','☻','♥','♦','♣','♠','•','◘','○','◙','♂','♀','♪','♫','☼',
+    '₀','☺','☻','♥','♦','♣','♠','•','◘','○','◙','♂','♀','♪','♫','☼',
     '►','◄','↕','‼','¶','§','▬','↨','↑','↓','→','←','∟','↔','▲','▼',
     ' ','!','"','#','$','%','&','\'','(',')','*','+',',','-','.','/',
     '0','1','2','3','4','5','6','7','8','9',':',';','<','=','>','?',
