@@ -34,7 +34,7 @@ pub enum IncludeMode {
 #[derive(Copy, Clone, Debug, Default, ValueEnum)]
 #[non_exhaustive]
 pub enum CharacterTable {
-    /// Show printable ASCII characters as-is, '⋄' for NULL bytes, ' ' for
+    /// Show printable ASCII characters as-is, '₀' for NULL bytes, ' ' for
     /// space, '_' for other ASCII whitespace, '•' for other ASCII characters,
     /// and '×' for non-ASCII bytes.
     #[default]
@@ -58,13 +58,13 @@ pub enum CharacterTable {
 #[derive(Copy, Clone, Debug, Default, ValueEnum)]
 #[non_exhaustive]
 pub enum ColorScheme {
-    /// Show the default colors: bright black for NULL bytes, green for ASCII
+    /// Show the default colors: blue for NULL bytes, green for ASCII
     /// space characters and non-printable ASCII, cyan for printable ASCII characters,
     /// and yellow for non-ASCII bytes.
     #[default]
     Default,
 
-    /// Show bright black for NULL bytes, cyan for printable ASCII characters, a gradient
+    /// Show blue for NULL bytes, cyan for printable ASCII characters, a gradient
     /// from pink to violet for non-printable ASCII characters and a heatmap-like gradient
     /// from red to yellow to white for non-ASCII bytes.
     Gradient,
@@ -136,7 +136,7 @@ impl Byte {
         use crate::ByteCategory::*;
         match character_table {
             CharacterTable::Default => match self.category() {
-                Null => '⋄',
+                Null => '₀',
                 AsciiPrintable => self.0 as char,
                 AsciiWhitespace if self.0 == 0x20 => ' ',
                 AsciiWhitespace => '_',
@@ -155,7 +155,7 @@ impl Byte {
             CharacterTable::CP437 => CP437[self.0 as usize],
             CharacterTable::Braille => match self.category() {
                 // null is important enough to get its own symbol
-                Null => '⋄',
+                Null => '₀',
                 AsciiPrintable => self.0 as char,
                 AsciiWhitespace if self.0 == b' ' => ' ',
                 // `\t`, `\n` and `\r` are important enough to get their own symbols
@@ -1018,9 +1018,9 @@ mod tests {
         let input = io::Cursor::new(b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00");
         let expected_string = "\
 ┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
-│00000000│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │⋄⋄⋄⋄⋄⋄⋄⋄┊⋄⋄⋄⋄⋄⋄⋄⋄│
+│00000000│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │₀₀₀₀₀₀₀₀┊₀₀₀₀₀₀₀₀│
 │*       │                         ┊                         │        ┊        │
-│00000020│ 00                      ┊                         │⋄       ┊        │
+│00000020│ 00                      ┊                         │₀       ┊        │
 └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
 "
         .to_owned();

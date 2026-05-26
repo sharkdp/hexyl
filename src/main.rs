@@ -563,7 +563,7 @@ fn print_color_table() -> io::Result<()> {
 
     // NULL bytes
     stdout.write_all(COLOR_NULL.as_bytes())?;
-    writeln!(stdout, "⋄ NULL bytes (0x00)")?;
+    writeln!(stdout, "₀ NULL bytes (0x00)")?;
     stdout.write_all(COLOR_RESET.as_bytes())?;
 
     // ASCII printable
