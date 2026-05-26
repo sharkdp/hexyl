@@ -9,6 +9,27 @@ of bytes (NULL bytes, printable ASCII characters, ASCII whitespace characters, o
 
 ## Preview
 
+With the default color scheme and character table, the three panels use the following colors and
+characters (run `hexyl --print-color-table` to see them in your terminal):
+
+| Panel | Color | Character / example | Byte category |
+| ----- | ----- | ------------------- | ------------- |
+| Offset (left) | bright black | `00000000` | file position |
+| Hex (middle) | bright black | `00` | NULL bytes (`0x00`) |
+| Hex (middle) | cyan | `61` | ASCII printable (`0x20`–`0x7E`) |
+| Hex (middle) | green | `20` | ASCII whitespace (`0x09`–`0x0D`, `0x20`) |
+| Hex (middle) | green | `7f` | other ASCII control characters |
+| Hex (middle) | yellow | `ff` | non-ASCII bytes (`0x80`–`0xFF`) |
+| ASCII (right) | bright black | `⋄` | NULL bytes |
+| ASCII (right) | as-is | `a` | printable ASCII |
+| ASCII (right) | `_` or space | space / tab / newline | ASCII whitespace |
+| ASCII (right) | `•` | bullet | other ASCII control characters |
+| ASCII (right) | `×` | multiplication sign | non-ASCII bytes |
+
+An alternative gradient palette is available via `--color-scheme gradient`.
+
+Examples:
+
 ![](https://i.imgur.com/MWO9uSL.png)
 
 ![](https://i.imgur.com/Dp7Wncz.png)
