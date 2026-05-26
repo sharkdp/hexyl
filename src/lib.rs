@@ -397,6 +397,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             },
             endianness: self.endianness,
             include_mode: self.include_mode,
+            position_field_width: 8,
         }
     }
 }
@@ -429,12 +430,62 @@ pub struct Printer<'a, Writer: Write> {
     endianness: Endianness,
     /// Whether to output in C include file style.
     include_mode: IncludeMode,
+    /// Width of the position column in characters (minimum 8).
+    position_field_width: usize,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
+    fn offset_hex_width(value: u64) -> usize {
+        let byte_index = value.to_be_bytes();
+        let mut i = 0;
+        while byte_index[i] == 0 && i < 4 {
+            i += 1;
+        }
+        (8 - i) * 2
+    }
+
     pub fn display_offset(&mut self, display_offset: u64) -> &mut Self {
         self.display_offset = display_offset;
         self
+    }
+
+    fn prepare_position_field_width(&mut self, content_len: u64) {
+        if !self.show_position_panel {
+            return;
+        }
+
+        let line_size = 8 * self.panels;
+        let max_idx = if content_len == 0 {
+            0
+        } else {
+            ((content_len - 1) / line_size) * line_size
+        };
+        let max_offset = self.display_offset.saturating_add(max_idx);
+
+        self.position_field_width = Self::offset_hex_width(self.display_offset)
+            .max(Self::offset_hex_width(max_offset))
+            .max(8);
+    }
+
+    fn write_offset_hex(&mut self, value: u64) -> io::Result<()> {
+        let byte_index = value.to_be_bytes();
+        let mut i = 0;
+        while byte_index[i] == 0 && i < 4 {
+            i += 1;
+        }
+
+        let mut written = 0;
+        for &byte in byte_index.iter().skip(i) {
+            self.writer
+                .write_all(self.byte_hex_panel_g[byte as usize].as_bytes())?;
+            written += 2;
+        }
+
+        for _ in written..self.position_field_width {
+            self.writer.write_all(b" ")?;
+        }
+
+        Ok(())
     }
 
     fn panel_sz(&self) -> usize {
@@ -450,11 +501,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let c = border_elements.column_separator;
         let l = border_elements.left_corner;
         let r = border_elements.right_corner;
+        let h_position = h.to_string().repeat(self.position_field_width);
         let h8 = h.to_string().repeat(8);
         let h_repeat = h.to_string().repeat(self.panel_sz());
 
         if self.show_position_panel {
-            write!(self.writer, "{l}{h8}{c}")?;
+            write!(self.writer, "{l}{h_position}{c}")?;
         } else {
             write!(self.writer, "{l}")?;
         }
@@ -511,18 +563,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     if self.show_color {
                         self.writer.write_all(COLOR_RESET.as_bytes())?;
                     }
-                    self.writer.write_all(b"       ")?;
+                    for _ in 1..self.position_field_width {
+                        self.writer.write_all(b" ")?;
+                    }
                 }
                 Squeezer::Ignore | Squeezer::Disabled | Squeezer::Delete => {
-                    let byte_index: [u8; 8] = (self.idx + self.display_offset).to_be_bytes();
-                    let mut i = 0;
-                    while byte_index[i] == 0x0 && i < 4 {
-                        i += 1;
-                    }
-                    for &byte in byte_index.iter().skip(i) {
-                        self.writer
-                            .write_all(self.byte_hex_panel_g[byte as usize].as_bytes())?;
-                    }
+                    self.write_offset_hex(self.idx + self.display_offset)?;
                     if self.show_color {
                         self.writer.write_all(COLOR_RESET.as_bytes())?;
                     }
@@ -675,16 +721,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
     /// Loop through the given `Reader`, printing until the `Reader` buffer
     /// is exhausted.
-    pub fn print_all<Reader: Read>(&mut self, reader: Reader) -> io::Result<()> {
+    pub fn print_all<Reader: Read>(&mut self, mut reader: Reader) -> io::Result<()> {
         let mut is_empty = true;
 
-        let mut buf = BufReader::new(reader);
-
-        // special handler for include mode
         match &self.include_mode {
-            // Input from a file
-            // Output like `unsigned char <filename>[] = { ... }; unsigned int <filename>_len = ...;`
             IncludeMode::File(filename) => {
+                let mut buf = BufReader::new(reader);
                 // convert non-alphanumeric characters to '_'
                 let var_name = filename
                     .chars()
@@ -704,11 +746,17 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 return Ok(());
             }
             IncludeMode::Stdin | IncludeMode::Slice => {
+                let mut buf = BufReader::new(reader);
                 self.print_bytes_in_include_style(&mut buf)?;
                 return Ok(());
             }
             IncludeMode::Off => {}
         }
+
+        let mut content = Vec::new();
+        reader.read_to_end(&mut content)?;
+        self.prepare_position_field_width(content.len() as u64);
+        let mut buf = io::Cursor::new(content);
 
         let leftover = loop {
             // read a maximum of 8 * self.panels bytes from the reader
@@ -810,7 +858,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             self.base_digits = 2;
             self.print_header()?;
             if self.show_position_panel {
-                write!(self.writer, "{0:9}", "│")?;
+                write!(
+                    self.writer,
+                    "{0:<width$}",
+                    "│",
+                    width = self.position_field_width + 1
+                )?;
             }
             write!(
                 self.writer,
@@ -976,6 +1029,33 @@ mod tests {
 
         let actual_string: &str = str::from_utf8(&output).unwrap();
         assert_eq!(actual_string, expected_string)
+    }
+
+    #[test]
+    fn large_display_offset_keeps_columns_aligned() {
+        let input = io::Cursor::new(vec![0u8; 32]);
+        let mut output = vec![];
+        let mut printer = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .show_char_panel(true)
+            .show_position_panel(true)
+            .with_border_style(BorderStyle::Unicode)
+            .enable_squeezing(false)
+            .num_panels(2)
+            .group_size(1)
+            .with_base(Base::Hexadecimal)
+            .endianness(Endianness::Big)
+            .character_table(CharacterTable::Default)
+            .include_mode(IncludeMode::Off)
+            .color_scheme(ColorScheme::Default)
+            .build();
+        printer.display_offset(0x1_0000_0000);
+        printer.print_all(input).unwrap();
+
+        let actual_string = str::from_utf8(&output).unwrap();
+        assert!(actual_string.contains("──────────"));
+        assert!(actual_string.contains("│0100000000│"));
+        assert!(actual_string.contains("│0100000010│"));
     }
 
     #[test]

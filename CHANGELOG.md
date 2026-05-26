@@ -11,6 +11,7 @@
 ## Bugfixes
 
 - Fix memory allocation bug when terminal width is less than 10, see #244 (@selfup)
+- Keep the position column aligned when offsets exceed 32-bit range, see #228 (@leno23)
 
 
 # v0.16.0
