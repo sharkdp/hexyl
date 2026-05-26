@@ -131,6 +131,41 @@ mod bytes {
     }
 }
 
+mod raw {
+    use super::hexyl;
+
+    #[test]
+    fn outputs_bytes_from_stdin() {
+        hexyl()
+            .arg("--raw")
+            .write_stdin("hello")
+            .assert()
+            .success()
+            .stdout("hello");
+    }
+
+    #[test]
+    fn respects_skip_and_length() {
+        hexyl()
+            .arg("ascii")
+            .arg("--raw")
+            .arg("--skip=2")
+            .arg("--length=4")
+            .assert()
+            .success()
+            .stdout("2345");
+    }
+
+    #[test]
+    fn conflicts_with_include_mode() {
+        hexyl()
+            .arg("--raw")
+            .arg("--include")
+            .assert()
+            .failure();
+    }
+}
+
 mod skip {
     use super::hexyl;
 
