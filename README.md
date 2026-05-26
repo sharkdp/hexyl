@@ -181,6 +181,25 @@ scoop install hexyl
 x env use hexyl
 ```
 
+## Shell completions
+
+Pre-built completion scripts are available in [`contrib/completion/`](contrib/completion/).
+
+To use the fish completion, copy the file to your fish completions directory:
+
+```bash
+mkdir -p ~/.config/fish/completions
+cp contrib/completion/hexyl.fish ~/.config/fish/completions/
+```
+
+You can also generate completions directly:
+
+```bash
+hexyl --completion fish > ~/.config/fish/completions/hexyl.fish
+hexyl --completion bash > ~/.local/share/bash-completion/completions/hexyl
+hexyl --completion zsh > ~/.zfunc/_hexyl
+```
+
 ## Configuration
 
 `hexyl` colors can be configured via environment variables. The variables used are as follows:
