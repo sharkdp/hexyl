@@ -270,6 +270,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     border_style: BorderStyle,
     use_squeeze: bool,
     panels: u64,
+    bytes_per_panel: u8,
     group_size: u8,
     base: Base,
     endianness: Endianness,
@@ -288,6 +289,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             border_style: BorderStyle::Unicode,
             use_squeeze: true,
             panels: 2,
+            bytes_per_panel: 8,
             group_size: 1,
             base: Base::Hexadecimal,
             endianness: Endianness::Big,
@@ -327,6 +329,11 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
+    pub fn bytes_per_panel(mut self, num: u8) -> Self {
+        self.bytes_per_panel = num;
+        self
+    }
+
     pub fn group_size(mut self, num: u8) -> Self {
         self.group_size = num;
         self
@@ -360,7 +367,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
     pub fn build(self) -> Printer<'a, Writer> {
         Printer {
             idx: 0,
-            line_buf: vec![0x0; 8 * self.panels as usize],
+            line_buf: vec![0x0; self.bytes_per_panel as usize * self.panels as usize],
             writer: self.writer,
             show_char_panel: self.show_char_panel,
             show_position_panel: self.show_position_panel,
@@ -387,6 +394,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             },
             display_offset: 0,
             panels: self.panels,
+            bytes_per_panel: self.bytes_per_panel,
             squeeze_byte: 0x00,
             group_size: self.group_size,
             base_digits: match self.base {
@@ -420,6 +428,8 @@ pub struct Printer<'a, Writer: Write> {
     display_offset: u64,
     /// The number of panels to draw.
     panels: u64,
+    /// The number of bytes displayed in each panel.
+    bytes_per_panel: u8,
     squeeze_byte: usize,
     /// The number of octets per group.
     group_size: u8,
@@ -437,10 +447,22 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         self
     }
 
+    fn bytes_per_panel(&self) -> usize {
+        self.bytes_per_panel as usize
+    }
+
+    fn line_bytes(&self) -> usize {
+        self.bytes_per_panel() * self.panels as usize
+    }
+
+    fn last_byte_in_panel(&self, i: usize) -> bool {
+        i % self.bytes_per_panel() == self.bytes_per_panel() - 1
+    }
+
     fn panel_sz(&self) -> usize {
         // add one to include the trailing space of a group
         let group_sz = self.base_digits as usize * self.group_size as usize + 1;
-        let group_per_panel = 8 / self.group_size as usize;
+        let group_per_panel = self.bytes_per_panel() / self.group_size as usize;
         // add one to include the leading space
         1 + group_sz * group_per_panel
     }
@@ -450,11 +472,12 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         let c = border_elements.column_separator;
         let l = border_elements.left_corner;
         let r = border_elements.right_corner;
-        let h8 = h.to_string().repeat(8);
+        let h_offset = h.to_string().repeat(8);
+        let h_char = h.to_string().repeat(self.bytes_per_panel());
         let h_repeat = h.to_string().repeat(self.panel_sz());
 
         if self.show_position_panel {
-            write!(self.writer, "{l}{h8}{c}")?;
+            write!(self.writer, "{l}{h_offset}{c}")?;
         } else {
             write!(self.writer, "{l}")?;
         }
@@ -470,9 +493,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         if self.show_char_panel {
             for _ in 0..self.panels - 1 {
-                write!(self.writer, "{h8}{c}")?;
+                write!(self.writer, "{h_char}{c}")?;
             }
-            writeln!(self.writer, "{h8}{r}")?;
+            writeln!(self.writer, "{h_char}{r}")?;
         } else {
             writeln!(self.writer, "{r}")?;
         }
@@ -555,7 +578,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 }
             }
         }
-        if i == 8 * self.panels - 1 {
+        if i == self.line_bytes() as u64 - 1 {
             if self.show_color {
                 self.writer.write_all(COLOR_RESET.as_bytes())?;
                 self.curr_color = None;
@@ -566,7 +589,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     .encode_utf8(&mut [0; 4])
                     .as_bytes(),
             )?;
-        } else if i % 8 == 7 {
+        } else if self.last_byte_in_panel(i as usize) {
             if self.show_color {
                 self.writer.write_all(COLOR_RESET.as_bytes())?;
                 self.curr_color = None;
@@ -622,14 +645,14 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
         }
         // byte is last in panel
-        if i % 8 == 7 {
+        if self.last_byte_in_panel(i) {
             if self.show_color {
                 self.curr_color = None;
                 self.writer.write_all(COLOR_RESET.as_bytes())?;
             }
             self.writer.write_all(b" ")?;
             // byte is last in last panel
-            if i as u64 % (8 * self.panels) == 8 * self.panels - 1 {
+            if i as u64 % self.line_bytes() as u64 == self.line_bytes() as u64 - 1 {
                 self.writer.write_all(
                     self.border_style
                         .outer_sep()
@@ -711,9 +734,9 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
 
         let leftover = loop {
-            // read a maximum of 8 * self.panels bytes from the reader
+            // read a maximum of line_bytes() bytes from the reader
             if let Ok(n) = buf.read(&mut self.line_buf) {
-                if n > 0 && n < 8 * self.panels as usize {
+                if n > 0 && n < self.line_bytes() {
                     // if less are read, that indicates end of file after
                     if is_empty {
                         self.print_header()?;
@@ -730,7 +753,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                                 break Some(leftover);
                             }
                             // amount read has exceeded line buffer
-                            if leftover >= 8 * self.panels as usize {
+                            if leftover >= self.line_bytes() {
                                 break None;
                             }
                         }
@@ -760,7 +783,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == self.squeeze_byte)
                 {
                     if self.squeezer == Squeezer::Delete {
-                        self.idx += 8 * self.panels;
+                        self.idx += self.line_bytes() as u64;
                         continue;
                     }
                 } else {
@@ -782,7 +805,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
 
             // increment index to next line
-            self.idx += 8 * self.panels;
+            self.idx += self.line_bytes() as u64;
 
             // change from print to delete if squeeze is still active
             if self.squeezer == Squeezer::Print {
@@ -830,14 +853,14 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             self.print_position_panel()?;
             self.print_bytes()?;
             self.squeezer = Squeezer::Print;
-            for i in n..8 * self.panels as usize {
+            for i in n..self.line_bytes() {
                 self.print_byte(i, 0)?;
             }
             if self.show_char_panel {
                 self.squeezer = Squeezer::Ignore;
                 self.print_char_panel()?;
                 self.squeezer = Squeezer::Print;
-                for i in n..8 * self.panels as usize {
+                for i in n..self.line_bytes() {
                     self.print_char(i as u64)?;
                 }
             }

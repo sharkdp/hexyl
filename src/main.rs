@@ -164,6 +164,12 @@ struct Opt {
     #[arg(long, value_name("N"))]
     panels: Option<String>,
 
+    /// Sets the total number of bytes displayed per line. This value must be
+    /// divisible by the number of panels (see `--panels`). By default, hexyl
+    /// displays 8 bytes per panel.
+    #[arg(long, value_name("N"))]
+    bytes_per_line: Option<NonZeroU64>,
+
     /// Number of bytes/octets that should be grouped together. You can use the
     /// '--endianness' option to control the ordering of the bytes within a
     /// group. '--groupsize' can be used as an alias (xxd-compatibility).
@@ -395,12 +401,15 @@ fn run() -> Result<()> {
         opt.display_offset
     ))?;
 
-    let max_panels_fn = |terminal_width: u64, base_digits: u64, group_size: u64| {
+    let max_panels_fn = |terminal_width: u64,
+                         base_digits: u64,
+                         group_size: u64,
+                         bytes_per_panel: u64| {
         let offset = if show_position_panel { 10 } else { 1 };
         let col_width = if show_char_panel {
-            ((8 / group_size) * (base_digits * group_size + 1)) + 2 + 8
+            ((bytes_per_panel / group_size) * (base_digits * group_size + 1)) + 2 + bytes_per_panel
         } else {
-            ((8 / group_size) * (base_digits * group_size + 1)) + 2
+            ((bytes_per_panel / group_size) * (base_digits * group_size + 1)) + 2
         };
         if (terminal_width.saturating_sub(offset)) / col_width < 1 {
             1
@@ -439,11 +448,22 @@ fn run() -> Result<()> {
     };
 
     let group_size = u8::from(opt.group_size);
+    let group_size_u64 = u64::from(group_size);
 
     let terminal_width = terminal_size().map(|s| s.0 .0 as u64).unwrap_or(80);
 
+    let default_bytes_per_panel = 8_u64;
+    let auto_panels = |terminal_width: u64| {
+        max_panels_fn(
+            terminal_width,
+            base_digits,
+            group_size_u64,
+            default_bytes_per_panel,
+        )
+    };
+
     let panels = if opt.panels.as_deref() == Some("auto") {
-        max_panels_fn(terminal_width, base_digits, group_size.into())
+        auto_panels(terminal_width)
     } else if let Some(panels) = opt.panels {
         panels
             .parse::<NonZeroU64>()
@@ -453,12 +473,41 @@ fn run() -> Result<()> {
                 panels
             ))?
     } else if let Some(terminal_width) = opt.terminal_width {
-        max_panels_fn(terminal_width.into(), base_digits, group_size.into())
-    } else {
-        std::cmp::min(
-            2,
-            max_panels_fn(terminal_width, base_digits, group_size.into()),
+        max_panels_fn(
+            terminal_width.into(),
+            base_digits,
+            group_size_u64,
+            default_bytes_per_panel,
         )
+    } else {
+        std::cmp::min(2, auto_panels(terminal_width))
+    };
+
+    let bytes_per_panel = if let Some(bytes_per_line) = opt.bytes_per_line {
+        let bytes_per_line = u64::from(bytes_per_line);
+        if bytes_per_line % panels != 0 {
+            bail!(
+                "--bytes-per-line ({bytes_per_line}) must be divisible by the number of panels ({panels})"
+            );
+        }
+        let bytes_per_panel = bytes_per_line / panels;
+        if bytes_per_panel > u8::MAX as u64 {
+            bail!(
+                "--bytes-per-line is too large (maximum is {} bytes)",
+                u8::MAX as u64 * panels
+            );
+        }
+        let bytes_per_panel = u8::try_from(bytes_per_panel).context(anyhow!(
+            "failed to convert `--bytes-per-line` to bytes per panel"
+        ))?;
+        if u64::from(bytes_per_panel) % group_size_u64 != 0 {
+            bail!(
+                "--bytes-per-line must be divisible by --group-size ({group_size}) times the number of panels ({panels})"
+            );
+        }
+        bytes_per_panel
+    } else {
+        8
     };
 
     let endianness = if opt.little_endian_format {
@@ -505,6 +554,7 @@ fn run() -> Result<()> {
         .with_border_style(border_style)
         .enable_squeezing(squeeze)
         .num_panels(panels)
+        .bytes_per_panel(bytes_per_panel)
         .group_size(group_size)
         .with_base(base)
         .endianness(endianness)
