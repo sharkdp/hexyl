@@ -39,7 +39,8 @@ Examples: --length=64, --length=4KiB, --length=0xff";
 
 const SKIP_HELP_TEXT: &str = "Skip the first N bytes of the input. The N argument can also \
                               include a unit (see `--length` for details).
-A negative value is valid and will seek from the end of the file.";
+A negative value is valid and will seek from the end of the file.
+Multiple `--skip` options add together.";
 
 const BLOCK_SIZE_HELP_TEXT: &str = "Sets the size of the `block` unit to SIZE.
 Examples: --block-size=1024, --block-size=4kB";
@@ -80,8 +81,8 @@ struct Opt {
     )]
     length: Option<String>,
 
-    #[arg(help(SKIP_HELP_TEXT), short, long, value_name("N"))]
-    skip: Option<String>,
+    #[arg(help(SKIP_HELP_TEXT), short, long, value_name("N"), action = ArgAction::Append)]
+    skip: Vec<String>,
 
     #[arg(
         help(BLOCK_SIZE_HELP_TEXT),
@@ -319,20 +320,15 @@ fn run() -> Result<()> {
             PositiveI64::new(x).ok_or_else(|| anyhow!("block size argument must be positive"))
         })?;
 
-    let skip_arg = opt
-        .skip
-        .as_ref()
-        .map(|s| {
-            parse_byte_offset(s, block_size).context(anyhow!(
-                "failed to parse `--skip` arg {:?} as byte count",
-                s
-            ))
-        })
-        .transpose()?;
-
-    let skip_offset = if let Some(ByteOffset { kind, value }) = skip_arg {
+    let mut skip_offset = 0;
+    for s in &opt.skip {
+        let skip_arg = parse_byte_offset(s, block_size).context(anyhow!(
+            "failed to parse `--skip` arg {:?} as byte count",
+            s
+        ))?;
+        let ByteOffset { kind, value } = skip_arg;
         let value = value.into_inner();
-        reader
+        skip_offset = reader
             .seek(match kind {
                 ByteOffsetKind::ForwardFromBeginning | ByteOffsetKind::ForwardFromLastOffset => {
                     SeekFrom::Current(value)
@@ -345,10 +341,8 @@ fn run() -> Result<()> {
                      This could be caused by a negative offset that is too large or by \
                      an input that is not seek-able (e.g. if the input comes from a pipe)."
                 )
-            })?
-    } else {
-        0
-    };
+            })?;
+    }
 
     let parse_byte_count = |s| -> Result<u64> {
         Ok(parse_byte_offset(s, block_size)?
