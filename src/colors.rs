@@ -15,6 +15,9 @@ pub static COLOR_ASCII_OTHER: LazyLock<String> =
 pub static COLOR_NONASCII: LazyLock<String> =
     LazyLock::new(|| init_color("NONASCII", AnsiColors::Yellow));
 pub const COLOR_RESET: &str = colors::Default::ANSI_FG;
+pub const EMPHASIS_BOLD: &str = "\x1b[1m";
+pub const EMPHASIS_DIM: &str = "\x1b[2m";
+pub const STYLE_RESET: &str = "\x1b[0m";
 
 fn init_color(name: &str, default_ansi: AnsiColors) -> String {
     let default = DynColors::Ansi(default_ansi);

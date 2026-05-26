@@ -80,6 +80,48 @@ pub enum Endianness {
     Big,
 }
 
+#[derive(Copy, Clone, Debug, Default, ValueEnum, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Emphasize {
+    /// Do not apply any additional text styling.
+    #[default]
+    Nothing,
+
+    /// Use bold styling for non-zero bytes and dim styling for zero bytes.
+    #[value(name = "non-zero")]
+    NonZero,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Emphasis {
+    None,
+    Bold,
+    Dim,
+}
+
+impl Emphasis {
+    fn for_byte(b: u8, emphasize: Emphasize) -> Self {
+        match emphasize {
+            Emphasize::Nothing => Emphasis::None,
+            Emphasize::NonZero => {
+                if b == 0 {
+                    Emphasis::Dim
+                } else {
+                    Emphasis::Bold
+                }
+            }
+        }
+    }
+
+    fn write_codes<W: Write>(self, writer: &mut W) -> io::Result<()> {
+        match self {
+            Emphasis::None => Ok(()),
+            Emphasis::Bold => writer.write_all(EMPHASIS_BOLD.as_bytes()),
+            Emphasis::Dim => writer.write_all(EMPHASIS_DIM.as_bytes()),
+        }
+    }
+}
+
 #[derive(PartialEq)]
 enum Squeezer {
     Print,
@@ -276,6 +318,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     character_table: CharacterTable,
     include_mode: IncludeMode,
     color_scheme: ColorScheme,
+    emphasize: Emphasize,
 }
 
 impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
@@ -294,6 +337,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             character_table: CharacterTable::Default,
             include_mode: IncludeMode::Off,
             color_scheme: ColorScheme::Default,
+            emphasize: Emphasize::default(),
         }
     }
 
@@ -357,6 +401,11 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
+    pub fn emphasize(mut self, emphasize: Emphasize) -> Self {
+        self.emphasize = emphasize;
+        self
+    }
+
     pub fn build(self) -> Printer<'a, Writer> {
         Printer {
             idx: 0,
@@ -397,6 +446,8 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             },
             endianness: self.endianness,
             include_mode: self.include_mode,
+            emphasize: self.emphasize,
+            curr_emphasis: Emphasis::None,
         }
     }
 }
@@ -429,12 +480,65 @@ pub struct Printer<'a, Writer: Write> {
     endianness: Endianness,
     /// Whether to output in C include file style.
     include_mode: IncludeMode,
+    emphasize: Emphasize,
+    curr_emphasis: Emphasis,
 }
 
 impl<'a, Writer: Write> Printer<'a, Writer> {
     pub fn display_offset(&mut self, display_offset: u64) -> &mut Self {
         self.display_offset = display_offset;
         self
+    }
+
+    fn set_byte_style(&mut self, b: u8) -> io::Result<()> {
+        if !self.show_color && self.emphasize == Emphasize::Nothing {
+            return Ok(());
+        }
+
+        let color = if self.show_color {
+            Some(Byte(b).color(self.color_scheme))
+        } else {
+            None
+        };
+        let emphasis = Emphasis::for_byte(b, self.emphasize);
+
+        if self.curr_color == color && self.curr_emphasis == emphasis {
+            return Ok(());
+        }
+
+        if self.curr_color.is_some() || self.curr_emphasis != Emphasis::None {
+            self.writer
+                .write_all(if self.emphasize == Emphasize::Nothing {
+                    COLOR_RESET.as_bytes()
+                } else {
+                    STYLE_RESET.as_bytes()
+                })?;
+        }
+
+        if self.emphasize != Emphasize::Nothing {
+            emphasis.write_codes(&mut self.writer)?;
+        }
+        if let Some(c) = color {
+            self.writer.write_all(c)?;
+        }
+
+        self.curr_color = color;
+        self.curr_emphasis = emphasis;
+        Ok(())
+    }
+
+    fn clear_byte_style(&mut self) -> io::Result<()> {
+        if self.curr_color.is_some() || self.curr_emphasis != Emphasis::None {
+            self.writer
+                .write_all(if self.emphasize == Emphasize::Nothing {
+                    COLOR_RESET.as_bytes()
+                } else {
+                    STYLE_RESET.as_bytes()
+                })?;
+            self.curr_color = None;
+            self.curr_emphasis = Emphasis::None;
+        }
+        Ok(())
     }
 
     fn panel_sz(&self) -> usize {
@@ -543,11 +647,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             Squeezer::Print | Squeezer::Delete => self.writer.write_all(b" ")?,
             Squeezer::Ignore | Squeezer::Disabled => {
                 if let Some(&b) = self.line_buf.get(i as usize) {
-                    if self.show_color && self.curr_color != Some(Byte(b).color(self.color_scheme))
-                    {
-                        self.writer.write_all(Byte(b).color(self.color_scheme))?;
-                        self.curr_color = Some(Byte(b).color(self.color_scheme));
-                    }
+                    self.set_byte_style(b)?;
                     self.writer
                         .write_all(self.byte_char_panel[b as usize].as_bytes())?;
                 } else {
@@ -556,10 +656,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             }
         }
         if i == 8 * self.panels - 1 {
-            if self.show_color {
-                self.writer.write_all(COLOR_RESET.as_bytes())?;
-                self.curr_color = None;
-            }
+            self.clear_byte_style()?;
             self.writer.write_all(
                 self.border_style
                     .outer_sep()
@@ -567,10 +664,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                     .as_bytes(),
             )?;
         } else if i % 8 == 7 {
-            if self.show_color {
-                self.writer.write_all(COLOR_RESET.as_bytes())?;
-                self.curr_color = None;
-            }
+            self.clear_byte_style()?;
             self.writer.write_all(
                 self.border_style
                     .inner_sep()
@@ -613,20 +707,14 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 if i.is_multiple_of(self.group_size as usize) {
                     self.writer.write_all(b" ")?;
                 }
-                if self.show_color && self.curr_color != Some(Byte(b).color(self.color_scheme)) {
-                    self.writer.write_all(Byte(b).color(self.color_scheme))?;
-                    self.curr_color = Some(Byte(b).color(self.color_scheme));
-                }
+                self.set_byte_style(b)?;
                 self.writer
                     .write_all(self.byte_hex_panel[b as usize].as_bytes())?;
             }
         }
         // byte is last in panel
         if i % 8 == 7 {
-            if self.show_color {
-                self.curr_color = None;
-                self.writer.write_all(COLOR_RESET.as_bytes())?;
-            }
+            self.clear_byte_style()?;
             self.writer.write_all(b" ")?;
             // byte is last in last panel
             if i as u64 % (8 * self.panels) == 8 * self.panels - 1 {

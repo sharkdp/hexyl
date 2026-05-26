@@ -962,3 +962,31 @@ mod colors {
             .stdout(expected);
     }
 }
+
+mod emphasize {
+    use super::hexyl;
+    use predicates::prelude::*;
+
+    #[test]
+    fn non_zero_uses_bold_and_dim_styles() {
+        hexyl()
+            .arg("--color=never")
+            .arg("--emphasize=non-zero")
+            .write_stdin("\x00A")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("\x1b[2m"))
+            .stdout(predicate::str::contains("\x1b[1m"));
+    }
+
+    #[test]
+    fn nothing_is_the_default() {
+        hexyl()
+            .arg("--color=never")
+            .write_stdin("\x00A")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("\x1b[1m").not())
+            .stdout(predicate::str::contains("\x1b[2m").not());
+    }
+}
