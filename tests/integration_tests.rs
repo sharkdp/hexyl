@@ -962,3 +962,58 @@ mod colors {
             .stdout(expected);
     }
 }
+
+mod config_file {
+    use super::{hexyl, PrettyAssert};
+
+    #[test]
+    fn loads_defaults_from_config_file() {
+        hexyl()
+            .env("HEXYL_CONFIG_PATH", "hexyl-plain.conf")
+            .write_stdin(b"abcd")
+            .assert()
+            .success()
+            .pretty_stdout(
+                "\
+┌────────┬─────────────────────────┬────────┐
+│00000000│ 61 62 63 64             │abcd    │
+└────────┴─────────────────────────┴────────┘
+",
+            );
+    }
+
+    #[test]
+    fn cli_overrides_config_file() {
+        hexyl()
+            .env("HEXYL_CONFIG_PATH", "hexyl-plain.conf")
+            .arg("--panels=2")
+            .write_stdin(b"abcd")
+            .assert()
+            .success()
+            .pretty_stdout(
+                "\
+┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+│00000000│ 61 62 63 64             ┊                         │abcd    ┊        │
+└────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
+",
+            );
+    }
+
+    #[test]
+    fn no_config_skips_config_file() {
+        hexyl()
+            .env("HEXYL_CONFIG_PATH", "hexyl-plain.conf")
+            .arg("--no-config")
+            .arg("--color=never")
+            .write_stdin(b"abcd")
+            .assert()
+            .success()
+            .pretty_stdout(
+                "\
+┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+│00000000│ 61 62 63 64             ┊                         │abcd    ┊        │
+└────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
+",
+            );
+    }
+}
