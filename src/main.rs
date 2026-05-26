@@ -18,7 +18,8 @@ use thiserror::Error as ThisError;
 use terminal_size::terminal_size;
 
 use hexyl::{
-    Base, BorderStyle, CharacterTable, ColorScheme, Endianness, IncludeMode, Input, PrinterBuilder,
+    Base, BorderStyle, CharacterTable, ColorScheme, Emphasize, Endianness, IncludeMode, Input,
+    PrinterBuilder,
 };
 
 use hexyl::{
@@ -143,6 +144,10 @@ struct Opt {
     /// Defines the color scheme for the characters.
     #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
     color_scheme: ColorScheme,
+
+    /// Apply additional styling to byte values in the hex and character panels.
+    #[arg(long, value_enum, default_value_t, value_name("MODE"))]
+    emphasize: Emphasize,
 
     /// Whether to display the position panel on the left.
     #[arg(short('P'), long)]
@@ -470,6 +475,7 @@ fn run() -> Result<()> {
     let character_table = opt.character_table;
 
     let color_scheme = opt.color_scheme;
+    let emphasize = opt.emphasize;
 
     let mut stdout = BufWriter::new(io::stdout().lock());
 
@@ -511,6 +517,7 @@ fn run() -> Result<()> {
         .character_table(character_table)
         .include_mode(include_mode)
         .color_scheme(color_scheme)
+        .emphasize(emphasize)
         .build();
     printer.display_offset(skip_offset + display_offset);
     printer.print_all(&mut reader).map_err(|e| anyhow!(e))?;
