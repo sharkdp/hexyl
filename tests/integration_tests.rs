@@ -158,11 +158,7 @@ mod raw {
 
     #[test]
     fn conflicts_with_include_mode() {
-        hexyl()
-            .arg("--raw")
-            .arg("--include")
-            .assert()
-            .failure();
+        hexyl().arg("--raw").arg("--include").assert().failure();
     }
 }
 
