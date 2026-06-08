@@ -214,6 +214,11 @@ struct Opt {
     )]
     include_mode: bool,
 
+    /// Output raw binary data instead of a hex dump. Respects `--skip` and
+    /// `--length`.
+    #[arg(long, conflicts_with("include_mode"))]
+    raw: bool,
+
     /// Show shell completion for a certain shell
     #[arg(long, value_name("SHELL"))]
     completion: Option<Shell>,
@@ -365,6 +370,11 @@ fn run() -> Result<()> {
     } else {
         reader.into_inner()
     };
+
+    if opt.raw {
+        io::copy(&mut reader, &mut io::stdout())?;
+        return Ok(());
+    }
 
     let no_color = std::env::var_os("NO_COLOR").is_some();
     let show_color = match opt.color {
