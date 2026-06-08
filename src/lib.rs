@@ -126,12 +126,8 @@ pub fn load_character_table_file(path: &Path) -> io::Result<Vec<String>> {
             ),
         )
     })?;
-    parse_character_table_json(&content).map_err(|err| {
-        io::Error::new(
-            err.kind(),
-            format!("{} (in '{}')", err, path.display()),
-        )
-    })
+    parse_character_table_json(&content)
+        .map_err(|err| io::Error::new(err.kind(), format!("{} (in '{}')", err, path.display())))
 }
 
 #[derive(Copy, Clone, Debug, Default, ValueEnum)]

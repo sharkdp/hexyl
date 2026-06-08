@@ -18,8 +18,8 @@ use thiserror::Error as ThisError;
 use terminal_size::terminal_size;
 
 use hexyl::{
-    Base, BorderStyle, CharacterTable, CharacterTableConfig, ColorScheme, Endianness, IncludeMode,
-    Input, PrinterBuilder, load_character_table_file,
+    load_character_table_file, Base, BorderStyle, CharacterTable, CharacterTableConfig,
+    ColorScheme, Endianness, IncludeMode, Input, PrinterBuilder,
 };
 
 use hexyl::{
