@@ -5,8 +5,10 @@ pub use colors::*;
 pub use input::*;
 
 use std::io::{self, BufReader, Read, Write};
+use std::path::Path;
 
 use clap::ValueEnum;
+use serde::Deserialize;
 
 pub enum Base {
     Binary,
@@ -53,6 +55,79 @@ pub enum CharacterTable {
 
     /// Uses braille characters for non-printable bytes.
     Braille,
+}
+
+/// Configuration for mapping byte values to characters in the character panel.
+#[derive(Clone, Debug)]
+pub enum CharacterTableConfig {
+    Preset(CharacterTable),
+    File(Vec<String>),
+}
+
+impl CharacterTableConfig {
+    #[must_use]
+    pub fn preset(table: CharacterTable) -> Self {
+        Self::Preset(table)
+    }
+
+    fn char_strings(&self) -> Vec<String> {
+        match self {
+            Self::Preset(table) => (0u8..=u8::MAX)
+                .map(|i| format!("{}", Byte(i).as_char(*table)))
+                .collect(),
+            Self::File(entries) => entries.clone(),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct CharacterTableFile(Vec<String>);
+
+/// Load a custom character table from JSON text containing exactly 256 strings.
+pub fn parse_character_table_json(content: &str) -> io::Result<Vec<String>> {
+    let CharacterTableFile(entries) = serde_json::from_str(content).map_err(|err| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("failed to parse character table JSON: {err}"),
+        )
+    })?;
+
+    if entries.len() != 256 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!(
+                "character table must contain exactly 256 entries, found {}",
+                entries.len()
+            ),
+        ));
+    }
+
+    for (index, entry) in entries.iter().enumerate() {
+        if entry.chars().count() != 1 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "character table entry at index {index} must contain exactly one character, got {entry:?}"
+                ),
+            ));
+        }
+    }
+
+    Ok(entries)
+}
+
+pub fn load_character_table_file(path: &Path) -> io::Result<Vec<String>> {
+    let content = std::fs::read_to_string(path).map_err(|err| {
+        io::Error::new(
+            err.kind(),
+            format!(
+                "failed to read character table file '{}': {err}",
+                path.display()
+            ),
+        )
+    })?;
+    parse_character_table_json(&content)
+        .map_err(|err| io::Error::new(err.kind(), format!("{} (in '{}')", err, path.display())))
 }
 
 #[derive(Copy, Clone, Debug, Default, ValueEnum)]
@@ -273,7 +348,7 @@ pub struct PrinterBuilder<'a, Writer: Write> {
     group_size: u8,
     base: Base,
     endianness: Endianness,
-    character_table: CharacterTable,
+    character_table: CharacterTableConfig,
     include_mode: IncludeMode,
     color_scheme: ColorScheme,
 }
@@ -291,7 +366,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             group_size: 1,
             base: Base::Hexadecimal,
             endianness: Endianness::Big,
-            character_table: CharacterTable::Default,
+            character_table: CharacterTableConfig::preset(CharacterTable::Default),
             include_mode: IncludeMode::Off,
             color_scheme: ColorScheme::Default,
         }
@@ -342,7 +417,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
         self
     }
 
-    pub fn character_table(mut self, character_table: CharacterTable) -> Self {
+    pub fn character_table(mut self, character_table: CharacterTableConfig) -> Self {
         self.character_table = character_table;
         self
     }
@@ -376,9 +451,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
                     Base::Hexadecimal => format!("{i:02x}"),
                 })
                 .collect(),
-            byte_char_panel: (0u8..=u8::MAX)
-                .map(|i| format!("{}", Byte(i).as_char(self.character_table)))
-                .collect(),
+            byte_char_panel: self.character_table.char_strings(),
             byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{i:02x}")).collect(),
             squeezer: if self.use_squeeze {
                 Squeezer::Ignore
@@ -909,7 +982,7 @@ mod tests {
             .group_size(1)
             .with_base(Base::Hexadecimal)
             .endianness(Endianness::Big)
-            .character_table(CharacterTable::Default)
+            .character_table(CharacterTableConfig::preset(CharacterTable::Default))
             .include_mode(IncludeMode::Off)
             .color_scheme(ColorScheme::Default)
             .build();
@@ -966,7 +1039,7 @@ mod tests {
             .group_size(1)
             .with_base(Base::Hexadecimal)
             .endianness(Endianness::Big)
-            .character_table(CharacterTable::Default)
+            .character_table(CharacterTableConfig::preset(CharacterTable::Default))
             .include_mode(IncludeMode::Off)
             .color_scheme(ColorScheme::Default)
             .build();
@@ -1002,7 +1075,7 @@ mod tests {
             .group_size(1)
             .with_base(Base::Hexadecimal)
             .endianness(Endianness::Big)
-            .character_table(CharacterTable::Default)
+            .character_table(CharacterTableConfig::preset(CharacterTable::Default))
             .include_mode(IncludeMode::Off)
             .color_scheme(ColorScheme::Default)
             .build();
@@ -1064,7 +1137,7 @@ mod tests {
             .group_size(1)
             .with_base(Base::Hexadecimal)
             .endianness(Endianness::Big)
-            .character_table(CharacterTable::Default)
+            .character_table(CharacterTableConfig::preset(CharacterTable::Default))
             .include_mode(IncludeMode::Off)
             .color_scheme(ColorScheme::Default)
             .build();
@@ -1110,7 +1183,7 @@ unsigned int test_txt_len = 20;
             .group_size(1)
             .with_base(Base::Hexadecimal)
             .endianness(Endianness::Big)
-            .character_table(CharacterTable::Default)
+            .character_table(CharacterTableConfig::preset(CharacterTable::Default))
             .include_mode(IncludeMode::File("test.txt".to_owned()))
             .color_scheme(ColorScheme::Default)
             .build();
@@ -1140,7 +1213,7 @@ unsigned int test_txt_len = 20;
             .group_size(1)
             .with_base(Base::Hexadecimal)
             .endianness(Endianness::Big)
-            .character_table(CharacterTable::Default)
+            .character_table(CharacterTableConfig::preset(CharacterTable::Default))
             .include_mode(IncludeMode::Stdin)
             .color_scheme(ColorScheme::Default)
             .build();
@@ -1149,5 +1222,66 @@ unsigned int test_txt_len = 20;
 
         let actual_string: &str = str::from_utf8(&output).unwrap();
         assert_eq!(actual_string, expected_string)
+    }
+
+    #[test]
+    fn parse_character_table_json_accepts_valid_table() {
+        let mut entries = vec![".".to_string(); 256];
+        entries[48] = "X".to_string();
+        let json = serde_json::to_string(&entries).unwrap();
+
+        let parsed = parse_character_table_json(&json).unwrap();
+        assert_eq!(parsed[48], "X");
+    }
+
+    #[test]
+    fn parse_character_table_json_rejects_wrong_length() {
+        let json = r#"["."]"#;
+        let err = parse_character_table_json(json).unwrap_err();
+        assert!(err.to_string().contains("256"));
+    }
+
+    #[test]
+    fn parse_character_table_json_rejects_multi_character_entry() {
+        let mut entries = vec![".".to_string(); 256];
+        entries[0] = "..".to_string();
+        let json = serde_json::to_string(&entries).unwrap();
+
+        let err = parse_character_table_json(&json).unwrap_err();
+        assert!(err.to_string().contains("exactly one character"));
+    }
+
+    #[test]
+    fn custom_character_table_is_used_in_output() {
+        let mut entries = vec![".".to_string(); 256];
+        entries[0x30] = "X".to_string();
+        let input = io::Cursor::new(b"0123456789abcde\n");
+        let expected_string = "\
+┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+│00000000│ 30 31 32 33 34 35 36 37 ┊ 38 39 61 62 63 64 65 0a │X.......┊........│
+└────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
+"
+        .to_owned();
+
+        let mut output = vec![];
+        let mut printer = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .show_char_panel(true)
+            .show_position_panel(true)
+            .with_border_style(BorderStyle::Unicode)
+            .enable_squeezing(false)
+            .num_panels(2)
+            .group_size(1)
+            .with_base(Base::Hexadecimal)
+            .endianness(Endianness::Big)
+            .character_table(CharacterTableConfig::File(entries))
+            .include_mode(IncludeMode::Off)
+            .color_scheme(ColorScheme::Default)
+            .build();
+
+        printer.print_all(input).unwrap();
+
+        let actual_string = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string);
     }
 }

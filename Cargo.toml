@@ -20,11 +20,13 @@ owo-colors = "4"
 supports-color = "3"
 thiserror = "1.0"
 terminal_size = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 clap_complete = "4"
 
 [dependencies.clap]
 version = "4"
-features = ["derive", "wrap_help"]
+features = ["derive", "wrap_help", "env"]
 
 [dev-dependencies]
 assert_cmd = "2.1"

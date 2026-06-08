@@ -18,7 +18,8 @@ use thiserror::Error as ThisError;
 use terminal_size::terminal_size;
 
 use hexyl::{
-    Base, BorderStyle, CharacterTable, ColorScheme, Endianness, IncludeMode, Input, PrinterBuilder,
+    load_character_table_file, Base, BorderStyle, CharacterTable, CharacterTableConfig,
+    ColorScheme, Endianness, IncludeMode, Input, PrinterBuilder,
 };
 
 use hexyl::{
@@ -139,6 +140,16 @@ struct Opt {
     /// Defines how bytes are mapped to characters.
     #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
     character_table: CharacterTable,
+
+    /// Load a custom character table from a JSON file with exactly 256 single-
+    /// character strings.
+    #[arg(
+        long,
+        value_name("FILE"),
+        env = "HEXYL_CHARACTER_TABLE_FILE",
+        conflicts_with("character_table")
+    )]
+    character_table_file: Option<PathBuf>,
 
     /// Defines the color scheme for the characters.
     #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
@@ -467,7 +478,12 @@ fn run() -> Result<()> {
         opt.endianness
     };
 
-    let character_table = opt.character_table;
+    let character_table = if let Some(path) = opt.character_table_file {
+        let entries = load_character_table_file(&path).map_err(|err| anyhow!(err))?;
+        CharacterTableConfig::File(entries)
+    } else {
+        CharacterTableConfig::preset(opt.character_table)
+    };
 
     let color_scheme = opt.color_scheme;
 
