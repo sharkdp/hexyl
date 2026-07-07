@@ -1,3 +1,10 @@
+# Unreleased
+
+## Bugfixes
+
+- Fix misaligned `No content` line for empty input when using `--panels` other than 2 or a non-default `--border` style (@upuddu)
+
+
 # v0.17.0
 
 ## Features

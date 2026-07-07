@@ -809,21 +809,26 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         if is_empty {
             self.base_digits = 2;
             self.print_header()?;
+
+            let sep = self.border_style.outer_sep();
+            let panel_sz = self.panel_sz();
+
             if self.show_position_panel {
-                write!(self.writer, "{0:9}", "│")?;
+                write!(self.writer, "{sep}{:8}", "")?;
             }
-            write!(
-                self.writer,
-                "{0:2}{1:2$}{0}{0:>3$}",
-                "│",
-                "No content",
-                self.panel_sz() - 1,
-                self.panel_sz() + 1,
-            )?;
+            // The first hex panel holds the "No content" message, the rest are
+            // blank. Each panel is preceded by a separator so the layout stays
+            // aligned with the border for any number of panels.
+            for panel in 0..self.panels {
+                let content = if panel == 0 { " No content" } else { "" };
+                write!(self.writer, "{sep}{content:panel_sz$}")?;
+            }
             if self.show_char_panel {
-                write!(self.writer, "{0:>9}{0:>9}", "│")?;
+                for _ in 0..self.panels {
+                    write!(self.writer, "{sep}{:8}", "")?;
+                }
             }
-            writeln!(self.writer)?;
+            writeln!(self.writer, "{sep}")?;
         } else if let Some(n) = leftover {
             // last line is incomplete
             self.squeezer = Squeezer::Ignore;
@@ -930,6 +935,67 @@ mod tests {
 "
         .to_owned();
         assert_print_all_output(input, expected_string);
+    }
+
+    #[test]
+    fn empty_file_with_one_panel() {
+        let input = io::empty();
+        let expected_string = "\
+┌────────┬─────────────────────────┬────────┐
+│        │ No content              │        │
+└────────┴─────────────────────────┴────────┘
+"
+        .to_owned();
+
+        let mut output = vec![];
+        let mut printer: Printer<Vec<u8>> = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .num_panels(1)
+            .build();
+        printer.print_all(input).unwrap();
+
+        let actual_string: &str = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string)
+    }
+
+    #[test]
+    fn empty_file_with_three_panels() {
+        let input = io::empty();
+        let expected_string = "\
+┌────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬────────┬────────┬────────┐
+│        │ No content              │                         │                         │        │        │        │
+└────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┴────────┴────────┴────────┘
+"
+        .to_owned();
+
+        let mut output = vec![];
+        let mut printer: Printer<Vec<u8>> = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .num_panels(3)
+            .build();
+        printer.print_all(input).unwrap();
+
+        let actual_string: &str = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string)
+    }
+
+    #[test]
+    fn empty_file_with_border_none() {
+        let input = io::empty();
+        // With no border, the separators become spaces, so the whole line is
+        // just the centered-in-first-panel "No content" message. The total
+        // width matches the two-panel layout (80 columns).
+        let expected_string = format!("{}No content{}\n", " ".repeat(11), " ".repeat(59));
+
+        let mut output = vec![];
+        let mut printer: Printer<Vec<u8>> = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .with_border_style(BorderStyle::None)
+            .build();
+        printer.print_all(input).unwrap();
+
+        let actual_string: &str = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string)
     }
 
     #[test]
