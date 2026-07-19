@@ -34,9 +34,11 @@ pub enum IncludeMode {
 #[derive(Copy, Clone, Debug, Default, ValueEnum)]
 #[non_exhaustive]
 pub enum CharacterTable {
-    /// Show printable ASCII characters as-is, '⋄' for NULL bytes, ' ' for
-    /// space, '_' for other ASCII whitespace, '•' for other ASCII characters,
-    /// and '×' for non-ASCII bytes.
+    /// Show 7-bit printable ASCII (0x20–0x7E) as-is, '⋄' for NULL bytes, ' '
+    /// for space, '_' for other ASCII whitespace, '•' for other 7-bit control
+    /// characters, and '×' for non-ASCII bytes (0x80–0xFF). Extended/8-bit
+    /// "ASCII" code pages are not shown as glyphs here; use `codepage-437`
+    /// (or another table) if you need that.
     #[default]
     Default,
 

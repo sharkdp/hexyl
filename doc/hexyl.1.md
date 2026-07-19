@@ -14,8 +14,8 @@ hexyl - a command-line hex viewer
 
 **hexyl** is a simple hex viewer for the terminal.
 It uses a colored output to distinguish different categories of bytes (NULL
-bytes, printable ASCII characters, ASCII whitespace characters, other ASCII
-characters and non-ASCII).
+bytes, 7-bit printable ASCII characters, ASCII whitespace characters, other
+7-bit ASCII characters and non-ASCII bytes (0x80–0xFF).
 
 # POSITIONAL ARGUMENTS
 

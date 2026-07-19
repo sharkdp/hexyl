@@ -5,7 +5,7 @@
 ![](https://img.shields.io/crates/v/hexyl.svg?colorB=00aa88)
 
 `hexyl` is a hex viewer for the terminal. It uses a colored output to distinguish different categories
-of bytes (NULL bytes, printable ASCII characters, ASCII whitespace characters, other ASCII characters and non-ASCII).
+of bytes (NULL bytes, 7-bit printable ASCII, ASCII whitespace, other 7-bit ASCII, and non-ASCII bytes 0x80–0xFF).
 
 ## Preview
 
