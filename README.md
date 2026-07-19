@@ -17,6 +17,25 @@ of bytes (NULL bytes, printable ASCII characters, ASCII whitespace characters, o
 
 ![](https://i.imgur.com/f8nm8g6.png)
 
+### Color and character legend
+
+With the default character table and color scheme, each byte category is shown
+as follows (hex panel uses the color; the right-hand character panel uses the
+glyph):
+
+| Category | Default color | Glyph | Byte range |
+| --- | --- | --- | --- |
+| NULL bytes | bright black | `⋄` | `0x00` |
+| ASCII printable | cyan | as-is (`a`–`z`, …) | `0x20`–`0x7E` |
+| ASCII whitespace | green | space or `_` | `0x09`–`0x0D`, `0x20` |
+| Other ASCII (controls) | green | `•` | remaining `0x01`–`0x1F`, `0x7F` |
+| Non-ASCII | yellow | `×` | `0x80`–`0xFF` |
+
+You can print a live color reference with:
+
+```bash
+hexyl --print-color-table
+```
 
 ## Installation
 
