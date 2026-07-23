@@ -298,26 +298,23 @@ fn run() -> Result<()> {
         None => Input::Stdin(stdin.lock()),
     };
 
-    if let Some(hex_number) = try_parse_as_hex_number(&opt.block_size) {
-        return hex_number
-            .map_err(|e| anyhow!(e))
+    let block_size = if let Some(hex_number) = try_parse_as_hex_number(&opt.block_size) {
+        hex_number.map_err(|e| anyhow!(e)).and_then(|x| {
+            PositiveI64::new(x).ok_or_else(|| anyhow!("block size argument must be positive"))
+        })?
+    } else {
+        let (num, unit) = extract_num_and_unit_from(&opt.block_size)?;
+        if let Unit::Block { custom_size: _ } = unit {
+            return Err(anyhow!(
+                "can not use 'block(s)' as a unit to specify block size"
+            ));
+        }
+        num.checked_mul(unit.get_multiplier())
+            .ok_or_else(|| anyhow!(ByteOffsetParseError::UnitMultiplicationOverflow))
             .and_then(|x| {
                 PositiveI64::new(x).ok_or_else(|| anyhow!("block size argument must be positive"))
-            })
-            .map(|_| ());
-    }
-    let (num, unit) = extract_num_and_unit_from(&opt.block_size)?;
-    if let Unit::Block { custom_size: _ } = unit {
-        return Err(anyhow!(
-            "can not use 'block(s)' as a unit to specify block size"
-        ));
+            })?
     };
-    let block_size = num
-        .checked_mul(unit.get_multiplier())
-        .ok_or_else(|| anyhow!(ByteOffsetParseError::UnitMultiplicationOverflow))
-        .and_then(|x| {
-            PositiveI64::new(x).ok_or_else(|| anyhow!("block size argument must be positive"))
-        })?;
 
     let skip_arg = opt
         .skip
