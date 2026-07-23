@@ -2,7 +2,7 @@
 
 ## Bugfixes
 
-- Fix hexadecimal values for `--block-size` (@Dongdia)
+- Fix hexadecimal values for `--block-size`, see #286 (@Dongdia)
 
 
 # v0.17.0
