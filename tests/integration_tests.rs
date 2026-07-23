@@ -233,6 +233,19 @@ mod blocksize {
     use super::hexyl;
 
     #[test]
+    fn accepts_hexadecimal_blocksize() {
+        hexyl()
+            .arg("ascii")
+            .arg("--color=never")
+            .arg("--block-size=0x4")
+            .arg("--skip=1block")
+            .arg("--length=1")
+            .assert()
+            .success()
+            .stdout(predicates::str::contains("│00000004│ 34 "));
+    }
+
+    #[test]
     fn fails_for_zero_or_negative_blocksize() {
         hexyl()
             .arg("ascii")
