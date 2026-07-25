@@ -151,6 +151,23 @@ mod skip {
     }
 
     #[test]
+    fn multiple_skips_are_additive() {
+        hexyl()
+        .arg("ascii")
+        .arg("--color=never")
+        .arg("--skip=2")
+        .arg("--skip=2")
+        .arg("--length=4")
+        .assert()
+        .success()
+        .stdout(
+            "┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐\n\
+             │00000004│ 34 35 36 37             ┊                         │4567    ┊        │\n\
+             └────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘\n",
+        );
+    }
+
+    #[test]
     fn prints_warning_when_skipping_past_the_end() {
         hexyl()
         .arg("ascii")
