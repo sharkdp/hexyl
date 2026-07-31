@@ -807,21 +807,24 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         // special ending
 
         if is_empty {
-            self.base_digits = 2;
             self.print_header()?;
             if self.show_position_panel {
                 write!(self.writer, "{0:9}", "│")?;
             }
             write!(
                 self.writer,
-                "{0:2}{1:2$}{0}{0:>3$}",
+                "{0:2}{1:2$}{0}",
                 "│",
                 "No content",
                 self.panel_sz() - 1,
-                self.panel_sz() + 1,
             )?;
+            for _ in 1..self.panels {
+                write!(self.writer, "{0:>1$}", "│", self.panel_sz() + 1)?;
+            }
             if self.show_char_panel {
-                write!(self.writer, "{0:>9}{0:>9}", "│")?;
+                for _ in 0..self.panels {
+                    write!(self.writer, "{0:>9}", "│")?;
+                }
             }
             writeln!(self.writer)?;
         } else if let Some(n) = leftover {
@@ -920,6 +923,33 @@ mod tests {
         assert_eq!(actual_string, expected_string,)
     }
 
+    fn assert_print_all_output_with_base<Reader: Read>(
+        input: Reader,
+        expected_string: String,
+        base: Base,
+    ) {
+        let mut output = vec![];
+        let mut printer = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .show_char_panel(true)
+            .show_position_panel(true)
+            .with_border_style(BorderStyle::Unicode)
+            .enable_squeezing(true)
+            .num_panels(2)
+            .group_size(1)
+            .with_base(base)
+            .endianness(Endianness::Big)
+            .character_table(CharacterTable::Default)
+            .include_mode(IncludeMode::Off)
+            .color_scheme(ColorScheme::Default)
+            .build();
+
+        printer.print_all(input).unwrap();
+
+        let actual_string: &str = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string,)
+    }
+
     #[test]
     fn empty_file_passes() {
         let input = io::empty();
@@ -930,6 +960,42 @@ mod tests {
 "
         .to_owned();
         assert_print_all_output(input, expected_string);
+    }
+
+    #[test]
+    fn empty_file_passes_for_binary_base() {
+        let input = io::empty();
+        let expected_string = "\
+┌────────┬─────────────────────────────────────────────────────────────────────────┬─────────────────────────────────────────────────────────────────────────┬────────┬────────┐
+│        │ No content                                                              │                                                                         │        │        │
+└────────┴─────────────────────────────────────────────────────────────────────────┴─────────────────────────────────────────────────────────────────────────┴────────┴────────┘
+"
+        .to_owned();
+        assert_print_all_output_with_base(input, expected_string, Base::Binary);
+    }
+
+    #[test]
+    fn empty_file_passes_for_octal_base() {
+        let input = io::empty();
+        let expected_string = "\
+┌────────┬─────────────────────────────────┬─────────────────────────────────┬────────┬────────┐
+│        │ No content                      │                                 │        │        │
+└────────┴─────────────────────────────────┴─────────────────────────────────┴────────┴────────┘
+"
+        .to_owned();
+        assert_print_all_output_with_base(input, expected_string, Base::Octal);
+    }
+
+    #[test]
+    fn empty_file_passes_for_decimal_base() {
+        let input = io::empty();
+        let expected_string = "\
+┌────────┬─────────────────────────────────┬─────────────────────────────────┬────────┬────────┐
+│        │ No content                      │                                 │        │        │
+└────────┴─────────────────────────────────┴─────────────────────────────────┴────────┴────────┘
+"
+        .to_owned();
+        assert_print_all_output_with_base(input, expected_string, Base::Decimal);
     }
 
     #[test]
