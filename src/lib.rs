@@ -686,10 +686,15 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             // Output like `unsigned char <filename>[] = { ... }; unsigned int <filename>_len = ...;`
             IncludeMode::File(filename) => {
                 // convert non-alphanumeric characters to '_'
-                let var_name = filename
+                let mut var_name = filename
                     .chars()
                     .map(|c| if c.is_alphanumeric() { c } else { '_' })
                     .collect::<String>();
+
+                // a C identifier cannot start with a digit; xxd -i prefixes "__"
+                if var_name.starts_with(|c: char| c.is_ascii_digit()) {
+                    var_name.insert_str(0, "__");
+                }
 
                 writeln!(self.writer, "unsigned char {}[] = {{", var_name)?;
 
@@ -1087,6 +1092,28 @@ mod tests {
 "
         .to_owned();
         assert_print_all_output(input, expected_string);
+    }
+
+    #[test]
+    fn include_mode_from_file_starting_with_a_digit() {
+        let input = io::Cursor::new(b"spam");
+        // a leading digit would make the C identifier invalid
+        let expected_string = "unsigned char __9test_txt[] = {
+  0x73, 0x70, 0x61, 0x6d
+};
+unsigned int __9test_txt_len = 4;
+"
+        .to_owned();
+        let mut output = vec![];
+        let mut printer: Printer<Vec<u8>> = PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .include_mode(IncludeMode::File("9test.txt".to_owned()))
+            .build();
+
+        printer.print_all(input).unwrap();
+
+        let actual_string: &str = str::from_utf8(&output).unwrap();
+        assert_eq!(actual_string, expected_string);
     }
 
     #[test]
