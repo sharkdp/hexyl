@@ -1,3 +1,9 @@
+# unreleased
+
+## Bugfixes
+
+- Prefix `__` when an include-mode filename starts with a digit, so the generated C compiles, see #290 (@VXNCXNX)
+
 # v0.17.0
 
 ## Features
