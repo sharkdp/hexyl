@@ -76,18 +76,20 @@ struct Opt {
         visible_short_alias('c'),
         visible_alias("bytes"),
         short_alias('l'),
-        value_name("N")
+        value_name("N"),
+        env = "HEXYL_LENGTH"
     )]
     length: Option<String>,
 
-    #[arg(help(SKIP_HELP_TEXT), short, long, value_name("N"))]
+    #[arg(help(SKIP_HELP_TEXT), short, long, value_name("N"), env = "HEXYL_SKIP")]
     skip: Option<String>,
 
     #[arg(
         help(BLOCK_SIZE_HELP_TEXT),
         long,
         default_value(formatcp!("{DEFAULT_BLOCK_SIZE}")),
-        value_name("SIZE")
+        value_name("SIZE"),
+        env = "HEXYL_BLOCK_SIZE"
     )]
     block_size: String,
 
@@ -103,7 +105,8 @@ struct Opt {
         value_enum,
         default_value_t,
         value_name("WHEN"),
-        default_value_if("plain", ArgPredicate::IsPresent, Some("never"))
+        default_value_if("plain", ArgPredicate::IsPresent, Some("never")),
+        env = "HEXYL_COLOR"
     )]
     color: ColorWhen,
 
@@ -113,7 +116,8 @@ struct Opt {
         value_enum,
         default_value_t,
         value_name("STYLE"),
-        default_value_if("plain", ArgPredicate::IsPresent, Some("none"))
+        default_value_if("plain", ArgPredicate::IsPresent, Some("none")),
+        env = "HEXYL_BORDER"
     )]
     border: BorderStyle,
 
@@ -137,11 +141,23 @@ struct Opt {
     characters: (),
 
     /// Defines how bytes are mapped to characters.
-    #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
+    #[arg(
+        long,
+        value_enum,
+        default_value_t,
+        value_name("FORMAT"),
+        env = "HEXYL_CHARACTER_TABLE"
+    )]
     character_table: CharacterTable,
 
     /// Defines the color scheme for the characters.
-    #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
+    #[arg(
+        long,
+        value_enum,
+        default_value_t,
+        value_name("FORMAT"),
+        env = "HEXYL_COLOR_SCHEME"
+    )]
     color_scheme: ColorScheme,
 
     /// Whether to display the position panel on the left.
@@ -153,7 +169,8 @@ struct Opt {
         short('o'),
         long,
         default_value("0"),
-        value_name("N")
+        value_name("N"),
+        env = "HEXYL_DISPLAY_OFFSET"
     )]
     display_offset: String,
 
@@ -161,7 +178,7 @@ struct Opt {
     /// display the maximum number of hex data panels based on the current
     /// terminal width. By default, hexyl will show two panels, unless the
     /// terminal is not wide enough for that.
-    #[arg(long, value_name("N"))]
+    #[arg(long, value_name("N"), env = "HEXYL_PANELS")]
     panels: Option<String>,
 
     /// Number of bytes/octets that should be grouped together. You can use the
@@ -173,14 +190,21 @@ struct Opt {
         value_enum,
         default_value_t,
         alias("groupsize"),
-        value_name("N")
+        value_name("N"),
+        env = "HEXYL_GROUP_SIZE"
     )]
     group_size: GroupSize,
 
     /// Whether to print out groups in little-endian or big-endian format. This
     /// option only has an effect if the '--group-size' is larger than 1. '-e'
     /// can be used as an alias for '--endianness=little'.
-    #[arg(long, value_enum, default_value_t, value_name("FORMAT"))]
+    #[arg(
+        long,
+        value_enum,
+        default_value_t,
+        value_name("FORMAT"),
+        env = "HEXYL_ENDIANNESS"
+    )]
     endianness: Endianness,
 
     /// An alias for '--endianness=little'.
@@ -189,14 +213,21 @@ struct Opt {
 
     /// Sets the base used for the bytes. The possible options are binary,
     /// octal, decimal, and hexadecimal.
-    #[arg(short('b'), long, default_value("hexadecimal"), value_name("B"))]
+    #[arg(
+        short('b'),
+        long,
+        default_value("hexadecimal"),
+        value_name("B"),
+        env = "HEXYL_BASE"
+    )]
     base: String,
 
     #[arg(
         help(TERMINAL_WIDTH_HELP_TEXT),
         long,
         value_name("N"),
-        conflicts_with("panels")
+        conflicts_with("panels"),
+        env = "HEXYL_TERMINAL_WIDTH"
     )]
     terminal_width: Option<NonZeroU64>,
 

@@ -1,3 +1,10 @@
+# Unreleased
+
+## Features
+
+- Allow setting options through environment variables (e.g. HEXYL_PANELS), see #267 (@GhostCoder6969)
+
+
 # v0.17.0
 
 ## Features
