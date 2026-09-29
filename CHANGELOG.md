@@ -11,6 +11,9 @@
 ## Bugfixes
 
 - Fix memory allocation bug when terminal width is less than 10, see #244 (@selfup)
+- Reject `--panels` and `--terminal-width` values that are too large to be
+  displayed, fixing a panic, an aborted allocation, and an endless loop for
+  huge inputs, see #295 (@Mathjk)
 
 
 # v0.16.0

@@ -31,6 +31,15 @@ mod tests;
 
 const DEFAULT_BLOCK_SIZE: i64 = 512;
 
+/// Upper bound for `--terminal-width` and `--panels` values, in columns.
+///
+/// `terminal_size` reports real terminal widths as `u16`, and every hex data
+/// panel takes up multiple columns, so larger values can never describe a
+/// real display. Bounding both arguments also guarantees that the printer's
+/// line buffer (`8 * panels` bytes) cannot overflow `usize` and stays a
+/// small allocation.
+const MAX_DISPLAY_WIDTH: u64 = u16::MAX as u64;
+
 const LENGTH_HELP_TEXT: &str = "Only read N bytes from the input. The N argument can also include \
                                 a unit with a decimal prefix (kB, MB, ..) or binary prefix (kiB, \
                                 MiB, ..), or can be specified using a hex number. The short \
@@ -196,9 +205,10 @@ struct Opt {
         help(TERMINAL_WIDTH_HELP_TEXT),
         long,
         value_name("N"),
-        conflicts_with("panels")
+        conflicts_with("panels"),
+        value_parser = clap::value_parser!(u64).range(1..=MAX_DISPLAY_WIDTH)
     )]
-    terminal_width: Option<NonZeroU64>,
+    terminal_width: Option<u64>,
 
     /// Print a table showing how different types of bytes are colored.
     #[arg(long)]
@@ -445,15 +455,21 @@ fn run() -> Result<()> {
     let panels = if opt.panels.as_deref() == Some("auto") {
         max_panels_fn(terminal_width, base_digits, group_size.into())
     } else if let Some(panels) = opt.panels {
-        panels
+        let panels = panels
             .parse::<NonZeroU64>()
             .map(u64::from)
             .context(anyhow!(
                 "failed to parse `--panels` arg {:?} as unsigned nonzero integer",
                 panels
-            ))?
+            ))?;
+        if panels > MAX_DISPLAY_WIDTH {
+            bail!(
+                "`--panels` arg {panels} is too large: the maximum number of panels is {MAX_DISPLAY_WIDTH}"
+            );
+        }
+        panels
     } else if let Some(terminal_width) = opt.terminal_width {
-        max_panels_fn(terminal_width.into(), base_digits, group_size.into())
+        max_panels_fn(terminal_width, base_digits, group_size.into())
     } else {
         std::cmp::min(
             2,
