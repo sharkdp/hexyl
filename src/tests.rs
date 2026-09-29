@@ -154,3 +154,24 @@ fn test_parse_byte_offset() {
         }
     );
 }
+
+#[test]
+fn terminal_width_is_bounded() {
+    use clap::error::ErrorKind;
+
+    // `--terminal-width` must be positive and within the `u16` width that
+    // real terminals report; larger values used to trigger a huge
+    // allocation (or overflow it) when computing the number of panels.
+    for width in ["0", "65536", "18446744073709551615"] {
+        assert_eq!(
+            Opt::try_parse_from(["hexyl", "--terminal-width", width])
+                .unwrap_err()
+                .kind(),
+            ErrorKind::ValueValidation,
+            "--terminal-width {width} should be rejected"
+        );
+    }
+
+    let opt = Opt::try_parse_from(["hexyl", "--terminal-width", "80"]).unwrap();
+    assert_eq!(opt.terminal_width, Some(80));
+}

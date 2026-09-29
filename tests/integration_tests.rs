@@ -962,3 +962,31 @@ mod colors {
             .stdout(expected);
     }
 }
+
+mod argument_bounds {
+    use super::hexyl;
+    use predicates::str::contains;
+
+    /// `--panels` is bounded by the maximum display width; huge values used
+    /// to overflow the `8 * panels` line-buffer allocation (panic) or wrap
+    /// it to zero and then loop forever printing separators (hang).
+    #[test]
+    fn fails_gracefully_on_huge_panels() {
+        hexyl()
+            .args(["--panels", "1152921504606846976", "ascii"])
+            .assert()
+            .failure()
+            .stderr(contains("maximum number of panels"));
+    }
+
+    /// `--terminal-width` is bounded by the `u16` width that real terminals
+    /// report; `u64::MAX` used to abort with a giant allocation failure.
+    #[test]
+    fn fails_gracefully_on_huge_terminal_width() {
+        hexyl()
+            .args(["--terminal-width", "18446744073709551615", "ascii"])
+            .assert()
+            .failure()
+            .stderr(contains("is not in 1..=65535"));
+    }
+}
