@@ -1,3 +1,10 @@
+# Unreleased
+
+## Bugfixes
+
+- Squeeze identical lines even when they contain different byte values, see #186 (@maxitoon)
+
+
 # v0.17.0
 
 ## Features
