@@ -387,7 +387,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             },
             display_offset: 0,
             panels: self.panels,
-            squeeze_byte: 0x00,
+            squeeze_line: Vec::new(),
             group_size: self.group_size,
             base_digits: match self.base {
                 Base::Binary => 8,
@@ -420,7 +420,8 @@ pub struct Printer<'a, Writer: Write> {
     display_offset: u64,
     /// The number of panels to draw.
     panels: u64,
-    squeeze_byte: usize,
+    /// The last full line, retained only when squeezing is enabled.
+    squeeze_line: Vec<u8>,
     /// The number of octets per group.
     group_size: u8,
     /// The number of digits used to write the base.
@@ -754,11 +755,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             // squeeze is active, check if the line is the same
             // skip print if still squeezed, otherwise print and deactivate squeeze
             if matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
-                if self
-                    .line_buf
-                    .chunks_exact(std::mem::size_of::<usize>())
-                    .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == self.squeeze_byte)
-                {
+                if self.line_buf == self.squeeze_line {
                     if self.squeezer == Squeezer::Delete {
                         self.idx += 8 * self.panels;
                         continue;
@@ -789,18 +786,11 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.squeezer = Squeezer::Delete;
             }
 
-            // repeat the first byte in the line until it's a usize
-            // compare that usize with each usize chunk in the line
-            // if they are all the same, change squeezer to print
-            let repeat_byte = (self.line_buf[0] as usize) * (usize::MAX / 255);
-            if !matches!(self.squeezer, Squeezer::Disabled | Squeezer::Delete)
-                && self
-                    .line_buf
-                    .chunks_exact(std::mem::size_of::<usize>())
-                    .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == repeat_byte)
-            {
+            // Keep the whole line: repeated lines need not contain a single
+            // repeated byte. Reuse the allocation when the line changes.
+            if !matches!(self.squeezer, Squeezer::Disabled | Squeezer::Delete) {
                 self.squeezer = Squeezer::Print;
-                self.squeeze_byte = repeat_byte;
+                self.squeeze_line.clone_from(&self.line_buf);
             };
         };
 
@@ -1025,6 +1015,89 @@ mod tests {
 "
         .to_owned();
         assert_print_all_output(input, expected_string);
+    }
+
+    #[test]
+    fn squeeze_repeated_nonuniform_lines() {
+        let input = io::Cursor::new(b"spamspamspamspamspamspamspamspamspamspamspamspamspam");
+        let expected_string = "\
+┌────────┬─────────────────────────┬─────────────────────────┬────────┬────────┐
+│00000000│ 73 70 61 6d 73 70 61 6d ┊ 73 70 61 6d 73 70 61 6d │spamspam┊spamspam│
+│*       │                         ┊                         │        ┊        │
+│00000030│ 73 70 61 6d             ┊                         │spam    ┊        │
+└────────┴─────────────────────────┴─────────────────────────┴────────┴────────┘
+"
+        .to_owned();
+        assert_print_all_output(input, expected_string);
+    }
+
+    #[test]
+    fn squeeze_repeated_lines_panel_counts_and_endings() {
+        for panels in [1, 2, 3] {
+            let width = 8 * panels;
+            let line: Vec<u8> = (0..width).map(|n| b'a' + n as u8).collect();
+            for repeats in [1, 2, 4] {
+                for tail in [0, 3, width] {
+                    for squeezing in [false, true] {
+                        let mut input = line.repeat(repeats);
+                        input.extend(vec![b'Z'; tail]);
+                        let mut output = vec![];
+                        PrinterBuilder::new(&mut output)
+                            .show_color(false)
+                            .num_panels(panels as u64)
+                            .enable_squeezing(squeezing)
+                            .build()
+                            .print_all(io::Cursor::new(input))
+                            .unwrap();
+                        let text = str::from_utf8(&output).unwrap();
+                        let rows: Vec<_> = text.lines().collect();
+                        let compressed = squeezing && repeats > 1;
+                        assert_eq!(text.matches("│*       │").count(), usize::from(compressed));
+                        let repeated_rows = if compressed { 2 } else { repeats };
+                        // Exact EOF after a squeezed run prints its final offset;
+                        // otherwise the tail is the final data row.
+                        let final_row = usize::from(tail > 0 || compressed);
+                        assert_eq!(rows.len(), 2 + repeated_rows + final_row);
+                        if tail > 0 || compressed {
+                            assert!(rows[rows.len() - 2]
+                                .starts_with(&format!("│{:08x}│", repeats * width)));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn squeeze_distinct_runs_with_short_reads() {
+        struct ShortReads<R>(R);
+        impl<R: Read> Read for ShortReads<R> {
+            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+                let len = buf.len().min(3);
+                self.0.read(&mut buf[..len])
+            }
+        }
+
+        let first = b"abcdefghabcdefgh";
+        // Only the final byte differs: compare the whole line, not a prefix.
+        let second = b"abcdefghabcdefgZ";
+        let input = [first.repeat(2), second.repeat(2), first.repeat(2)].concat();
+        let mut output = vec![];
+        PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .build()
+            .print_all(ShortReads(io::Cursor::new(input)))
+            .unwrap();
+        let text = str::from_utf8(&output).unwrap();
+        let rows: Vec<_> = text.lines().collect();
+        assert_eq!(rows.len(), 9);
+        for (row, offset) in [(1, 0), (3, 32), (5, 64), (7, 96)] {
+            assert!(rows[row].starts_with(&format!("│{offset:08x}│")));
+        }
+        for row in [2, 4, 6] {
+            assert!(rows[row].starts_with("│*       │"));
+        }
+        assert!(rows[3].contains("abcdefgZ"));
     }
 
     #[test]
