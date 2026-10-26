@@ -11,6 +11,7 @@
 ## Bugfixes
 
 - Fix memory allocation bug when terminal width is less than 10, see #244 (@selfup)
+- Return read errors instead of retrying them forever, so a reader that keeps failing (such as `/proc/self/mem`) exits with an error, see #299 (@Dodothereal)
 
 
 # v0.16.0

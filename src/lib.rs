@@ -673,6 +673,22 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         Ok(())
     }
 
+    /// Read once, retrying on [`io::ErrorKind::Interrupted`].
+    ///
+    /// The [`Read`] contract asks callers to treat `Interrupted` as a retry, so
+    /// propagating it would turn a signal into a fatal error.
+    fn read_retry_interrupted<Reader: Read>(
+        reader: &mut Reader,
+        buf: &mut [u8],
+    ) -> io::Result<usize> {
+        loop {
+            match reader.read(buf) {
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                other => return other,
+            }
+        }
+    }
+
     /// Loop through the given `Reader`, printing until the `Reader` buffer
     /// is exhausted.
     pub fn print_all<Reader: Read>(&mut self, reader: Reader) -> io::Result<()> {
@@ -712,40 +728,41 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
 
         let leftover = loop {
             // read a maximum of 8 * self.panels bytes from the reader
-            if let Ok(n) = buf.read(&mut self.line_buf) {
-                if n > 0 && n < 8 * self.panels as usize {
-                    // if less are read, that indicates end of file after
-                    if is_empty {
-                        self.print_header()?;
-                        is_empty = false;
-                    }
-                    let mut leftover = n;
-                    // loop until input is ceased
-                    if let Some(s) = loop {
-                        if let Ok(n) = buf.read(&mut self.line_buf[leftover..]) {
-                            leftover += n;
-                            // there is no more input being read
-                            if n == 0 {
-                                self.line_buf.resize(leftover, 0);
-                                break Some(leftover);
-                            }
-                            // amount read has exceeded line buffer
-                            if leftover >= 8 * self.panels as usize {
-                                break None;
-                            }
-                        }
-                    } {
-                        break Some(s);
-                    };
-                } else if n == 0 {
-                    // if no bytes are read, that indicates end of file
-                    if self.squeezer == Squeezer::Delete {
-                        // empty the last line when ending is squeezed
-                        self.line_buf.clear();
-                        break Some(0);
-                    }
-                    break None;
+            let n = Self::read_retry_interrupted(&mut buf, &mut self.line_buf)?;
+            if n > 0 && n < 8 * self.panels as usize {
+                // A short read is not EOF. Keep the valid prefix and fill the
+                // rest of this line before passing it to the formatter.
+                if is_empty {
+                    self.print_header()?;
+                    is_empty = false;
                 }
+                let mut leftover = n;
+                // Invariant: 0 < leftover < line width; only
+                // line_buf[..leftover] is valid current-line input.
+                if let Some(s) = loop {
+                    let n = Self::read_retry_interrupted(&mut buf, &mut self.line_buf[leftover..])?;
+                    leftover += n;
+                    // there is no more input being read
+                    if n == 0 {
+                        self.line_buf.resize(leftover, 0);
+                        break Some(leftover);
+                    }
+                    // The read was limited to the unfilled suffix, so this
+                    // reaches the line width exactly; it cannot exceed it.
+                    if leftover >= 8 * self.panels as usize {
+                        break None;
+                    }
+                } {
+                    break Some(s);
+                };
+            } else if n == 0 {
+                // if no bytes are read, that indicates end of file
+                if self.squeezer == Squeezer::Delete {
+                    // empty the last line when ending is squeezed
+                    self.line_buf.clear();
+                    break Some(0);
+                }
+                break None;
             }
             if is_empty {
                 self.print_header()?;
@@ -896,6 +913,119 @@ mod tests {
     use std::str;
 
     use super::*;
+
+    // A slice cannot produce I/O errors. This adapter lets each test describe
+    // just the reads it needs, while ordinary byte copying stays in &[u8]::read.
+    struct ReadFn<F>(F);
+
+    impl<F: FnMut(&mut [u8]) -> io::Result<usize>> Read for ReadFn<F> {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            (self.0)(buf)
+        }
+    }
+
+    fn read_output(reader: impl Read, panels: u64, squeeze: bool) -> io::Result<Vec<u8>> {
+        let mut output = Vec::new();
+        PrinterBuilder::new(&mut output)
+            .show_color(false)
+            .num_panels(panels)
+            .enable_squeezing(squeeze)
+            .build()
+            .print_all(reader)?;
+        Ok(output)
+    }
+
+    #[test]
+    fn read_errors_are_returned_without_another_read() {
+        for panels in 1..=3 {
+            let width = 8 * panels as usize;
+            // Every offset includes initial/outer reads, every partial-fill
+            // position, and errors after entering the squeezed state.
+            let input = vec![0; 3 * width + 1];
+            for offset in 0..=input.len() {
+                let mut prefix = &input[..offset];
+                let mut interrupted = false;
+                let mut failure = Some(io::Error::other("read failure"));
+                let reader = ReadFn(|buf: &mut [u8]| {
+                    if !prefix.is_empty() {
+                        return prefix.read(buf);
+                    }
+                    if !interrupted {
+                        interrupted = true;
+                        return Err(io::ErrorKind::Interrupted.into());
+                    }
+                    // The next poll panics, rather than hanging a regressed
+                    // implementation that retries non-Interrupted errors.
+                    Err(failure.take().expect("read again after a fatal error"))
+                });
+                let error = read_output(reader, panels, true).unwrap_err();
+                assert_eq!(error.kind(), io::ErrorKind::Other);
+                assert_eq!(error.to_string(), "read failure");
+                assert!(failure.is_none(), "the injected error must be reached");
+            }
+        }
+    }
+
+    #[test]
+    fn short_and_interrupted_reads_preserve_output() {
+        for panels in 1..=3 {
+            let width = 8 * panels as usize;
+            for squeeze in [false, true] {
+                // Nonuniform bytes, a constant run, and a run followed by
+                // different bytes exercise Ignore, Print, Delete and Disabled.
+                for pattern in 0..3 {
+                    let input: Vec<u8> = (0..4 * width + 1)
+                        .map(|i| match pattern {
+                            0 => i as u8,
+                            1 => 0,
+                            _ => u8::from(i >= 3 * width),
+                        })
+                        .collect();
+                    for len in [
+                        0,
+                        1,
+                        width - 1,
+                        width,
+                        width + 1,
+                        2 * width,
+                        3 * width,
+                        4 * width,
+                        4 * width + 1,
+                    ] {
+                        // This oracle bypasses ReadFn entirely. Existing
+                        // literal-output tests still check the formatter itself.
+                        let expected = read_output(&input[..len], panels, squeeze).unwrap();
+                        for chunk in 1..=width + 1 {
+                            for interruptions in 0..=2 {
+                                let mut remaining = &input[..len];
+                                let mut retries = interruptions;
+                                let mut calls = 0;
+                                let reader = ReadFn(|buf: &mut [u8]| {
+                                    calls += 1;
+                                    // At worst: one byte per successful read,
+                                    // the requested retries, and one EOF read.
+                                    assert!(calls <= (len + 1) * (interruptions + 1));
+                                    if retries > 0 {
+                                        retries -= 1;
+                                        return Err(io::ErrorKind::Interrupted.into());
+                                    }
+                                    retries = interruptions;
+                                    let limit = chunk.min(buf.len());
+                                    remaining.read(&mut buf[..limit])
+                                });
+                                let actual = read_output(reader, panels, squeeze).unwrap();
+                                assert_eq!(
+                                    actual, expected,
+                                    "panels={panels}, squeeze={squeeze}, pattern={pattern}, \
+                                     len={len}, chunk={chunk}, interruptions={interruptions}"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     fn assert_print_all_output<Reader: Read>(input: Reader, expected_string: String) {
         let mut output = vec![];
