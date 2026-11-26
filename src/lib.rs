@@ -4,7 +4,7 @@ pub(crate) mod input;
 pub use colors::*;
 pub use input::*;
 
-use std::io::{self, BufReader, Read, Write};
+use std::io::{self, BufRead, BufReader, Read, Write};
 
 use clap::ValueEnum;
 
@@ -78,6 +78,100 @@ pub enum Endianness {
     /// Print out groups in big-endian format.
     #[default]
     Big,
+}
+
+const NO_COLOR: u16 = u16::MAX;
+const OUT_BUF_FLUSH_THRESHOLD: usize = 64 * 1024;
+const HEX_DIGITS: &[u8; 16] = b"0123456789abcdef";
+
+const fn make_hex_lut() -> [[u8; 2]; 256] {
+    let mut lut = [[0u8; 2]; 256];
+    let mut i = 0;
+    while i < 256 {
+        lut[i] = [HEX_DIGITS[i >> 4], HEX_DIGITS[i & 0x0f]];
+        i += 1;
+    }
+    lut
+}
+
+const HEX_LUT: [[u8; 2]; 256] = make_hex_lut();
+
+const fn make_hex_space_lut() -> [[u8; 3]; 256] {
+    let mut lut = [[0u8; 3]; 256];
+    let mut i = 0;
+    while i < 256 {
+        lut[i] = [b' ', HEX_DIGITS[i >> 4], HEX_DIGITS[i & 0x0f]];
+        i += 1;
+    }
+    lut
+}
+
+const HEX_SPACE_LUT: [[u8; 3]; 256] = make_hex_space_lut();
+
+#[derive(Copy, Clone)]
+struct ColorEntry {
+    inline: [u8; 24],
+    slice: &'static [u8],
+}
+
+#[inline(always)]
+fn push_short(dst: &mut [u8], pos: &mut usize, inline: &[u8; 24], slice: &[u8]) {
+    let len = slice.len();
+    let p = *pos;
+    match len {
+        0 => {}
+        4 => dst[p..p + 4].copy_from_slice(&inline[..4]),
+        5 => dst[p..p + 5].copy_from_slice(&inline[..5]),
+        19 => dst[p..p + 19].copy_from_slice(&inline[..19]),
+        _ => dst[p..p + len].copy_from_slice(slice),
+    }
+    *pos = p + len;
+}
+
+#[inline(always)]
+fn push_sep(dst: &mut [u8], pos: &mut usize, sep: &[u8; 4], len: u8) {
+    let p = *pos;
+    match len {
+        1 => dst[p] = sep[0],
+        3 => dst[p..p + 3].copy_from_slice(&sep[..3]),
+        n => dst[p..p + n as usize].copy_from_slice(&sep[..n as usize]),
+    }
+    *pos = p + len as usize;
+}
+
+#[inline(always)]
+fn push_char_repr(dst: &mut [u8], pos: &mut usize, repr: &[u8; 4], len: u8) {
+    let p = *pos;
+    match len {
+        1 => dst[p] = repr[0],
+        2 => dst[p..p + 2].copy_from_slice(&repr[..2]),
+        3 => dst[p..p + 3].copy_from_slice(&repr[..3]),
+        _ => dst[p..p + 4].copy_from_slice(repr),
+    }
+    *pos = p + len as usize;
+}
+
+#[inline]
+fn line_all_same_byte(line: &[u8]) -> Option<usize> {
+    let first = *line.first()?;
+    let repeat_byte = (first as usize) * (usize::MAX / 255);
+    let (chunks, _) = line.as_chunks::<{ std::mem::size_of::<usize>() }>();
+    if chunks
+        .iter()
+        .all(|w| usize::from_ne_bytes(*w) == repeat_byte)
+    {
+        Some(repeat_byte)
+    } else {
+        None
+    }
+}
+
+#[inline]
+fn line_matches_squeeze_byte(line: &[u8], squeeze_byte: usize) -> bool {
+    let (chunks, _) = line.as_chunks::<{ std::mem::size_of::<usize>() }>();
+    chunks
+        .iter()
+        .all(|w| usize::from_ne_bytes(*w) == squeeze_byte)
 }
 
 #[derive(PartialEq)]
@@ -358,28 +452,131 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
     }
 
     pub fn build(self) -> Printer<'a, Writer> {
+        let mut color_table: Vec<ColorEntry> = Vec::new();
+        let mut byte_color_id = [0u16; 256];
+        let mut max_color_len = 0usize;
+        for b in 0..=255u8 {
+            let slice = Byte(b).color(self.color_scheme);
+            if slice.len() > max_color_len {
+                max_color_len = slice.len();
+            }
+            let id = match color_table.iter().position(|c| c.slice == slice) {
+                Some(pos) => pos as u16,
+                None => {
+                    let pos = color_table.len() as u16;
+                    let mut inline = [0u8; 24];
+                    if slice.len() <= 24 {
+                        inline[..slice.len()].copy_from_slice(slice);
+                    }
+                    color_table.push(ColorEntry { inline, slice });
+                    pos
+                }
+            };
+            byte_color_id[b as usize] = id;
+        }
+
+        let mut byte_repr = [[0u8; 8]; 256];
+        let base_digits = match self.base {
+            Base::Binary => {
+                for (i, slot) in byte_repr.iter_mut().enumerate() {
+                    let b = i as u8;
+                    for (bit, dst) in slot.iter_mut().enumerate() {
+                        *dst = b'0' + ((b >> (7 - bit)) & 1);
+                    }
+                }
+                8u8
+            }
+            Base::Octal => {
+                for (i, slot) in byte_repr.iter_mut().enumerate() {
+                    let b = i as u8;
+                    slot[0] = b'0' + (b >> 6);
+                    slot[1] = b'0' + ((b >> 3) & 7);
+                    slot[2] = b'0' + (b & 7);
+                }
+                3u8
+            }
+            Base::Decimal => {
+                for (i, slot) in byte_repr.iter_mut().enumerate() {
+                    let b = i as u8;
+                    slot[0] = b'0' + (b / 100);
+                    slot[1] = b'0' + ((b / 10) % 10);
+                    slot[2] = b'0' + (b % 10);
+                }
+                3u8
+            }
+            Base::Hexadecimal => {
+                for (i, slot) in byte_repr.iter_mut().enumerate() {
+                    slot[0] = HEX_LUT[i][0];
+                    slot[1] = HEX_LUT[i][1];
+                }
+                2u8
+            }
+        };
+
+        let mut char_repr = [[0u8; 4]; 256];
+        let mut char_repr_len = [0u8; 256];
+        for i in 0..256 {
+            let ch = Byte(i as u8).as_char(self.character_table);
+            let encoded = ch.encode_utf8(&mut char_repr[i]);
+            char_repr_len[i] = encoded.len() as u8;
+        }
+
+        let mut outer_sep_bytes = [0u8; 4];
+        let outer_sep_len = self
+            .border_style
+            .outer_sep()
+            .encode_utf8(&mut outer_sep_bytes)
+            .len() as u8;
+        let mut inner_sep_bytes = [0u8; 4];
+        let inner_sep_len = self
+            .border_style
+            .inner_sep()
+            .encode_utf8(&mut inner_sep_bytes)
+            .len() as u8;
+
+        let line_len = 8 * self.panels as usize;
+        let color_offset = if self.show_color {
+            COLOR_OFFSET.as_bytes()
+        } else {
+            &[]
+        };
+        let mut color_offset_inline = [0u8; 24];
+        if color_offset.len() <= 24 {
+            color_offset_inline[..color_offset.len()].copy_from_slice(color_offset);
+        }
+        let can_fast_stack_line = self.panels <= 4
+            && matches!(self.endianness, Endianness::Big)
+            && self.group_size == 1
+            && matches!(self.base, Base::Hexadecimal)
+            && max_color_len <= 24
+            && color_offset.len() <= 24;
+
         Printer {
             idx: 0,
-            line_buf: vec![0x0; 8 * self.panels as usize],
+            line_buf: vec![0x0; line_len],
+            reorder_buf: Vec::new(),
+            out_buf: vec![0u8; OUT_BUF_FLUSH_THRESHOLD + 2048],
+            out_pos: 0,
             writer: self.writer,
             show_char_panel: self.show_char_panel,
             show_position_panel: self.show_position_panel,
             show_color: self.show_color,
-            curr_color: None,
-            color_scheme: self.color_scheme,
+            curr_color_id: NO_COLOR,
+            color_table,
+            byte_color_id,
+            color_offset: ColorEntry {
+                inline: color_offset_inline,
+                slice: color_offset,
+            },
+            can_fast_stack_line,
             border_style: self.border_style,
-            byte_hex_panel: (0u8..=u8::MAX)
-                .map(|i| match self.base {
-                    Base::Binary => format!("{i:08b}"),
-                    Base::Octal => format!("{i:03o}"),
-                    Base::Decimal => format!("{i:03}"),
-                    Base::Hexadecimal => format!("{i:02x}"),
-                })
-                .collect(),
-            byte_char_panel: (0u8..=u8::MAX)
-                .map(|i| format!("{}", Byte(i).as_char(self.character_table)))
-                .collect(),
-            byte_hex_panel_g: (0u8..=u8::MAX).map(|i| format!("{i:02x}")).collect(),
+            outer_sep_bytes,
+            outer_sep_len,
+            inner_sep_bytes,
+            inner_sep_len,
+            byte_repr,
+            char_repr,
+            char_repr_len,
             squeezer: if self.use_squeeze {
                 Squeezer::Ignore
             } else {
@@ -389,12 +586,7 @@ impl<'a, Writer: Write> PrinterBuilder<'a, Writer> {
             panels: self.panels,
             squeeze_byte: 0x00,
             group_size: self.group_size,
-            base_digits: match self.base {
-                Base::Binary => 8,
-                Base::Octal => 3,
-                Base::Decimal => 3,
-                Base::Hexadecimal => 2,
-            },
+            base_digits,
             endianness: self.endianness,
             include_mode: self.include_mode,
         }
@@ -405,17 +597,28 @@ pub struct Printer<'a, Writer: Write> {
     idx: u64,
     /// the buffer containing all the bytes in a line for character printing
     line_buf: Vec<u8>,
+    /// reusable scratch buffer for little-endian reordering
+    reorder_buf: Vec<u8>,
+    /// batched line formatting buffer flushed to `writer` in large chunks
+    out_buf: Vec<u8>,
+    out_pos: usize,
     writer: &'a mut Writer,
     show_char_panel: bool,
     show_position_panel: bool,
     show_color: bool,
-    curr_color: Option<&'static [u8]>,
-    color_scheme: ColorScheme,
+    curr_color_id: u16,
+    color_table: Vec<ColorEntry>,
+    byte_color_id: [u16; 256],
+    color_offset: ColorEntry,
+    can_fast_stack_line: bool,
     border_style: BorderStyle,
-    byte_hex_panel: Vec<String>,
-    byte_char_panel: Vec<String>,
-    // same as previous but in Fixed(242) gray color, for position panel
-    byte_hex_panel_g: Vec<String>,
+    outer_sep_bytes: [u8; 4],
+    outer_sep_len: u8,
+    inner_sep_bytes: [u8; 4],
+    inner_sep_len: u8,
+    byte_repr: [[u8; 8]; 256],
+    char_repr: [[u8; 4]; 256],
+    char_repr_len: [u8; 256],
     squeezer: Squeezer,
     display_offset: u64,
     /// The number of panels to draw.
@@ -494,62 +697,94 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         Ok(())
     }
 
-    fn print_position_panel(&mut self) -> io::Result<()> {
-        self.writer.write_all(
-            self.border_style
-                .outer_sep()
-                .encode_utf8(&mut [0; 4])
-                .as_bytes(),
-        )?;
-        if self.show_color {
-            self.writer.write_all(COLOR_OFFSET.as_bytes())?;
-        }
-        if self.show_position_panel {
-            match self.squeezer {
-                Squeezer::Print => {
-                    self.writer.write_all(b"*")?;
-                    if self.show_color {
-                        self.writer.write_all(COLOR_RESET.as_bytes())?;
-                    }
-                    self.writer.write_all(b"       ")?;
-                }
-                Squeezer::Ignore | Squeezer::Disabled | Squeezer::Delete => {
-                    let byte_index: [u8; 8] = (self.idx + self.display_offset).to_be_bytes();
-                    let mut i = 0;
-                    while byte_index[i] == 0x0 && i < 4 {
-                        i += 1;
-                    }
-                    for &byte in byte_index.iter().skip(i) {
-                        self.writer
-                            .write_all(self.byte_hex_panel_g[byte as usize].as_bytes())?;
-                    }
-                    if self.show_color {
-                        self.writer.write_all(COLOR_RESET.as_bytes())?;
-                    }
-                }
-            }
-            self.writer.write_all(
-                self.border_style
-                    .outer_sep()
-                    .encode_utf8(&mut [0; 4])
-                    .as_bytes(),
-            )?;
+    #[inline]
+    fn flush_out_buf(&mut self) -> io::Result<()> {
+        if self.out_pos > 0 {
+            self.writer.write_all(&self.out_buf[..self.out_pos])?;
+            self.out_pos = 0;
         }
         Ok(())
     }
 
-    fn print_char(&mut self, i: u64) -> io::Result<()> {
-        match self.squeezer {
-            Squeezer::Print | Squeezer::Delete => self.writer.write_all(b" ")?,
-            Squeezer::Ignore | Squeezer::Disabled => {
-                if let Some(&b) = self.line_buf.get(i as usize) {
-                    if self.show_color && self.curr_color != Some(Byte(b).color(self.color_scheme))
-                    {
-                        self.writer.write_all(Byte(b).color(self.color_scheme))?;
-                        self.curr_color = Some(Byte(b).color(self.color_scheme));
+    #[inline]
+    fn out_push(&mut self, b: u8) {
+        if self.out_pos == self.out_buf.len() {
+            self.out_buf.resize(self.out_buf.len() + 4096, 0);
+        }
+        self.out_buf[self.out_pos] = b;
+        self.out_pos += 1;
+    }
+
+    #[inline]
+    fn out_extend(&mut self, s: &[u8]) {
+        let end = self.out_pos + s.len();
+        if end > self.out_buf.len() {
+            self.out_buf.resize(end + 4096, 0);
+        }
+        self.out_buf[self.out_pos..end].copy_from_slice(s);
+        self.out_pos = end;
+    }
+
+    fn append_position_panel(&mut self) {
+        let outer_sep = self.outer_sep_bytes;
+        let outer_sep_len = self.outer_sep_len as usize;
+        self.out_extend(&outer_sep[..outer_sep_len]);
+        if self.show_color {
+            let color_offset = self.color_offset.slice;
+            self.out_extend(color_offset);
+        }
+        if self.show_position_panel {
+            match self.squeezer {
+                Squeezer::Print => {
+                    self.out_push(b'*');
+                    if self.show_color {
+                        self.out_extend(COLOR_RESET.as_bytes());
                     }
-                    self.writer
-                        .write_all(self.byte_char_panel[b as usize].as_bytes())?;
+                    self.out_extend(b"       ");
+                }
+                Squeezer::Ignore | Squeezer::Disabled | Squeezer::Delete => {
+                    let pos = self.idx + self.display_offset;
+                    if pos <= u32::MAX as u64 {
+                        let p = pos as u32;
+                        self.out_extend(&HEX_LUT[(p >> 24) as usize]);
+                        self.out_extend(&HEX_LUT[((p >> 16) & 0xff) as usize]);
+                        self.out_extend(&HEX_LUT[((p >> 8) & 0xff) as usize]);
+                        self.out_extend(&HEX_LUT[(p & 0xff) as usize]);
+                    } else {
+                        let byte_index: [u8; 8] = pos.to_be_bytes();
+                        let mut i = 0;
+                        while byte_index[i] == 0x0 && i < 4 {
+                            i += 1;
+                        }
+                        for &byte in &byte_index[i..] {
+                            self.out_extend(&HEX_LUT[byte as usize]);
+                        }
+                    }
+                    if self.show_color {
+                        self.out_extend(COLOR_RESET.as_bytes());
+                    }
+                }
+            }
+            self.out_extend(&outer_sep[..outer_sep_len]);
+        }
+    }
+
+    fn append_char_slow(&mut self, line: &[u8], i: u64) {
+        match self.squeezer {
+            Squeezer::Print | Squeezer::Delete => self.out_push(b' '),
+            Squeezer::Ignore | Squeezer::Disabled => {
+                if let Some(&b) = line.get(i as usize) {
+                    if self.show_color {
+                        let cid = self.byte_color_id[b as usize];
+                        if cid != self.curr_color_id {
+                            let slice = self.color_table[cid as usize].slice;
+                            self.out_extend(slice);
+                            self.curr_color_id = cid;
+                        }
+                    }
+                    let repr = self.char_repr[b as usize];
+                    let clen = self.char_repr_len[b as usize] as usize;
+                    self.out_extend(&repr[..clen]);
                 } else {
                     self.squeezer = Squeezer::Print;
                 }
@@ -557,95 +792,94 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
         if i == 8 * self.panels - 1 {
             if self.show_color {
-                self.writer.write_all(COLOR_RESET.as_bytes())?;
-                self.curr_color = None;
+                self.out_extend(COLOR_RESET.as_bytes());
+                self.curr_color_id = NO_COLOR;
             }
-            self.writer.write_all(
-                self.border_style
-                    .outer_sep()
-                    .encode_utf8(&mut [0; 4])
-                    .as_bytes(),
-            )?;
+            let sep = self.outer_sep_bytes;
+            let len = self.outer_sep_len as usize;
+            self.out_extend(&sep[..len]);
         } else if i % 8 == 7 {
             if self.show_color {
-                self.writer.write_all(COLOR_RESET.as_bytes())?;
-                self.curr_color = None;
+                self.out_extend(COLOR_RESET.as_bytes());
+                self.curr_color_id = NO_COLOR;
             }
-            self.writer.write_all(
-                self.border_style
-                    .inner_sep()
-                    .encode_utf8(&mut [0; 4])
-                    .as_bytes(),
-            )?;
+            let sep = self.inner_sep_bytes;
+            let len = self.inner_sep_len as usize;
+            self.out_extend(&sep[..len]);
         }
+    }
 
-        Ok(())
+    fn append_char_panel(&mut self, line: &[u8]) {
+        for i in 0..line.len() {
+            self.append_char_slow(line, i as u64);
+        }
     }
 
     pub fn print_char_panel(&mut self) -> io::Result<()> {
-        for i in 0..self.line_buf.len() {
-            self.print_char(i as u64)?;
-        }
-        Ok(())
+        let line = std::mem::take(&mut self.line_buf);
+        self.append_char_panel(&line);
+        self.line_buf = line;
+        self.flush_out_buf()
     }
 
-    fn print_byte(&mut self, i: usize, b: u8) -> io::Result<()> {
+    fn append_byte_slow(&mut self, i: usize, b: u8) {
         match self.squeezer {
             Squeezer::Print => {
                 if !self.show_position_panel && i == 0 {
                     if self.show_color {
-                        self.writer.write_all(COLOR_OFFSET.as_bytes())?;
+                        let color_offset = self.color_offset.slice;
+                        self.out_extend(color_offset);
                     }
-                    self.writer
-                        .write_all(self.byte_char_panel[b'*' as usize].as_bytes())?;
+                    let star = b'*' as usize;
+                    let repr = self.char_repr[star];
+                    let clen = self.char_repr_len[star] as usize;
+                    self.out_extend(&repr[..clen]);
                     if self.show_color {
-                        self.writer.write_all(COLOR_RESET.as_bytes())?;
+                        self.out_extend(COLOR_RESET.as_bytes());
                     }
                 } else if i.is_multiple_of(self.group_size as usize) {
-                    self.writer.write_all(b" ")?;
+                    self.out_push(b' ');
                 }
                 for _ in 0..self.base_digits {
-                    self.writer.write_all(b" ")?;
+                    self.out_push(b' ');
                 }
             }
-            Squeezer::Delete => self.writer.write_all(b"   ")?,
+            Squeezer::Delete => self.out_extend(b"   "),
             Squeezer::Ignore | Squeezer::Disabled => {
                 if i.is_multiple_of(self.group_size as usize) {
-                    self.writer.write_all(b" ")?;
+                    self.out_push(b' ');
                 }
-                if self.show_color && self.curr_color != Some(Byte(b).color(self.color_scheme)) {
-                    self.writer.write_all(Byte(b).color(self.color_scheme))?;
-                    self.curr_color = Some(Byte(b).color(self.color_scheme));
+                if self.show_color {
+                    let cid = self.byte_color_id[b as usize];
+                    if cid != self.curr_color_id {
+                        let slice = self.color_table[cid as usize].slice;
+                        self.out_extend(slice);
+                        self.curr_color_id = cid;
+                    }
                 }
-                self.writer
-                    .write_all(self.byte_hex_panel[b as usize].as_bytes())?;
+                let repr = self.byte_repr[b as usize];
+                let digits = self.base_digits as usize;
+                self.out_extend(&repr[..digits]);
             }
         }
         // byte is last in panel
         if i % 8 == 7 {
             if self.show_color {
-                self.curr_color = None;
-                self.writer.write_all(COLOR_RESET.as_bytes())?;
+                self.curr_color_id = NO_COLOR;
+                self.out_extend(COLOR_RESET.as_bytes());
             }
-            self.writer.write_all(b" ")?;
+            self.out_push(b' ');
             // byte is last in last panel
             if i as u64 % (8 * self.panels) == 8 * self.panels - 1 {
-                self.writer.write_all(
-                    self.border_style
-                        .outer_sep()
-                        .encode_utf8(&mut [0; 4])
-                        .as_bytes(),
-                )?;
+                let sep = self.outer_sep_bytes;
+                let len = self.outer_sep_len as usize;
+                self.out_extend(&sep[..len]);
             } else {
-                self.writer.write_all(
-                    self.border_style
-                        .inner_sep()
-                        .encode_utf8(&mut [0; 4])
-                        .as_bytes(),
-                )?;
+                let sep = self.inner_sep_bytes;
+                let len = self.inner_sep_len as usize;
+                self.out_extend(&sep[..len]);
             }
         }
-        Ok(())
     }
 
     fn reorder_buffer_to_little_endian(&self, buf: &mut [u8]) {
@@ -660,16 +894,226 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         }
     }
 
-    pub fn print_bytes(&mut self) -> io::Result<()> {
-        let mut buf = self.line_buf.clone();
-
+    fn append_bytes(&mut self, line: &[u8]) {
         if matches!(self.endianness, Endianness::Little) {
+            self.reorder_buf.clear();
+            self.reorder_buf.extend_from_slice(line);
+            let mut buf = std::mem::take(&mut self.reorder_buf);
             self.reorder_buffer_to_little_endian(&mut buf);
-        };
-
-        for (i, &b) in buf.iter().enumerate() {
-            self.print_byte(i, b)?;
+            for (i, &b) in buf.iter().enumerate() {
+                self.append_byte_slow(i, b);
+            }
+            self.reorder_buf = buf;
+        } else {
+            for (i, &b) in line.iter().enumerate() {
+                self.append_byte_slow(i, b);
+            }
         }
+    }
+
+    pub fn print_bytes(&mut self) -> io::Result<()> {
+        let line = std::mem::take(&mut self.line_buf);
+        self.append_bytes(&line);
+        self.line_buf = line;
+        self.flush_out_buf()
+    }
+
+    #[inline]
+    fn append_fast_full_line(&mut self, line: &[u8]) {
+        // Guaranteed headroom: `process_full_line` flushes whenever out_pos >= OUT_BUF_FLUSH_THRESHOLD
+        // and out_buf has 2048 bytes of tail space (> max 1885 bytes for panels <= 4, max_color_len <= 24).
+        let dst = &mut self.out_buf[..];
+        let mut p = self.out_pos;
+        let panels = self.panels as usize;
+        let reset = COLOR_RESET.as_bytes();
+        let reset_inline: [u8; 24] = {
+            let mut a = [0u8; 24];
+            a[..reset.len()].copy_from_slice(reset);
+            a
+        };
+        let (chunks, _) = line.as_chunks::<8>();
+
+        // Position panel
+        push_sep(dst, &mut p, &self.outer_sep_bytes, self.outer_sep_len);
+        if self.show_color {
+            push_short(
+                dst,
+                &mut p,
+                &self.color_offset.inline,
+                self.color_offset.slice,
+            );
+        }
+        if self.show_position_panel {
+            let pos = self.idx + self.display_offset;
+            if pos <= u32::MAX as u64 {
+                let v = pos as u32;
+                dst[p..p + 2].copy_from_slice(&HEX_LUT[(v >> 24) as usize]);
+                dst[p + 2..p + 4].copy_from_slice(&HEX_LUT[((v >> 16) & 0xff) as usize]);
+                dst[p + 4..p + 6].copy_from_slice(&HEX_LUT[((v >> 8) & 0xff) as usize]);
+                dst[p + 6..p + 8].copy_from_slice(&HEX_LUT[(v & 0xff) as usize]);
+                p += 8;
+            } else {
+                let byte_index: [u8; 8] = pos.to_be_bytes();
+                let mut i = 0;
+                while byte_index[i] == 0x0 && i < 4 {
+                    i += 1;
+                }
+                for &byte in &byte_index[i..] {
+                    dst[p..p + 2].copy_from_slice(&HEX_LUT[byte as usize]);
+                    p += 2;
+                }
+            }
+            if self.show_color {
+                push_short(dst, &mut p, &reset_inline, reset);
+            }
+            push_sep(dst, &mut p, &self.outer_sep_bytes, self.outer_sep_len);
+        }
+
+        // Hex panel
+        if self.show_color {
+            let mut curr = self.curr_color_id;
+            for (p_idx, chunk) in chunks.iter().enumerate() {
+                for &b in chunk {
+                    let cid = self.byte_color_id[b as usize];
+                    if cid == curr {
+                        dst[p..p + 3].copy_from_slice(&HEX_SPACE_LUT[b as usize]);
+                        p += 3;
+                    } else {
+                        dst[p] = b' ';
+                        p += 1;
+                        let ce = &self.color_table[cid as usize];
+                        push_short(dst, &mut p, &ce.inline, ce.slice);
+                        curr = cid;
+                        dst[p..p + 2].copy_from_slice(&HEX_LUT[b as usize]);
+                        p += 2;
+                    }
+                }
+                curr = NO_COLOR;
+                push_short(dst, &mut p, &reset_inline, reset);
+                dst[p] = b' ';
+                p += 1;
+                if p_idx + 1 == panels {
+                    push_sep(dst, &mut p, &self.outer_sep_bytes, self.outer_sep_len);
+                } else {
+                    push_sep(dst, &mut p, &self.inner_sep_bytes, self.inner_sep_len);
+                }
+            }
+
+            // Char panel
+            if self.show_char_panel {
+                for (p_idx, chunk) in chunks.iter().enumerate() {
+                    for &b in chunk {
+                        let cid = self.byte_color_id[b as usize];
+                        if cid != curr {
+                            let ce = &self.color_table[cid as usize];
+                            push_short(dst, &mut p, &ce.inline, ce.slice);
+                            curr = cid;
+                        }
+                        push_char_repr(
+                            dst,
+                            &mut p,
+                            &self.char_repr[b as usize],
+                            self.char_repr_len[b as usize],
+                        );
+                    }
+                    curr = NO_COLOR;
+                    push_short(dst, &mut p, &reset_inline, reset);
+                    if p_idx + 1 == panels {
+                        push_sep(dst, &mut p, &self.outer_sep_bytes, self.outer_sep_len);
+                    } else {
+                        push_sep(dst, &mut p, &self.inner_sep_bytes, self.inner_sep_len);
+                    }
+                }
+            }
+            self.curr_color_id = curr;
+        } else {
+            for (p_idx, chunk) in chunks.iter().enumerate() {
+                for &b in chunk {
+                    dst[p..p + 3].copy_from_slice(&HEX_SPACE_LUT[b as usize]);
+                    p += 3;
+                }
+                dst[p] = b' ';
+                p += 1;
+                if p_idx + 1 == panels {
+                    push_sep(dst, &mut p, &self.outer_sep_bytes, self.outer_sep_len);
+                } else {
+                    push_sep(dst, &mut p, &self.inner_sep_bytes, self.inner_sep_len);
+                }
+            }
+            if self.show_char_panel {
+                for (p_idx, chunk) in chunks.iter().enumerate() {
+                    for &b in chunk {
+                        push_char_repr(
+                            dst,
+                            &mut p,
+                            &self.char_repr[b as usize],
+                            self.char_repr_len[b as usize],
+                        );
+                    }
+                    if p_idx + 1 == panels {
+                        push_sep(dst, &mut p, &self.outer_sep_bytes, self.outer_sep_len);
+                    } else {
+                        push_sep(dst, &mut p, &self.inner_sep_bytes, self.inner_sep_len);
+                    }
+                }
+            }
+        }
+
+        dst[p] = b'\n';
+        self.out_pos = p + 1;
+    }
+
+    #[inline]
+    fn process_full_line(&mut self, line: &[u8]) -> io::Result<()> {
+        // squeeze is active, check if the line is the same
+        // skip print if still squeezed, otherwise print and deactivate squeeze
+        if matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
+            if line_matches_squeeze_byte(line, self.squeeze_byte) {
+                if self.squeezer == Squeezer::Delete {
+                    self.idx += 8 * self.panels;
+                    return Ok(());
+                }
+            } else {
+                self.squeezer = Squeezer::Ignore;
+            }
+        }
+
+        // format the line into out_buf
+        if self.can_fast_stack_line
+            && matches!(self.squeezer, Squeezer::Ignore | Squeezer::Disabled)
+        {
+            self.append_fast_full_line(line);
+        } else {
+            self.append_position_panel();
+            self.append_bytes(line);
+            if self.show_char_panel {
+                self.append_char_panel(line);
+            }
+            self.out_push(b'\n');
+        }
+
+        if self.out_pos >= OUT_BUF_FLUSH_THRESHOLD {
+            self.flush_out_buf()?;
+        }
+
+        // increment index to next line
+        self.idx += 8 * self.panels;
+
+        // change from print to delete if squeeze is still active
+        if self.squeezer == Squeezer::Print {
+            self.squeezer = Squeezer::Delete;
+        }
+
+        // repeat the first byte in the line until it's a usize
+        // compare that usize with each usize chunk in the line
+        // if they are all the same, change squeezer to print
+        if !matches!(self.squeezer, Squeezer::Disabled | Squeezer::Delete) {
+            if let Some(repeat_byte) = line_all_same_byte(line) {
+                self.squeezer = Squeezer::Print;
+                self.squeeze_byte = repeat_byte;
+            }
+        }
+
         Ok(())
     }
 
@@ -678,7 +1122,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
     pub fn print_all<Reader: Read>(&mut self, reader: Reader) -> io::Result<()> {
         let mut is_empty = true;
 
-        let mut buf = BufReader::new(reader);
+        let mut buf = BufReader::with_capacity(64 * 1024, reader);
 
         // special handler for include mode
         match &self.include_mode {
@@ -710,10 +1154,28 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
             IncludeMode::Off => {}
         }
 
+        let line_len = 8 * self.panels as usize;
         let leftover = loop {
+            // Fast path: once header/first line have been emitted, slice full lines directly
+            // from BufReader's internal 64 KiB buffer without per-line read() copies.
+            if !is_empty {
+                if let Ok(avail) = buf.fill_buf() {
+                    if avail.len() >= line_len {
+                        let full_bytes = (avail.len() / line_len) * line_len;
+                        let mut pos = 0;
+                        while pos < full_bytes {
+                            self.process_full_line(&avail[pos..pos + line_len])?;
+                            pos += line_len;
+                        }
+                        buf.consume(full_bytes);
+                        continue;
+                    }
+                }
+            }
+
             // read a maximum of 8 * self.panels bytes from the reader
             if let Ok(n) = buf.read(&mut self.line_buf) {
-                if n > 0 && n < 8 * self.panels as usize {
+                if n > 0 && n < line_len {
                     // if less are read, that indicates end of file after
                     if is_empty {
                         self.print_header()?;
@@ -730,7 +1192,7 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                                 break Some(leftover);
                             }
                             // amount read has exceeded line buffer
-                            if leftover >= 8 * self.panels as usize {
+                            if leftover >= line_len {
                                 break None;
                             }
                         }
@@ -751,57 +1213,16 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
                 self.print_header()?;
             }
 
-            // squeeze is active, check if the line is the same
-            // skip print if still squeezed, otherwise print and deactivate squeeze
-            if matches!(self.squeezer, Squeezer::Print | Squeezer::Delete) {
-                if self
-                    .line_buf
-                    .chunks_exact(std::mem::size_of::<usize>())
-                    .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == self.squeeze_byte)
-                {
-                    if self.squeezer == Squeezer::Delete {
-                        self.idx += 8 * self.panels;
-                        continue;
-                    }
-                } else {
-                    self.squeezer = Squeezer::Ignore;
-                }
-            }
-
-            // print the line
-            self.print_position_panel()?;
-            self.print_bytes()?;
-            if self.show_char_panel {
-                self.print_char_panel()?;
-            }
-            self.writer.write_all(b"\n")?;
+            let line = std::mem::take(&mut self.line_buf);
+            let res = self.process_full_line(&line);
+            self.line_buf = line;
+            res?;
 
             if is_empty {
+                self.flush_out_buf()?;
                 self.writer.flush()?;
                 is_empty = false;
             }
-
-            // increment index to next line
-            self.idx += 8 * self.panels;
-
-            // change from print to delete if squeeze is still active
-            if self.squeezer == Squeezer::Print {
-                self.squeezer = Squeezer::Delete;
-            }
-
-            // repeat the first byte in the line until it's a usize
-            // compare that usize with each usize chunk in the line
-            // if they are all the same, change squeezer to print
-            let repeat_byte = (self.line_buf[0] as usize) * (usize::MAX / 255);
-            if !matches!(self.squeezer, Squeezer::Disabled | Squeezer::Delete)
-                && self
-                    .line_buf
-                    .chunks_exact(std::mem::size_of::<usize>())
-                    .all(|w| usize::from_ne_bytes(w.try_into().unwrap()) == repeat_byte)
-            {
-                self.squeezer = Squeezer::Print;
-                self.squeeze_byte = repeat_byte;
-            };
         };
 
         // special ending
@@ -827,23 +1248,26 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         } else if let Some(n) = leftover {
             // last line is incomplete
             self.squeezer = Squeezer::Ignore;
-            self.print_position_panel()?;
-            self.print_bytes()?;
+            self.append_position_panel();
+            let line = std::mem::take(&mut self.line_buf);
+            self.append_bytes(&line);
             self.squeezer = Squeezer::Print;
-            for i in n..8 * self.panels as usize {
-                self.print_byte(i, 0)?;
+            for i in n..line_len {
+                self.append_byte_slow(i, 0);
             }
             if self.show_char_panel {
                 self.squeezer = Squeezer::Ignore;
-                self.print_char_panel()?;
+                self.append_char_panel(&line);
                 self.squeezer = Squeezer::Print;
-                for i in n..8 * self.panels as usize {
-                    self.print_char(i as u64)?;
+                for i in n..line_len {
+                    self.append_char_slow(&line, i as u64);
                 }
             }
-            self.writer.write_all(b"\n")?;
+            self.line_buf = line;
+            self.out_push(b'\n');
         }
 
+        self.flush_out_buf()?;
         self.print_footer()?;
 
         self.writer.flush()?;
@@ -857,35 +1281,40 @@ impl<'a, Writer: Write> Printer<'a, Writer> {
         &mut self,
         buf: &mut BufReader<Reader>,
     ) -> Result<usize, io::Error> {
-        let mut buffer = [0; 1024];
         let mut total_bytes = 0;
         let mut is_first_chunk = true;
-        let mut line_counter = 0;
+        let mut line_counter = 0usize;
         loop {
-            match buf.read(&mut buffer) {
-                Ok(0) => break, // EOF
-                Ok(bytes_read) => {
-                    total_bytes += bytes_read;
-
-                    for &byte in &buffer[..bytes_read] {
-                        if line_counter % 12 == 0 {
-                            if !is_first_chunk || line_counter > 0 {
-                                writeln!(self.writer, ",")?;
-                            }
-                            // indentation of first line
-                            write!(self.writer, "  ")?;
-                            is_first_chunk = false;
-                        } else {
-                            write!(self.writer, ", ")?;
-                        }
-                        write!(self.writer, "0x{:02x}", byte)?;
-                        line_counter += 1;
-                    }
-                }
-                Err(e) => return Err(e),
+            let chunk = buf.fill_buf()?;
+            if chunk.is_empty() {
+                break;
             }
+            let bytes_read = chunk.len();
+            total_bytes += bytes_read;
+
+            for &byte in chunk {
+                if line_counter.is_multiple_of(12) {
+                    if !is_first_chunk || line_counter > 0 {
+                        self.out_extend(b",\n");
+                    }
+                    // indentation of first line
+                    self.out_extend(b"  ");
+                    is_first_chunk = false;
+                } else {
+                    self.out_extend(b", ");
+                }
+                self.out_extend(b"0x");
+                self.out_extend(&HEX_LUT[byte as usize]);
+                line_counter += 1;
+
+                if self.out_pos >= OUT_BUF_FLUSH_THRESHOLD {
+                    self.flush_out_buf()?;
+                }
+            }
+            buf.consume(bytes_read);
         }
-        writeln!(self.writer)?;
+        self.out_push(b'\n');
+        self.flush_out_buf()?;
         Ok(total_bytes)
     }
 }
